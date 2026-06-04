@@ -144,7 +144,7 @@ def test_chief_events_importable():
 # Task 3: CommodityChiefAgentMakro
 # ─────────────────────────────────────────────
 
-from agents.market_cockpit.commodity_chief_agent import CommodityChiefAgentMakro
+from agents.market_cockpit.commodity_chief_agent_makro import CommodityChiefAgentMakro
 from core.domain.models import CommodityChiefResult, EnergySnapshot, IndustrialMetalsSnapshot, PreciousMetalsMacroSnapshot, AgriculturalSnapshot
 
 def _neutral_energy():

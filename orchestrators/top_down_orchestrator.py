@@ -1,7 +1,7 @@
 import asyncio
 
 from agents.market_cockpit.macro_chief_agent import MacroChiefAgent
-from agents.market_cockpit.commodity_chief_agent import CommodityChiefAgentMakro
+from agents.market_cockpit.commodity_chief_agent_makro import CommodityChiefAgentMakro
 from agents.market_cockpit.sentiment_chief_agent import SentimentChiefAgent
 from agents.market_cockpit.yield_curve_chief_agent import YieldCurveChiefAgent
 from agents.market_cockpit.sector_chief_agent import SectorChiefAgent

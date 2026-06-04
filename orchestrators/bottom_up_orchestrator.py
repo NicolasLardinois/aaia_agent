@@ -1,7 +1,7 @@
 from agents.stock_deep_dive.equity_chief_agent import EquityChiefAgent
 from agents.stock_deep_dive.bond_chief_agent import BondChiefAgent
 from agents.stock_deep_dive.index_chief_agent import IndexChiefAgent
-from agents.stock_deep_dive.commodity_chief_agent import CommodityChiefAgentMikro
+from agents.stock_deep_dive.commodity_chief_agent_mikro import CommodityChiefAgentMikro
 from agents.stock_deep_dive.precious_metals_chief_agent import PreciousMetalsChiefAgent
 from core.domain.models import BottomUpResult
 from core.ports.data_provider import FundamentalsProvider, MacroDataProvider, MarketDataProvider

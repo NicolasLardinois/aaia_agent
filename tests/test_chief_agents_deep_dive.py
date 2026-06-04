@@ -218,7 +218,7 @@ def test_index_chief_default():
 # Task 11: CommodityChiefAgent (Stock Deep Dive)
 # ---------------------------------------------------------------------------
 
-from agents.stock_deep_dive.commodity_chief_agent import CommodityChiefAgentMikro
+from agents.stock_deep_dive.commodity_chief_agent_mikro import CommodityChiefAgentMikro
 from core.domain.models import (
     CommodityBottomUpResult, SupplyDemandSnapshot, SeasonalitySnapshot,
     COTSnapshot, CommodityValuationRangeSnapshot,
