@@ -22,18 +22,6 @@ jobs:
       - name: Dependencies installieren
         run: pip install -r requirements.txt
 
-      - name: Secrets prüfen
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
-        run: |
-          echo "SUPABASE_DB_URL gesetzt: $([[ -n "$SUPABASE_DB_URL" ]] && echo JA || echo NEIN)"
-          echo "FRED_API_KEY gesetzt: $([[ -n "$FRED_API_KEY" ]] && echo JA || echo NEIN)"
-          echo "ANTHROPIC_API_KEY gesetzt: $([[ -n "$ANTHROPIC_API_KEY" ]] && echo JA || echo NEIN)"
-          echo "FINNHUB_API_KEY gesetzt: $([[ -n "$FINNHUB_API_KEY" ]] && echo JA || echo NEIN)"
-
       - name: Background Runner ausführen
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
