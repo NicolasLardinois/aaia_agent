@@ -1,7 +1,7 @@
 import asyncio
 
 from agents.market_cockpit.macro_chief_agent import MacroChiefAgent
-from agents.market_cockpit.commodity_chief_agent import CommodityChiefAgent
+from agents.market_cockpit.commodity_chief_agent import CommodityChiefAgentMakro
 from agents.market_cockpit.sentiment_chief_agent import SentimentChiefAgent
 from agents.market_cockpit.yield_curve_chief_agent import YieldCurveChiefAgent
 from agents.market_cockpit.sector_chief_agent import SectorChiefAgent
@@ -25,7 +25,7 @@ class TopDownOrchestrator:
         bus: EventBus,
     ):
         self.macro_chief       = MacroChiefAgent(macro, ecb, snb, market, bus)
-        self.commodity_chief   = CommodityChiefAgent(market, bus)
+        self.commodity_chief   = CommodityChiefAgentMakro(market, bus)
         self.sentiment_chief   = SentimentChiefAgent(market, bus)
         self.yield_curve_chief = YieldCurveChiefAgent(macro, ecb, snb, bus)
         self.sector_chief      = SectorChiefAgent(market, bus)
@@ -42,7 +42,7 @@ class TopDownOrchestrator:
         def _safe(r, d): return d if isinstance(r, Exception) else r
 
         macro       = _safe(macro,       MacroChiefAgent.default())
-        commodities = _safe(commodities, CommodityChiefAgent.default())
+        commodities = _safe(commodities, CommodityChiefAgentMakro.default())
         sentiment   = _safe(sentiment,   SentimentChiefAgent.default())
         yield_curve = _safe(yield_curve, YieldCurveChiefAgent.default())
 

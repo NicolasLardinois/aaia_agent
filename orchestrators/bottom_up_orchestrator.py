@@ -1,7 +1,7 @@
 from agents.stock_deep_dive.equity_chief_agent import EquityChiefAgent
 from agents.stock_deep_dive.bond_chief_agent import BondChiefAgent
 from agents.stock_deep_dive.index_chief_agent import IndexChiefAgent
-from agents.stock_deep_dive.commodity_chief_agent import CommodityChiefAgent
+from agents.stock_deep_dive.commodity_chief_agent import CommodityChiefAgentMikro
 from agents.stock_deep_dive.precious_metals_chief_agent import PreciousMetalsChiefAgent
 from core.domain.models import BottomUpResult
 from core.ports.data_provider import FundamentalsProvider, MacroDataProvider, MarketDataProvider
@@ -26,7 +26,7 @@ class BottomUpOrchestrator:
         self.equity_chief          = EquityChiefAgent(fundamentals_provider, market_provider, llm, bus)
         self.bond_chief            = BondChiefAgent(fundamentals_provider, macro_provider, bus)
         self.index_chief           = IndexChiefAgent(market_provider, bus)
-        self.commodity_chief       = CommodityChiefAgent(market_provider, bus)
+        self.commodity_chief       = CommodityChiefAgentMikro(market_provider, bus)
         self.precious_metals_chief = PreciousMetalsChiefAgent(macro_provider, market_provider, bus)
 
     async def run(
@@ -92,7 +92,7 @@ class BottomUpOrchestrator:
         try:
             commodity_result = await self.commodity_chief.run(ticker)
         except Exception:
-            commodity_result = CommodityChiefAgent.default(ticker)
+            commodity_result = CommodityChiefAgentMikro.default(ticker)
         return BottomUpResult(
             ticker=ticker, asset_class="commodity",
             fundamentals=None, quality=None, short_interest=None,

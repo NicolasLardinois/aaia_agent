@@ -218,7 +218,7 @@ def test_index_chief_default():
 # Task 11: CommodityChiefAgent (Stock Deep Dive)
 # ---------------------------------------------------------------------------
 
-from agents.stock_deep_dive.commodity_chief_agent import CommodityChiefAgent as CommodityDeepDiveChiefAgent
+from agents.stock_deep_dive.commodity_chief_agent import CommodityChiefAgentMikro
 from core.domain.models import (
     CommodityBottomUpResult, SupplyDemandSnapshot, SeasonalitySnapshot,
     COTSnapshot, CommodityValuationRangeSnapshot,
@@ -240,7 +240,7 @@ def _neutral_commodity_valuation():
 def test_commodity_deep_dive_chief_returns_result():
     bus = MagicMock()
     market = MagicMock()
-    chief = CommodityDeepDiveChiefAgent(market, bus)
+    chief = CommodityChiefAgentMikro(market, bus)
     chief.supply_demand_agent.run             = AsyncMock(return_value=_neutral_supply_demand())
     chief.seasonality_agent.run               = AsyncMock(return_value=_neutral_seasonality())
     chief.cot_agent.run                       = AsyncMock(return_value=_neutral_cot())
@@ -254,7 +254,7 @@ def test_commodity_deep_dive_chief_returns_result():
 def test_commodity_deep_dive_chief_resilience():
     bus = MagicMock()
     market = MagicMock()
-    chief = CommodityDeepDiveChiefAgent(market, bus)
+    chief = CommodityChiefAgentMikro(market, bus)
     chief.supply_demand_agent.run             = AsyncMock(side_effect=RuntimeError("down"))
     chief.seasonality_agent.run               = AsyncMock(return_value=_neutral_seasonality())
     chief.cot_agent.run                       = AsyncMock(return_value=_neutral_cot())
@@ -265,7 +265,7 @@ def test_commodity_deep_dive_chief_resilience():
 
 
 def test_commodity_deep_dive_chief_default():
-    result = CommodityDeepDiveChiefAgent.default("CL=F")
+    result = CommodityChiefAgentMikro.default("CL=F")
     assert isinstance(result, CommodityBottomUpResult)
 
 

@@ -10,7 +10,7 @@ from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 
 
-class CommodityChiefAgent:
+class CommodityChiefAgentMakro:
     def __init__(self, market: MarketDataProvider, bus: EventBus):
         self.bus = bus
         self.energy_agent          = EnergyAgent(market, bus)

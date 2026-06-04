@@ -141,10 +141,10 @@ def test_chief_events_importable():
 
 
 # ─────────────────────────────────────────────
-# Task 3: CommodityChiefAgent
+# Task 3: CommodityChiefAgentMakro
 # ─────────────────────────────────────────────
 
-from agents.market_cockpit.commodity_chief_agent import CommodityChiefAgent
+from agents.market_cockpit.commodity_chief_agent import CommodityChiefAgentMakro
 from core.domain.models import CommodityChiefResult, EnergySnapshot, IndustrialMetalsSnapshot, PreciousMetalsMacroSnapshot, AgriculturalSnapshot
 
 def _neutral_energy():
@@ -163,7 +163,7 @@ def _neutral_agricultural():
 def test_commodity_chief_returns_result():
     bus = MagicMock()
     market = MagicMock()
-    chief = CommodityChiefAgent(market, bus)
+    chief = CommodityChiefAgentMakro(market, bus)
     chief.energy_agent.run           = AsyncMock(return_value=_neutral_energy())
     chief.industrial_agent.run       = AsyncMock(return_value=_neutral_industrial())
     chief.precious_metals_agent.run  = AsyncMock(return_value=_neutral_precious_macro())
@@ -177,7 +177,7 @@ def test_commodity_chief_returns_result():
 def test_commodity_chief_resilience():
     bus = MagicMock()
     market = MagicMock()
-    chief = CommodityChiefAgent(market, bus)
+    chief = CommodityChiefAgentMakro(market, bus)
     chief.energy_agent.run           = AsyncMock(side_effect=RuntimeError("timeout"))
     chief.industrial_agent.run       = AsyncMock(return_value=_neutral_industrial())
     chief.precious_metals_agent.run  = AsyncMock(return_value=_neutral_precious_macro())
@@ -188,7 +188,7 @@ def test_commodity_chief_resilience():
 
 
 def test_commodity_chief_default():
-    result = CommodityChiefAgent.default()
+    result = CommodityChiefAgentMakro.default()
     assert isinstance(result, CommodityChiefResult)
 
 
