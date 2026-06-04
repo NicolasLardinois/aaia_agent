@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 from agents.anomaly.top_down_anomaly_agent import TopDownAnomalyAgent
+from agents.anomaly.bottom_up_anomaly_agent import BottomUpAnomalyAgent
 from core.domain.models import Signal
 
 
@@ -76,3 +77,70 @@ def test_high_severity_both_types():
     )
     report = agent.run(cockpit, history)
     assert report.severity == "high"
+
+
+def _make_bottom_up(pe=22.0, short_float=3.0, insider_tx=2,
+                    fund_signal=Signal.BULLISH, val_signal=Signal.BULLISH,
+                    earn_signal=Signal.BULLISH, quality_signal=Signal.BULLISH,
+                    asset_class="equity"):
+    bu = MagicMock()
+    bu.asset_class = asset_class
+    bu.fundamentals.pe_ratio = pe
+    bu.fundamentals.signal = fund_signal
+    bu.short_interest.short_float_pct = short_float
+    bu.short_interest.signal = Signal.NEUTRAL
+    bu.insider.recent_transactions = insider_tx
+    bu.insider.signal = Signal.NEUTRAL
+    bu.earnings_trend.signal = earn_signal
+    bu.moat.signal = Signal.NEUTRAL
+    bu.valuation_range.signal = val_signal
+    bu.quality.signal = quality_signal
+    return bu
+
+
+def test_bottomup_no_anomalies():
+    agent = BottomUpAnomalyAgent()
+    history = [
+        {"indicators_snapshot": {"pe_ratio": 22.0, "short_float_pct": 3.0}}
+        for _ in range(10)
+    ]
+    report = agent.run(_make_bottom_up(), history)
+    assert report.severity == "none"
+
+
+def test_bottomup_pe_statistical_anomaly():
+    agent = BottomUpAnomalyAgent()
+    history = [
+        {"indicators_snapshot": {"pe_ratio": 22.0 + i*0.5, "short_float_pct": 3.0}}
+        for i in range(10)
+    ]
+    report = agent.run(_make_bottom_up(pe=85.0), history)
+    assert report.has_anomalies is True
+    assert any("KGV" in s for s in report.statistical)
+
+
+def test_bottomup_contradiction():
+    agent = BottomUpAnomalyAgent()
+    report = agent.run(
+        _make_bottom_up(fund_signal=Signal.BULLISH, val_signal=Signal.BEARISH,
+                        earn_signal=Signal.BEARISH, quality_signal=Signal.BEARISH),
+        []
+    )
+    assert report.has_anomalies is True
+    assert len(report.contradictions) >= 1
+
+
+def test_bottomup_non_equity_skips_z_score():
+    agent = BottomUpAnomalyAgent()
+    bu = MagicMock()
+    bu.asset_class = "bond"
+    bu.fundamentals = None
+    bu.short_interest = None
+    bu.insider = None
+    bu.earnings_trend.signal = Signal.NEUTRAL
+    bu.moat.signal = Signal.NEUTRAL
+    bu.valuation_range.signal = Signal.NEUTRAL
+    bu.quality.signal = Signal.NEUTRAL
+    history = [{"indicators_snapshot": {"pe_ratio": 22.0}} for _ in range(10)]
+    report = agent.run(bu, history)
+    assert report.severity == "none"
