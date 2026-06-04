@@ -58,7 +58,7 @@ class SupabaseMemory(MemoryPort):
             host=r.hostname,
             port=r.port or 5432,
             user=r.username,
-            password=urllib.parse.unquote(r.password),
+            password=urllib.parse.unquote(r.password or ""),
             dbname=r.path.lstrip("/"),
             cursor_factory=psycopg2.extras.RealDictCursor,
             sslmode="require",
