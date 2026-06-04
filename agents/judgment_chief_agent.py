@@ -1,6 +1,6 @@
 from agents.judgment.judgment_agent import JudgmentAgent
 from core.domain.events import JudgmentChiefReady
-from core.domain.models import AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult
+from core.domain.models import AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult, InvestmentRecommendation, Recommendation
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
 
@@ -43,3 +43,25 @@ class JudgmentChiefAgent:
         }))
 
         return result
+
+    @staticmethod
+    def default(ticker: str = "", asset_class: str = "equity", market: str = "unknown") -> DeepDiveResult:
+        return DeepDiveResult(
+            ticker=ticker,
+            asset_class=asset_class,
+            market=market,
+            top_down_context="Nicht verfügbar.",
+            top_down_available=False,
+            judgment="Urteil nicht verfügbar.",
+            alignment="mixed",
+            recommendation=InvestmentRecommendation(
+                action=Recommendation.HOLD,
+                short_type=None,
+                short_warning=None,
+                confidence=0.0,
+                reasoning="Urteil fehlgeschlagen.",
+            ),
+            dominant_signal="neutral",
+            confidence=0.0,
+            xai_explanation="",
+        )

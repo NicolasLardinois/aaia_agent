@@ -20,10 +20,11 @@ class BacktesterChiefAgent:
         return self.memory.load_latest_backtester_report("judgment") or {}
 
     async def run(self) -> None:
-        await asyncio.gather(
+        results = await asyncio.gather(
             self.td_backtester.run(),
             self.bu_backtester.run(),
             self.j_backtester.run(),
             return_exceptions=True,
         )
-        self.bus.publish(BacktesterChiefReady(source="backtester_chief_agent", payload={}))
+        failures = sum(1 for r in results if isinstance(r, Exception))
+        self.bus.publish(BacktesterChiefReady(source="backtester_chief_agent", payload={"failures": failures}))

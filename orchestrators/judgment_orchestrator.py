@@ -45,18 +45,25 @@ class JudgmentOrchestrator:
         )
         backtester_context = self.backtester_chief.load_context()
 
-        result = await self.judgment_chief.run(
-            ticker=bottom_up.ticker,
-            top_down_context=top_down_context,
-            bottom_up=bottom_up,
-            cockpit=cockpit,
-            market=market,
-            in_portfolio=in_portfolio,
-            top_down_available=top_down_available,
-            top_down_anomaly=td_anomaly,
-            bottom_up_anomaly=bu_anomaly,
-            backtester_context=backtester_context,
-        )
+        try:
+            result = await self.judgment_chief.run(
+                ticker=bottom_up.ticker,
+                top_down_context=top_down_context,
+                bottom_up=bottom_up,
+                cockpit=cockpit,
+                market=market,
+                in_portfolio=in_portfolio,
+                top_down_available=top_down_available,
+                top_down_anomaly=td_anomaly,
+                bottom_up_anomaly=bu_anomaly,
+                backtester_context=backtester_context,
+            )
+        except Exception:
+            result = JudgmentChiefAgent.default(
+                ticker=bottom_up.ticker,
+                asset_class=bottom_up.asset_class,
+                market=market,
+            )
 
         self.memory.save_analysis(result, cockpit, price=None)
         return result
