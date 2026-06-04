@@ -5,15 +5,17 @@
 
 ## Kontext: Trigger-Flow
 
-Die drei Orchestratoren laufen **nicht gleichzeitig** — sie haben unterschiedliche Auslöser:
-
 ```
-Dashboard-Refresh     →  TopDownOrchestrator   (geplant / permanent)
-User sucht "AAPL"     →  BottomUpOrchestrator  (on-demand, Ticker-Input)
-                      →  JudgmentOrchestrator   (erst nach Bottom-Up)
+Geplant / Hintergrund (kein User-Input nötig):
+  TopDownOrchestrator      → Dashboard-Refresh (permanent / geplant)
+  BacktesterChiefAgent     → überprüft vergangene Urteile autonom, speichert Report in Memory
+
+User sucht "AAPL":
+  BottomUpOrchestrator     → frische Analyse für Ticker
+  JudgmentOrchestrator     → Urteil (lädt Backtester-Report aus Memory zur Konfidenz-Kalibrierung)
 ```
 
-Bottom-Up und Judgment starten **nie** ohne expliziten Ticker. TopDown ist unabhängig davon.
+Bottom-Up und aktives Judgment starten nie ohne expliziten Ticker. TopDown und Backtesting laufen unabhängig im Hintergrund.
 
 ## Ziel
 
