@@ -1,4 +1,15 @@
-from core.domain.models import EquityChiefResult, Signal
+import asyncio
+from unittest.mock import MagicMock, AsyncMock
+from agents.market_cockpit.macro_chief_agent import MacroChiefAgent
+from core.domain.models import (
+    MacroChiefResult, MarketRegime,
+    InflationSnapshot, MoneySupplySnapshot, InterestRateSnapshot,
+    GDPSnapshot, ShillerCAPESnapshot, LaborIncomeSnapshot, CreditSnapshot,
+    InflationDataPoint, MoneySupplyDataPoint, InterestRateDataPoint,
+    GDPDataPoint, ShillerCAPEDataPoint, LaborIncomeDataPoint, CreditDataPoint,
+    Signal,
+)
+from core.domain.models import EquityChiefResult
 from core.domain.models import FundamentalsSnapshot, QualitySnapshot, ShortInterestSnapshot
 from core.domain.models import InsiderSnapshot, EarningsTrendSnapshot, MoatSnapshot, MoatScore, ValuationRangeSnapshot
 from core.domain.events import (
@@ -8,6 +19,85 @@ from core.domain.events import (
     CommodityBottomUpChiefReady, PreciousMetalsChiefReady,
     AnomalyChiefReady, JudgmentChiefReady, BacktesterChiefReady,
 )
+
+
+def _neutral_inflation():
+    dp = InflationDataPoint(cpi=None, core_cpi=None, pce=None, ppi=None, real_rate_10y=None, signal=Signal.NEUTRAL)
+    return InflationSnapshot(usa=dp, eurozone=dp, switzerland=dp)
+
+def _neutral_money_supply():
+    dp = MoneySupplyDataPoint(m2_growth=None, m3_growth=None, velocity_m2=None, signal=Signal.NEUTRAL)
+    return MoneySupplySnapshot(usa=dp, eurozone=dp, switzerland=dp)
+
+def _neutral_interest_rate():
+    dp = InterestRateDataPoint(policy_rate=None, rate_direction="stable", balance_sheet_growth=None, real_rate=None, signal=Signal.NEUTRAL)
+    return InterestRateSnapshot(usa=dp, eurozone=dp, switzerland=dp)
+
+def _neutral_gdp():
+    dp = GDPDataPoint(gdp_growth=None, industrial_production=None, unemployment=None, consumer_sentiment=None, pmi=None, signal=Signal.NEUTRAL)
+    return GDPSnapshot(usa=dp, eurozone=dp, switzerland=dp)
+
+def _neutral_shiller():
+    dp = ShillerCAPEDataPoint(cape=None, historical_avg=20.0, deviation_pct=None, signal=Signal.NEUTRAL)
+    return ShillerCAPESnapshot(usa=dp, eurozone=dp, switzerland=dp)
+
+def _neutral_labor():
+    dp = LaborIncomeDataPoint(nominal_wage_growth=None, real_wage_growth=None, signal=Signal.NEUTRAL)
+    return LaborIncomeSnapshot(usa=dp, eurozone=dp, switzerland=dp)
+
+def _neutral_credit():
+    dp = CreditDataPoint(credit_growth=None, money_velocity=None, signal=Signal.NEUTRAL)
+    return CreditSnapshot(usa=dp, eurozone=dp, switzerland=dp)
+
+
+def test_macro_chief_returns_result():
+    bus = MagicMock()
+    macro = MagicMock()
+    macro.get_economic_state = MagicMock(return_value={})
+    ecb = MagicMock()
+    snb = MagicMock()
+    market = MagicMock()
+
+    chief = MacroChiefAgent(macro, ecb, snb, market, bus)
+    chief.inflation_agent.run     = AsyncMock(return_value=_neutral_inflation())
+    chief.money_supply_agent.run  = AsyncMock(return_value=_neutral_money_supply())
+    chief.interest_rate_agent.run = AsyncMock(return_value=_neutral_interest_rate())
+    chief.gdp_agent.run           = AsyncMock(return_value=_neutral_gdp())
+    chief.shiller_cape_agent.run  = AsyncMock(return_value=_neutral_shiller())
+    chief.labor_income_agent.run  = AsyncMock(return_value=_neutral_labor())
+    chief.credit_agent.run        = AsyncMock(return_value=_neutral_credit())
+
+    result = asyncio.run(chief.run())
+    assert isinstance(result, MacroChiefResult)
+    assert isinstance(result.regime, MarketRegime)
+    bus.publish.assert_called_once()
+
+
+def test_macro_chief_resilience():
+    bus = MagicMock()
+    macro = MagicMock()
+    macro.get_economic_state = MagicMock(return_value={})
+    ecb = MagicMock()
+    snb = MagicMock()
+    market = MagicMock()
+
+    chief = MacroChiefAgent(macro, ecb, snb, market, bus)
+    chief.inflation_agent.run     = AsyncMock(side_effect=RuntimeError("API down"))
+    chief.money_supply_agent.run  = AsyncMock(return_value=_neutral_money_supply())
+    chief.interest_rate_agent.run = AsyncMock(return_value=_neutral_interest_rate())
+    chief.gdp_agent.run           = AsyncMock(return_value=_neutral_gdp())
+    chief.shiller_cape_agent.run  = AsyncMock(return_value=_neutral_shiller())
+    chief.labor_income_agent.run  = AsyncMock(return_value=_neutral_labor())
+    chief.credit_agent.run        = AsyncMock(return_value=_neutral_credit())
+
+    result = asyncio.run(chief.run())
+    assert isinstance(result, MacroChiefResult)  # did not crash
+
+
+def test_macro_chief_default():
+    result = MacroChiefAgent.default()
+    assert isinstance(result, MacroChiefResult)
+    assert result.regime == MarketRegime.EXPANSION
 
 
 def test_equity_chief_result_fields():
