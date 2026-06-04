@@ -85,7 +85,7 @@ ChiefAgents sind Domain-Koordinatoren. Jeder ChiefAgent ist für genau eine fach
 
 Sub-Agents sind die eigentlichen Spezialisten. Jeder Sub-Agent beherrscht genau eine Aufgabe und hat Zugriff auf eine spezifische Datenquelle. Sie wissen nichts voneinander — ihre Koordination übernimmt ausschliesslich der ChiefAgent.
 
-Aktuell gibt es **über 40 Sub-Agents** in 10 Domänen. Die vollständige Übersicht ist in [`docs/agent_structure.md`](docs/agent_structure.md) dokumentiert.
+Aktuell gibt es **über 40 Sub-Agents** in 10 Domänen. Die vollständige Übersicht ist in [`docs/agent_structure.md`](docs/agent_structure.md) dokumentiert. Alle Metriken und Kennzahlen je Sub-Agent sind in [`docs/sub_agents_metrics.md`](docs/sub_agents_metrics.md) aufgelistet.
 
 ---
 
@@ -242,7 +242,8 @@ aaia_agent/
 ├── tests/
 │
 ├── docs/
-│   └── agent_structure.md           ← Vollständige Agent-Übersicht
+│   ├── agent_structure.md           ← Vollständige Agent-Übersicht
+│   └── sub_agents_metrics.md        ← Alle Metriken & Kennzahlen je Sub-Agent
 │
 └── archive/                         ← Alte Implementierung (v1, Einzeldatei-System)
 ```
