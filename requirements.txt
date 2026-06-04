@@ -4,3 +4,5 @@ numpy
 scipy
 plotly
 python-dotenv
+psycopg2-binary
+yfinance
