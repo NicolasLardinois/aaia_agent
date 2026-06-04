@@ -1,0 +1,31 @@
+name: Background Runner
+
+on:
+  schedule:
+    - cron: "0 7 * * *"   # täglich 08:00 Schweizer Zeit (UTC+1 Winter / UTC+2 Sommer → 07:00 UTC)
+  workflow_dispatch:        # manueller Start per Knopfdruck möglich
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Dependencies installieren
+        run: pip install -r requirements.txt
+
+      - name: Background Runner ausführen
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: python background_runner.py
