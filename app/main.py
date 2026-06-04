@@ -1,0 +1,168 @@
+"""
+Verwendung:
+  python -m app.main dashboard                          → Modus 1: Market Dashboard
+  python -m app.main bottomup AAPL [asset_class] [sector] → Modus 2: Bottom-Up Analyse
+  python -m app.main judge AAPL [market] [--portfolio]  → Modus 3: Kombinations-Urteil
+
+asset_class: equity | bond | commodity | precious_metal | etf  (default: equity)
+market:      USA | EU | CH | ...                               (default: USA)
+--portfolio: Flag — Aktie ist bereits im Portfolio
+"""
+
+import asyncio
+import sys
+
+from config.settings import FRED_API_KEY, ANTHROPIC_API_KEY, FINNHUB_API_KEY
+from adapters.data.fred_api import FredDataProvider
+from adapters.data.yahoo_finance import YahooFinanceProvider
+from adapters.data.finnhub import FinnhubProvider
+from adapters.data.ecb_snb_stub import EcbStubProvider, SnbStubProvider
+from adapters.event_bus.redis_bus import InMemoryEventBus
+from adapters.llm.claude_adapter import ClaudeAdapter
+from adapters.cache.result_cache import ResultCache
+from orchestrators.top_down_orchestrator import TopDownOrchestrator
+from orchestrators.bottom_up_orchestrator import BottomUpOrchestrator
+from orchestrators.judgment_orchestrator import JudgmentOrchestrator
+
+
+async def run_dashboard() -> None:
+    print("\n=== MODUS 1: MARKET DASHBOARD ===\n")
+    bus   = InMemoryEventBus()
+    fred  = FredDataProvider(FRED_API_KEY)
+    orch  = TopDownOrchestrator(
+        macro=fred,
+        ecb=EcbStubProvider(),
+        snb=SnbStubProvider(),
+        market=YahooFinanceProvider(),
+        bus=bus,
+    )
+    result = await orch.run()
+    ResultCache().save_cockpit(result)
+
+    regime     = result.macro.regime
+    confidence = result.macro.regime_confidence
+    usa_yield  = result.yield_curve.yield_spreads.usa
+    vix_val    = result.sentiment.vix.vix
+    fg_label   = result.sentiment.fear_greed.label
+    leading    = result.sectors.performance.leading_usa
+    lagging    = result.sectors.performance.lagging_usa
+
+    print(f"Regime:           {regime.value}  ({confidence:.0%} Konfidenz)")
+    spread_str = f"{usa_yield.spread_10y2y:+.2f}" if usa_yield.spread_10y2y is not None else "n/v"
+    print(f"Zinskurve (USA):  {spread_str}  {'⚠ INVERTIERT' if usa_yield.inverted else 'normal'}")
+    print(f"VIX:              {vix_val:.1f}  Fear & Greed: {fg_label}" if vix_val else "VIX:              n/v")
+    print(f"Führender Sektor: {leading or 'n/v'}")
+    print(f"Schwächster:      {lagging or 'n/v'}")
+
+    energy = result.commodities.energy
+    metals = result.commodities.precious_metals
+    print(f"WTI:              {energy.wti_usd or 'n/v'}  "
+          f"Brent: {energy.brent_usd or 'n/v'}  "
+          f"Gold: {metals.gold_usd or 'n/v'}")
+
+
+async def run_bottom_up(
+    ticker: str,
+    asset_class: str = "equity",
+    sector: str = "default",
+    bond_type: str = "government",
+    rate_direction: str = "stable",
+) -> None:
+    print(f"\n=== MODUS 2: BOTTOM-UP ANALYSE — {ticker.upper()} ===\n")
+    bus  = InMemoryEventBus()
+    llm  = ClaudeAdapter(ANTHROPIC_API_KEY)
+    orch = BottomUpOrchestrator(
+        fundamentals_provider=FinnhubProvider(FINNHUB_API_KEY),
+        macro_provider=FredDataProvider(FRED_API_KEY),
+        market_provider=YahooFinanceProvider(),
+        llm=llm,
+        bus=bus,
+    )
+    result = await orch.run(
+        ticker.upper(), asset_class=asset_class, sector=sector,
+        bond_type=bond_type, rate_direction=rate_direction,
+    )
+    ResultCache().save_bottom_up(result)
+
+    fu  = result.fundamentals
+    qu  = result.quality
+    si  = result.short_interest
+    ins = result.insider
+    et  = result.earnings_trend
+    mo  = result.moat
+    vr  = result.valuation_range
+    bo  = result.bond
+
+    if fu:
+        print(f"Fundamentals:   KGV={fu.pe_ratio}  Marge={fu.operating_margin}%  → {fu.signal.value}")
+    if qu:
+        print(f"Qualität:       ROE={qu.roe}%  ROIC={qu.roic}%  Altman-Z={qu.altman_z}  → {qu.signal.value}")
+    if si:
+        print(f"Short Interest: {si.short_float_pct}%  DTC={si.days_to_cover}  → {si.signal.value}")
+    if ins:
+        print(f"Insider:        {ins.net_direction}  ({ins.recent_transactions} Transaktionen)  → {ins.signal.value}")
+    if et:
+        print(f"Earnings:       Beat={et.beat_rate}  Revision={et.estimate_revision}  → {et.signal.value}")
+    if mo:
+        print(f"Burggraben:     {mo.overall}  (Score {mo.total_score}/10)  → {mo.signal.value}")
+    if vr:
+        print(f"Bewertung:      {vr.position}  [{vr.combined_low:.0f}–{vr.combined_high:.0f}]  → {vr.signal.value}")
+    if bo:
+        print(f"Bond Metrics:   YTM={bo.metrics.ytm}  Duration={bo.duration.modified_duration}  → {bo.metrics.signal.value}")
+        print(f"Bond Rating:    {bo.credit.moodys}/{bo.credit.sp}/{bo.credit.fitch}  Trend={bo.credit.trend}  → {bo.credit.signal.value}")
+
+
+async def run_judgment(ticker: str, market: str = "USA", in_portfolio: bool = False) -> None:
+    print(f"\n=== MODUS 3: KOMBINATIONS-URTEIL — {ticker.upper()} ===\n")
+    cache     = ResultCache()
+    cockpit   = cache.load_cockpit()
+    bottom_up = cache.load_bottom_up(ticker.upper())
+
+    if cockpit is None:
+        print("Kein Dashboard-Cache → führe zuerst 'dashboard' aus.")
+        sys.exit(1)
+    if bottom_up is None:
+        print(f"Kein Bottom-Up-Cache für {ticker.upper()} → führe zuerst 'bottomup {ticker}' aus.")
+        sys.exit(1)
+
+    bus    = InMemoryEventBus()
+    llm    = ClaudeAdapter(ANTHROPIC_API_KEY)
+    orch   = JudgmentOrchestrator(llm, bus)
+    result = await orch.run(
+        cockpit=cockpit,
+        bottom_up=bottom_up,
+        market=market,
+        in_portfolio=in_portfolio,
+    )
+
+    print(f"TOP-DOWN:\n{result.top_down_context}\n")
+    print(f"ALIGNMENT:      {result.alignment}")
+    print(f"EMPFEHLUNG:     {result.recommendation.action.value}  "
+          f"(Konfidenz {result.recommendation.confidence:.0%})")
+    if result.recommendation.short_warning:
+        print(f"\n{result.recommendation.short_warning}")
+    print(f"\nURTEIL:\n{result.judgment}")
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    if not args or args[0] == "dashboard":
+        asyncio.run(run_dashboard())
+    elif args[0] == "bottomup" and len(args) >= 2:
+        asset_class    = args[2] if len(args) >= 3 else "equity"
+        sector         = args[3] if len(args) >= 4 else "default"
+        bond_type      = args[4] if len(args) >= 5 else "government"
+        rate_direction = args[5] if len(args) >= 6 else "stable"
+        asyncio.run(run_bottom_up(args[1], asset_class=asset_class, sector=sector,
+                                  bond_type=bond_type, rate_direction=rate_direction))
+    elif args[0] == "judge" and len(args) >= 2:
+        market       = args[2] if len(args) >= 3 else "USA"
+        in_portfolio = "--portfolio" in args
+        asyncio.run(run_judgment(args[1], market=market, in_portfolio=in_portfolio))
+    else:
+        print(__doc__)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

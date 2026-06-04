@@ -1,0 +1,29 @@
+[
+  {
+    "timestamp": "2026-05-14T14:59:16.439862",
+    "phase": "Aufschwung",
+    "state": {
+      "inflation": 3.779,
+      "unemployment": 4.3,
+      "fed_rate": 3.64,
+      "yield_curve": 0.48,
+      "gdp_growth": 6.039,
+      "consumer_sentiment": 53.3,
+      "industrial_production": 0.742
+    },
+    "decision": "Cash",
+    "scores": {
+      "Aktien": 0.1025,
+      "Anleihen": 0.3112,
+      "Cash": 0.4153,
+      "Gold": 0.3281
+    },
+    "confidence": 0.519,
+    "allocation": {
+      "Aktien": 0.1435,
+      "Anleihen": 0.1768,
+      "Gold": 0.1798,
+      "Cash": 0.5
+    }
+  }
+]
