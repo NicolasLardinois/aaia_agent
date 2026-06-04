@@ -138,3 +138,180 @@ def test_equity_chief_result_fields():
 def test_chief_events_importable():
     e = CommodityChiefReady(source="test", payload={})
     assert e.source == "test"
+
+
+# ─────────────────────────────────────────────
+# Task 3: CommodityChiefAgent
+# ─────────────────────────────────────────────
+
+from agents.market_cockpit.commodity_chief_agent import CommodityChiefAgent
+from core.domain.models import CommodityChiefResult, EnergySnapshot, IndustrialMetalsSnapshot, PreciousMetalsMacroSnapshot, AgriculturalSnapshot
+
+def _neutral_energy():
+    return EnergySnapshot(wti_usd=None, brent_usd=None, natural_gas_usd=None, signal=Signal.NEUTRAL)
+
+def _neutral_industrial():
+    return IndustrialMetalsSnapshot(copper_usd=None, aluminium_usd=None, zinc_usd=None, nickel_usd=None, signal=Signal.NEUTRAL)
+
+def _neutral_precious_macro():
+    return PreciousMetalsMacroSnapshot(gold_usd=None, silver_usd=None, platinum_usd=None, palladium_usd=None, gold_silver_ratio=None, gold_platinum_ratio=None, signal=Signal.NEUTRAL)
+
+def _neutral_agricultural():
+    return AgriculturalSnapshot(wheat_usd=None, corn_usd=None, soy_usd=None, coffee_usd=None, sugar_usd=None, cotton_usd=None, orange_juice_usd=None, signal=Signal.NEUTRAL)
+
+
+def test_commodity_chief_returns_result():
+    bus = MagicMock()
+    market = MagicMock()
+    chief = CommodityChiefAgent(market, bus)
+    chief.energy_agent.run           = AsyncMock(return_value=_neutral_energy())
+    chief.industrial_agent.run       = AsyncMock(return_value=_neutral_industrial())
+    chief.precious_metals_agent.run  = AsyncMock(return_value=_neutral_precious_macro())
+    chief.agricultural_agent.run     = AsyncMock(return_value=_neutral_agricultural())
+
+    result = asyncio.run(chief.run())
+    assert isinstance(result, CommodityChiefResult)
+    bus.publish.assert_called_once()
+
+
+def test_commodity_chief_resilience():
+    bus = MagicMock()
+    market = MagicMock()
+    chief = CommodityChiefAgent(market, bus)
+    chief.energy_agent.run           = AsyncMock(side_effect=RuntimeError("timeout"))
+    chief.industrial_agent.run       = AsyncMock(return_value=_neutral_industrial())
+    chief.precious_metals_agent.run  = AsyncMock(return_value=_neutral_precious_macro())
+    chief.agricultural_agent.run     = AsyncMock(return_value=_neutral_agricultural())
+
+    result = asyncio.run(chief.run())
+    assert isinstance(result, CommodityChiefResult)
+
+
+def test_commodity_chief_default():
+    result = CommodityChiefAgent.default()
+    assert isinstance(result, CommodityChiefResult)
+
+
+# ─────────────────────────────────────────────
+# Task 4: SentimentChiefAgent
+# ─────────────────────────────────────────────
+
+from agents.market_cockpit.sentiment_chief_agent import SentimentChiefAgent
+from core.domain.models import SentimentChiefResult, VIXSnapshot, FearGreedSnapshot, PutCallSnapshot
+
+def test_sentiment_chief_returns_result():
+    bus = MagicMock()
+    market = MagicMock()
+    chief = SentimentChiefAgent(market, bus)
+    chief.vix_agent.run        = AsyncMock(return_value=VIXSnapshot(vix=None, vstoxx=None, signal=Signal.NEUTRAL))
+    chief.fear_greed_agent.run = AsyncMock(return_value=FearGreedSnapshot(value=None, label="Neutral", signal=Signal.NEUTRAL))
+    chief.put_call_agent.run   = AsyncMock(return_value=PutCallSnapshot(ratio=None, signal=Signal.NEUTRAL))
+
+    result = asyncio.run(chief.run())
+    assert isinstance(result, SentimentChiefResult)
+    bus.publish.assert_called_once()
+
+
+def test_sentiment_chief_resilience():
+    bus = MagicMock()
+    market = MagicMock()
+    chief = SentimentChiefAgent(market, bus)
+    chief.vix_agent.run        = AsyncMock(side_effect=RuntimeError("down"))
+    chief.fear_greed_agent.run = AsyncMock(return_value=FearGreedSnapshot(value=None, label="Neutral", signal=Signal.NEUTRAL))
+    chief.put_call_agent.run   = AsyncMock(return_value=PutCallSnapshot(ratio=None, signal=Signal.NEUTRAL))
+
+    result = asyncio.run(chief.run())
+    assert isinstance(result, SentimentChiefResult)
+
+
+def test_sentiment_chief_default():
+    result = SentimentChiefAgent.default()
+    assert isinstance(result, SentimentChiefResult)
+
+
+# ─────────────────────────────────────────────
+# Task 5: YieldCurveChiefAgent
+# ─────────────────────────────────────────────
+
+from agents.market_cockpit.yield_curve_chief_agent import YieldCurveChiefAgent
+from core.domain.models import YieldCurveChiefResult, YieldSpreadSnapshot, SovereignSpreadSnapshot, YieldSpreadDataPoint
+
+def _neutral_yield_spread():
+    dp = YieldSpreadDataPoint(spread_10y2y=None, spread_10y3m=None, spread_30y10y=None, inverted=False, signal=Signal.NEUTRAL)
+    return YieldSpreadSnapshot(usa=dp, eurozone=dp, switzerland=dp)
+
+def test_yield_curve_chief_returns_result():
+    bus = MagicMock()
+    macro = MagicMock()
+    ecb = MagicMock()
+    snb = MagicMock()
+    chief = YieldCurveChiefAgent(macro, ecb, snb, bus)
+    chief.yield_spread_agent.run     = AsyncMock(return_value=_neutral_yield_spread())
+    chief.sovereign_spread_agent.run = AsyncMock(return_value=SovereignSpreadSnapshot(btp_bund=None, oat_bund=None, bonos_bund=None, signal=Signal.NEUTRAL))
+
+    result = asyncio.run(chief.run())
+    assert isinstance(result, YieldCurveChiefResult)
+    bus.publish.assert_called_once()
+
+
+def test_yield_curve_chief_resilience():
+    bus = MagicMock()
+    macro = MagicMock()
+    ecb = MagicMock()
+    snb = MagicMock()
+    chief = YieldCurveChiefAgent(macro, ecb, snb, bus)
+    chief.yield_spread_agent.run     = AsyncMock(side_effect=RuntimeError("timeout"))
+    chief.sovereign_spread_agent.run = AsyncMock(return_value=SovereignSpreadSnapshot(btp_bund=None, oat_bund=None, bonos_bund=None, signal=Signal.NEUTRAL))
+
+    result = asyncio.run(chief.run())
+    assert isinstance(result, YieldCurveChiefResult)
+
+
+def test_yield_curve_chief_default():
+    result = YieldCurveChiefAgent.default()
+    assert isinstance(result, YieldCurveChiefResult)
+
+
+# ─────────────────────────────────────────────
+# Task 6: SectorChiefAgent
+# ─────────────────────────────────────────────
+
+from agents.market_cockpit.sector_chief_agent import SectorChiefAgent
+from core.domain.models import SectorChiefResult, SectorPerformanceSnapshot
+
+def _neutral_sector_performance():
+    return SectorPerformanceSnapshot(
+        usa={}, eurozone={},
+        leading_usa="Technology", lagging_usa="Utilities",
+        leading_eu="Technology", lagging_eu="Utilities",
+    )
+
+def test_sector_chief_returns_result():
+    bus = MagicMock()
+    market = MagicMock()
+    chief = SectorChiefAgent(market, bus)
+    chief.sector_performance_agent.run = AsyncMock(return_value=_neutral_sector_performance())
+    # sector_rotation_agent.run is synchronous — mock it to isolate the chief's publish call
+    from core.domain.models import SectorRotationSnapshot
+    chief.sector_rotation_agent.run = MagicMock(
+        return_value=SectorRotationSnapshot(recommended=[], avoid=[], alignment="neutral", signal=Signal.NEUTRAL)
+    )
+
+    result = asyncio.run(chief.run(MarketRegime.EXPANSION))
+    assert isinstance(result, SectorChiefResult)
+    bus.publish.assert_called_once()
+
+
+def test_sector_chief_resilience():
+    bus = MagicMock()
+    market = MagicMock()
+    chief = SectorChiefAgent(market, bus)
+    chief.sector_performance_agent.run = AsyncMock(side_effect=RuntimeError("down"))
+
+    result = asyncio.run(chief.run(MarketRegime.EXPANSION))
+    assert isinstance(result, SectorChiefResult)
+
+
+def test_sector_chief_default():
+    result = SectorChiefAgent.default()
+    assert isinstance(result, SectorChiefResult)
