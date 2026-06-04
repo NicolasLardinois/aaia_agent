@@ -714,10 +714,10 @@ class DeepDiveResult:
     market: str                       # neu
     top_down_context: str
     top_down_available: bool
-    bottom_up: BottomUpResult
     judgment: str
     alignment: str
     recommendation: InvestmentRecommendation
+    bottom_up: Optional[BottomUpResult] = None
     dominant_signal: str = "neutral"  # neu — "bullish"|"bearish"|"neutral"
     confidence: float = 0.65          # neu
     xai_explanation: str = ""         # neu
