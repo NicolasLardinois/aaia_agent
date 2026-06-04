@@ -3,6 +3,18 @@
 **Datum:** 2026-06-04
 **Status:** Approved
 
+## Kontext: Trigger-Flow
+
+Die drei Orchestratoren laufen **nicht gleichzeitig** — sie haben unterschiedliche Auslöser:
+
+```
+Dashboard-Refresh     →  TopDownOrchestrator   (geplant / permanent)
+User sucht "AAPL"     →  BottomUpOrchestrator  (on-demand, Ticker-Input)
+                      →  JudgmentOrchestrator   (erst nach Bottom-Up)
+```
+
+Bottom-Up und Judgment starten **nie** ohne expliziten Ticker. TopDown ist unabhängig davon.
+
 ## Ziel
 
 Einführung einer ChiefAgent-Schicht zwischen Orchestratoren und Sub-Agents. Jeder ChiefAgent koordiniert eine Domain-Gruppe und kapselt deren Sub-Agents. Orchestratoren sprechen nur noch mit Chiefs, nicht mehr direkt mit Sub-Agents.
