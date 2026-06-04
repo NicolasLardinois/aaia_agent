@@ -672,6 +672,29 @@ class BottomUpResult:
 
 
 # ─────────────────────────────────────────────
+# Modus 2 — AnomalyReport
+# ─────────────────────────────────────────────
+
+@dataclass
+class AnomalyReport:
+    has_anomalies: bool
+    statistical: list[str]
+    contradictions: list[str]
+    severity: str   # "none" | "low" | "medium" | "high"
+    summary: str
+
+    @staticmethod
+    def empty() -> "AnomalyReport":
+        return AnomalyReport(
+            has_anomalies=False,
+            statistical=[],
+            contradictions=[],
+            severity="none",
+            summary="Keine Anomalien erkannt.",
+        )
+
+
+# ─────────────────────────────────────────────
 # Modus 3 — Kombinations-Urteil
 # ─────────────────────────────────────────────
 
@@ -688,9 +711,13 @@ class InvestmentRecommendation:
 class DeepDiveResult:
     ticker: str
     asset_class: str
+    market: str                       # neu
     top_down_context: str
     top_down_available: bool
     bottom_up: BottomUpResult
     judgment: str
     alignment: str
     recommendation: InvestmentRecommendation
+    dominant_signal: str = "neutral"  # neu — "bullish"|"bearish"|"neutral"
+    confidence: float = 0.65          # neu
+    xai_explanation: str = ""         # neu
