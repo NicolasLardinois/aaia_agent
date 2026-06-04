@@ -1,3 +1,4 @@
+```
 agents/
 │
 ├── anomaly_chief_agent.py
@@ -95,3 +96,4 @@ agents/
         ├── precious_metal_price_agent.py
         ├── cross_metal_agent.py
         └── precious_metals_valuation_agent.py
+```
