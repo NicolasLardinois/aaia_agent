@@ -35,6 +35,45 @@ class CreditDataReady(AgentEvent): pass
 @dataclass
 class MacroChiefReady(AgentEvent): pass
 
+# --- Modus 1: Chief events (MacroChiefReady already exists above) ---
+@dataclass
+class CommodityChiefReady(AgentEvent): pass
+
+@dataclass
+class SentimentChiefReady(AgentEvent): pass
+
+@dataclass
+class YieldCurveChiefReady(AgentEvent): pass
+
+@dataclass
+class SectorChiefReady(AgentEvent): pass
+
+# --- Modus 2: Chief events ---
+@dataclass
+class EquityChiefReady(AgentEvent): pass
+
+@dataclass
+class BondChiefReady(AgentEvent): pass
+
+@dataclass
+class IndexChiefReady(AgentEvent): pass
+
+@dataclass
+class CommodityBottomUpChiefReady(AgentEvent): pass
+
+@dataclass
+class PreciousMetalsChiefReady(AgentEvent): pass
+
+# --- Modus 3: Chief events ---
+@dataclass
+class AnomalyChiefReady(AgentEvent): pass
+
+@dataclass
+class JudgmentChiefReady(AgentEvent): pass
+
+@dataclass
+class BacktesterChiefReady(AgentEvent): pass
+
 # --- Modus 1: Commodity ---
 @dataclass
 class EnergyDataReady(AgentEvent): pass

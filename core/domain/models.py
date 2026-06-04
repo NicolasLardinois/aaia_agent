@@ -411,6 +411,17 @@ class ValuationRangeSnapshot:
     signal: Signal
 
 
+@dataclass
+class EquityChiefResult:
+    fundamentals: FundamentalsSnapshot
+    quality: QualitySnapshot
+    short_interest: ShortInterestSnapshot
+    insider: InsiderSnapshot
+    earnings_trend: EarningsTrendSnapshot
+    moat: MoatSnapshot
+    valuation_range: ValuationRangeSnapshot
+
+
 # ─────────────────────────────────────────────
 # Modus 2 — Precious Metals Sub-Snapshots
 # ─────────────────────────────────────────────
