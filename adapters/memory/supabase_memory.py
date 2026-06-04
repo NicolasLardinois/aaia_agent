@@ -1,5 +1,6 @@
 import json
 import os
+import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -54,7 +55,7 @@ class SupabaseMemory(MemoryPort):
 
     def _connect(self):
         r = urllib.parse.urlparse(self._url)
-        return psycopg2.connect(
+        params = dict(
             host=r.hostname,
             port=r.port or 5432,
             user=r.username,
@@ -63,6 +64,13 @@ class SupabaseMemory(MemoryPort):
             cursor_factory=psycopg2.extras.RealDictCursor,
             sslmode="require",
         )
+        for attempt in range(3):
+            try:
+                return psycopg2.connect(**params)
+            except psycopg2.Error:
+                if attempt == 2:
+                    raise
+                time.sleep(2)
 
     # ── Analyse speichern ───────────────────────────────────────────────
 
