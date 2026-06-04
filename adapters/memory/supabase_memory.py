@@ -1,5 +1,6 @@
 import json
 import os
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -52,7 +53,16 @@ class SupabaseMemory(MemoryPort):
             raise RuntimeError("SUPABASE_DB_URL nicht gesetzt.")
 
     def _connect(self):
-        return psycopg2.connect(self._url, cursor_factory=psycopg2.extras.RealDictCursor)
+        r = urllib.parse.urlparse(self._url)
+        return psycopg2.connect(
+            host=r.hostname,
+            port=r.port or 5432,
+            user=r.username,
+            password=urllib.parse.unquote(r.password),
+            dbname=r.path.lstrip("/"),
+            cursor_factory=psycopg2.extras.RealDictCursor,
+            sslmode="require",
+        )
 
     # ── Analyse speichern ───────────────────────────────────────────────
 
