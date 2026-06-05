@@ -19,3 +19,7 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Runtime / generated
+.cache/
+pytest_output.txt
