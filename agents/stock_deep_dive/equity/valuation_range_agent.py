@@ -44,7 +44,7 @@ class ValuationRangeAgent:
         # KGV-Multiple
         pe = data.get("pe_ratio")
         eps = data.get("eps")
-        if pe and eps:
+        if pe is not None and eps is not None:
             pe_low  = eps * multiples["pe"][0]
             pe_high = eps * multiples["pe"][1]
             methods.append(ValuationMethod(name="KGV-Multiple", low=round(pe_low, 2), high=round(pe_high, 2)))
@@ -61,7 +61,7 @@ class ValuationRangeAgent:
         fcf_per_share = data.get("fcf_per_share")
         wacc = data.get("wacc", 0.09)
         growth = data.get("revenue_cagr_3y", 5) / 100 if data.get("revenue_cagr_3y") else 0.05
-        if fcf_per_share and wacc:
+        if fcf_per_share is not None and wacc:
             terminal_growth = 0.025
             dcf_low  = fcf_per_share * (1 + growth * 0.7) / (wacc - terminal_growth)
             dcf_high = fcf_per_share * (1 + growth * 1.3) / (wacc - terminal_growth)

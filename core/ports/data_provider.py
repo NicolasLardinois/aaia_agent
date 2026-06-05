@@ -9,6 +9,13 @@ class MacroDataProvider(ABC):
     @abstractmethod
     def get_extended_state(self) -> dict[str, float]: ...
 
+    @abstractmethod
+    def get_buffett_data(self) -> dict[str, float]: ...
+
+    @abstractmethod
+    def get_buffett_history(self, years: int = 10) -> list[float]: ...
+    """Gibt quartalsweise Buffett-Quoten (%) der letzten N Jahre zurück, älteste zuerst."""
+
 
 class EcbDataProvider(ABC):
     @abstractmethod

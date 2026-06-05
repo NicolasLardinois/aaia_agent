@@ -58,7 +58,7 @@ class YieldSpreadAgent:
         eu = _point(None, None, None)
 
         # CH
-        ch_spread = round(snb_10y - snb_2y, 3) if snb_10y and snb_2y else None
+        ch_spread = round(snb_10y - snb_2y, 3) if snb_10y is not None and snb_2y is not None else None
         ch = _point(ch_spread, None, None)
 
         result = YieldSpreadSnapshot(usa=usa, eurozone=eu, switzerland=ch)

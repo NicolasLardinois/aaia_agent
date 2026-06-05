@@ -4,11 +4,12 @@ from typing import Optional
 
 
 class MarketRegime(str, Enum):
-    BOOM      = "Boom"
-    EXPANSION = "Aufschwung"
-    SLOWDOWN  = "Abschwung"
-    RECESSION = "Rezession"
-    RECOVERY  = "Erholung"
+    BOOM       = "Boom"
+    EXPANSION  = "Aufschwung"
+    SLOWDOWN   = "Abschwung"
+    RECESSION  = "Rezession"
+    RECOVERY   = "Erholung"
+    DEPRESSION = "Depression"
 
 
 class Signal(str, Enum):
@@ -99,21 +100,6 @@ class GDPSnapshot:
 
 
 @dataclass
-class ShillerCAPEDataPoint:
-    cape: Optional[float]
-    historical_avg: float
-    deviation_pct: Optional[float]
-    signal: Signal
-
-
-@dataclass
-class ShillerCAPESnapshot:
-    usa: ShillerCAPEDataPoint
-    eurozone: ShillerCAPEDataPoint
-    switzerland: ShillerCAPEDataPoint
-
-
-@dataclass
 class LaborIncomeDataPoint:
     nominal_wage_growth: Optional[float]
     real_wage_growth: Optional[float]
@@ -142,6 +128,21 @@ class CreditSnapshot:
 
 
 @dataclass
+class BuffettCountryPoint:
+    ratio_pct: Optional[float]   # Marktkapitalisierung / BIP * 100
+    signal: Signal
+    year: Optional[int]          # None = Echtzeit (FRED); int = Weltbank-Jahreswert
+    z_score: Optional[float] = None  # aktuell vs. eigene 10J-Geschichte; None = keine History
+
+
+@dataclass
+class BuffettIndicatorSnapshot:
+    countries: dict[str, BuffettCountryPoint]  # ISO 3166 alpha-3 → Daten
+    signal: Signal                             # USA-Signal für Regime/Anomalie-Nutzung
+    global_median: Optional[float] = None      # Globaler Median aller Länder (für Dashboard)
+
+
+@dataclass
 class MacroChiefResult:
     regime: MarketRegime
     regime_confidence: float
@@ -149,9 +150,9 @@ class MacroChiefResult:
     money_supply: MoneySupplySnapshot
     interest_rate: InterestRateSnapshot
     gdp: GDPSnapshot
-    shiller_cape: ShillerCAPESnapshot
     labor_income: LaborIncomeSnapshot
     credit: CreditSnapshot
+    buffett_indicator: BuffettIndicatorSnapshot
 
 
 # ─────────────────────────────────────────────
@@ -729,6 +730,8 @@ class DeepDiveResult:
     alignment: str
     recommendation: InvestmentRecommendation
     bottom_up: Optional[BottomUpResult] = None
-    dominant_signal: str = "neutral"  # neu — "bullish"|"bearish"|"neutral"
-    confidence: float = 0.65          # neu
-    xai_explanation: str = ""         # neu
+    dominant_signal: str = "neutral"
+    confidence: float = 0.65
+    xai_explanation: str = ""
+    top_down_anomaly: Optional["AnomalyReport"] = None
+    bottom_up_anomaly: Optional["AnomalyReport"] = None

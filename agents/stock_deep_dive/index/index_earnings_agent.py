@@ -44,7 +44,7 @@ class IndexEarningsAgent:
             # Estimate revision: infer from forward vs trailing PE change (proxy)
             fwd_pe  = info.get("forwardPE")
             trail_pe = info.get("trailingPE")
-            if fwd_pe and trail_pe:
+            if fwd_pe is not None and trail_pe is not None:
                 revision = "up" if fwd_pe < trail_pe * 0.95 else ("down" if fwd_pe > trail_pe * 1.05 else "stable")
             else:
                 revision = "stable"

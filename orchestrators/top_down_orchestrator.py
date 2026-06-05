@@ -24,7 +24,7 @@ class TopDownOrchestrator:
         market: MarketDataProvider,
         bus: EventBus,
     ):
-        self.macro_chief       = MacroChiefAgent(macro, ecb, snb, market, bus)
+        self.macro_chief       = MacroChiefAgent(macro, ecb, snb, bus)
         self.commodity_chief   = CommodityChiefAgentMakro(market, bus)
         self.sentiment_chief   = SentimentChiefAgent(market, bus)
         self.yield_curve_chief = YieldCurveChiefAgent(macro, ecb, snb, bus)

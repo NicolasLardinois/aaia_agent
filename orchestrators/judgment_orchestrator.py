@@ -2,12 +2,11 @@ from agents.anomaly_chief_agent import AnomalyChiefAgent
 from agents.judgment_chief_agent import JudgmentChiefAgent
 from agents.backtester_chief_agent import BacktesterChiefAgent
 from core.domain.models import AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult
+from core.domain.recommendation import FULL_ANALYSIS_MARKETS
 from core.domain.top_down_context import derive_top_down_context
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
 from core.ports.memory_port import MemoryPort
-
-FULL_ANALYSIS_MARKETS = {"USA", "EU", "CH"}
 
 
 class JudgmentOrchestrator:
@@ -32,7 +31,12 @@ class JudgmentOrchestrator:
     ) -> DeepDiveResult:
         top_down_available = cockpit is not None and market in FULL_ANALYSIS_MARKETS
         top_down_context = (
-            derive_top_down_context(cockpit, sector=sector)
+            derive_top_down_context(
+                cockpit,
+                sector=sector,
+                market=market,
+                asset_class=bottom_up.asset_class,
+            )
             if top_down_available
             else f"Kein vollständiger Top-Down-Kontext verfügbar (Markt: {market})."
         )
@@ -65,5 +69,7 @@ class JudgmentOrchestrator:
                 market=market,
             )
 
+        result.top_down_anomaly = td_anomaly
+        result.bottom_up_anomaly = bu_anomaly
         self.memory.save_analysis(result, cockpit, price=None)
         return result

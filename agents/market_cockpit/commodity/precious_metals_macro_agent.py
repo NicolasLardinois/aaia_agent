@@ -43,8 +43,8 @@ class PreciousMetalsMacroAgent:
         gold = _safe(gold); silver = _safe(silver)
         platinum = _safe(platinum); palladium = _safe(palladium)
 
-        gs_ratio = round(gold / silver, 2) if gold and silver and silver > 0 else None
-        gp_ratio = round(gold / platinum, 2) if gold and platinum and platinum > 0 else None
+        gs_ratio = round(gold / silver, 2) if gold is not None and silver is not None and silver > 0 else None
+        gp_ratio = round(gold / platinum, 2) if gold is not None and platinum is not None and platinum > 0 else None
 
         result = PreciousMetalsMacroSnapshot(
             gold_usd=gold, silver_usd=silver, platinum_usd=platinum, palladium_usd=palladium,

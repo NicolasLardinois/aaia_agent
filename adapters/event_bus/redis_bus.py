@@ -1,8 +1,11 @@
+import logging
 from collections import defaultdict
 from typing import Callable
 
 from core.domain.events import AgentEvent
 from core.ports.event_bus import EventBus
+
+_logger = logging.getLogger(__name__)
 
 
 class InMemoryEventBus(EventBus):
@@ -15,7 +18,13 @@ class InMemoryEventBus(EventBus):
     def publish(self, event: AgentEvent) -> None:
         self._log.append(event)
         for handler in self._handlers.get(type(event), []):
-            handler(event)
+            try:
+                handler(event)
+            except Exception:
+                _logger.exception(
+                    "Handler %s raised for %s — skipping",
+                    handler, type(event).__name__,
+                )
 
     def subscribe(self, event_type: type, handler: Callable[[AgentEvent], None]) -> None:
         self._handlers[event_type].append(handler)

@@ -59,11 +59,14 @@ class InterestRateAgent:
 
         fed_rate = state.get("fed_rate")
         usa_cpi  = state.get("inflation")
-        usa_real = round(fed_rate - usa_cpi, 3) if fed_rate and usa_cpi else None
+        usa_real = round(fed_rate - usa_cpi, 3) if fed_rate is not None and usa_cpi is not None else None
 
-        _RATE_HISTORY["usa"].append(fed_rate or 0)
-        _RATE_HISTORY["eu"].append(ecb_rate or 0)
-        _RATE_HISTORY["ch"].append(snb_rate or 0)
+        if fed_rate is not None:
+            _RATE_HISTORY["usa"].append(fed_rate)
+        if ecb_rate is not None:
+            _RATE_HISTORY["eu"].append(ecb_rate)
+        if snb_rate is not None:
+            _RATE_HISTORY["ch"].append(snb_rate)
 
         usa_dir = _direction(fed_rate, _RATE_HISTORY["usa"])
         eu_dir  = _direction(ecb_rate, _RATE_HISTORY["eu"])

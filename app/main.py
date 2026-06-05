@@ -5,7 +5,7 @@ Verwendung:
   python -m app.main judge AAPL [market] [--portfolio]  → Modus 3: Kombinations-Urteil
 
 asset_class: equity | bond | commodity | precious_metal | etf  (default: equity)
-market:      USA | EU | CH | ...                               (default: USA)
+market:      USA | CH | ISO-2 (DE/FR/IT/ES/NL/AT/BE/PT/FI/IE/GR/...)  (default: USA)
 --portfolio: Flag — Aktie ist bereits im Portfolio
 """
 
@@ -19,6 +19,7 @@ from adapters.data.finnhub import FinnhubProvider
 from adapters.data.ecb_snb_stub import EcbStubProvider, SnbStubProvider
 from adapters.event_bus.redis_bus import InMemoryEventBus
 from adapters.llm.claude_adapter import ClaudeAdapter
+from adapters.memory.supabase_memory import SupabaseMemory
 from adapters.cache.result_cache import ResultCache
 from orchestrators.top_down_orchestrator import TopDownOrchestrator
 from orchestrators.bottom_up_orchestrator import BottomUpOrchestrator
@@ -127,7 +128,8 @@ async def run_judgment(ticker: str, market: str = "USA", in_portfolio: bool = Fa
 
     bus    = InMemoryEventBus()
     llm    = ClaudeAdapter(ANTHROPIC_API_KEY)
-    orch   = JudgmentOrchestrator(llm, bus)
+    memory = SupabaseMemory()
+    orch   = JudgmentOrchestrator(llm, bus, memory)
     result = await orch.run(
         cockpit=cockpit,
         bottom_up=bottom_up,

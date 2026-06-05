@@ -19,6 +19,7 @@ def _make_cockpit():
     cockpit.macro.gdp.usa.signal = MagicMock()
     cockpit.commodities.energy.signal = MagicMock()
     cockpit.commodities.industrial_metals.signal = MagicMock()
+    cockpit.macro.buffett_indicator.countries = {}
     return cockpit
 
 def _make_bottom_up():

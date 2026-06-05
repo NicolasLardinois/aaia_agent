@@ -63,7 +63,7 @@ def _build_summary(statistical: list[str], contradictions: list[str], severity: 
 
 class TopDownAnomalyAgent:
 
-    def run(self, cockpit, history: list[dict]) -> AnomalyReport:
+    def run(self, cockpit, history: list[dict], asset_class: str = "equity") -> AnomalyReport:
         statistical: list[str] = []
         contradictions: list[str] = []
 
@@ -90,6 +90,19 @@ class TopDownAnomalyAgent:
         _check("Fear&Greed", cockpit.sentiment.fear_greed.value, "fear_greed")
         _check("Yield-Spread 10J-2J", cockpit.yield_curve.yield_spreads.usa.spread_10y2y, "yield_spread_10y2y")
         _check("Inflation CPI", cockpit.macro.inflation.usa.cpi, "inflation_cpi_usa")
+
+        if asset_class.lower() in {"equity", "etf", "index"}:
+            buffett_countries = getattr(cockpit.macro.buffett_indicator, "countries", {})
+            usa_point = buffett_countries.get("USA")
+            if usa_point is not None:
+                buffett_z = usa_point.z_score
+                if buffett_z is not None and abs(buffett_z) > Z_THRESHOLD:
+                    ratio_str = f"{usa_point.ratio_pct:.0f}%" if usa_point.ratio_pct is not None else "?"
+                    dir_ = "hoch" if buffett_z > 0 else "niedrig"
+                    statistical.append(
+                        f"Buffett-Indikator USA={ratio_str} ist ungewöhnlich {dir_} "
+                        f"gegenüber 10-Jahres-Historie (Z={buffett_z:.1f})"
+                    )
 
         rc = cockpit.macro.regime_confidence
         if rc is not None and rc < 0.30:

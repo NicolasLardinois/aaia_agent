@@ -36,7 +36,7 @@ class BondDurationAgent:
         convex  = data.get("convexity")
         # DV01: Kurswertänderung bei 1 Basispunkt = modified_duration * price * 0.0001
         price   = data.get("current_price")
-        dv01    = round(mod_dur * price * 0.0001, 4) if mod_dur and price else None
+        dv01    = round(mod_dur * price * 0.0001, 4) if mod_dur is not None and price is not None and price > 0 else None
 
         result = BondDurationSnapshot(
             macaulay_duration=mac_dur, modified_duration=mod_dur,

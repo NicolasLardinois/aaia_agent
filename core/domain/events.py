@@ -24,7 +24,7 @@ class InterestRateDataReady(AgentEvent): pass
 class GDPDataReady(AgentEvent): pass
 
 @dataclass
-class ShillerCAPEDataReady(AgentEvent): pass
+class BuffettIndicatorReady(AgentEvent): pass
 
 @dataclass
 class LaborIncomeReady(AgentEvent): pass

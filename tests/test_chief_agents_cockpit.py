@@ -4,9 +4,9 @@ from agents.market_cockpit.macro_chief_agent import MacroChiefAgent
 from core.domain.models import (
     MacroChiefResult, MarketRegime,
     InflationSnapshot, MoneySupplySnapshot, InterestRateSnapshot,
-    GDPSnapshot, ShillerCAPESnapshot, LaborIncomeSnapshot, CreditSnapshot,
+    GDPSnapshot, LaborIncomeSnapshot, CreditSnapshot,
     InflationDataPoint, MoneySupplyDataPoint, InterestRateDataPoint,
-    GDPDataPoint, ShillerCAPEDataPoint, LaborIncomeDataPoint, CreditDataPoint,
+    GDPDataPoint, LaborIncomeDataPoint, CreditDataPoint,
     Signal,
 )
 from core.domain.models import EquityChiefResult
@@ -37,10 +37,6 @@ def _neutral_gdp():
     dp = GDPDataPoint(gdp_growth=None, industrial_production=None, unemployment=None, consumer_sentiment=None, pmi=None, signal=Signal.NEUTRAL)
     return GDPSnapshot(usa=dp, eurozone=dp, switzerland=dp)
 
-def _neutral_shiller():
-    dp = ShillerCAPEDataPoint(cape=None, historical_avg=20.0, deviation_pct=None, signal=Signal.NEUTRAL)
-    return ShillerCAPESnapshot(usa=dp, eurozone=dp, switzerland=dp)
-
 def _neutral_labor():
     dp = LaborIncomeDataPoint(nominal_wage_growth=None, real_wage_growth=None, signal=Signal.NEUTRAL)
     return LaborIncomeSnapshot(usa=dp, eurozone=dp, switzerland=dp)
@@ -56,14 +52,12 @@ def test_macro_chief_returns_result():
     macro.get_economic_state = MagicMock(return_value={})
     ecb = MagicMock()
     snb = MagicMock()
-    market = MagicMock()
 
-    chief = MacroChiefAgent(macro, ecb, snb, market, bus)
+    chief = MacroChiefAgent(macro, ecb, snb, bus)
     chief.inflation_agent.run     = AsyncMock(return_value=_neutral_inflation())
     chief.money_supply_agent.run  = AsyncMock(return_value=_neutral_money_supply())
     chief.interest_rate_agent.run = AsyncMock(return_value=_neutral_interest_rate())
     chief.gdp_agent.run           = AsyncMock(return_value=_neutral_gdp())
-    chief.shiller_cape_agent.run  = AsyncMock(return_value=_neutral_shiller())
     chief.labor_income_agent.run  = AsyncMock(return_value=_neutral_labor())
     chief.credit_agent.run        = AsyncMock(return_value=_neutral_credit())
 
@@ -79,14 +73,12 @@ def test_macro_chief_resilience():
     macro.get_economic_state = MagicMock(return_value={})
     ecb = MagicMock()
     snb = MagicMock()
-    market = MagicMock()
 
-    chief = MacroChiefAgent(macro, ecb, snb, market, bus)
+    chief = MacroChiefAgent(macro, ecb, snb, bus)
     chief.inflation_agent.run     = AsyncMock(side_effect=RuntimeError("API down"))
     chief.money_supply_agent.run  = AsyncMock(return_value=_neutral_money_supply())
     chief.interest_rate_agent.run = AsyncMock(return_value=_neutral_interest_rate())
     chief.gdp_agent.run           = AsyncMock(return_value=_neutral_gdp())
-    chief.shiller_cape_agent.run  = AsyncMock(return_value=_neutral_shiller())
     chief.labor_income_agent.run  = AsyncMock(return_value=_neutral_labor())
     chief.credit_agent.run        = AsyncMock(return_value=_neutral_credit())
 

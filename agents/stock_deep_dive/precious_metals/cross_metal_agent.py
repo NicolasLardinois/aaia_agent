@@ -41,11 +41,11 @@ class CrossMetalAgent:
         gp_ratio = None
 
         if not isinstance(gold_price, Exception) and not isinstance(silver_price, Exception):
-            if silver_price and silver_price > 0:
+            if silver_price is not None and silver_price > 0:
                 gs_ratio = round(gold_price / silver_price, 2)
 
         if not isinstance(gold_price, Exception) and not isinstance(platinum_price, Exception):
-            if platinum_price and platinum_price > 0:
+            if platinum_price is not None and platinum_price > 0:
                 gp_ratio = round(gold_price / platinum_price, 2)
 
         signal = _ratio_signal(gs_ratio or GOLD_SILVER_AVG, GOLD_SILVER_AVG)

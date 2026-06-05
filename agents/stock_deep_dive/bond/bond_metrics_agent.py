@@ -44,8 +44,8 @@ class BondMetricsAgent:
         price    = data.get("current_price")
         maturity = data.get("maturity_years")
         inflation = state.get("inflation")
-        real_yield = round(ytm - inflation, 3) if ytm and inflation else None
-        cur_yield  = round(coupon / price * 100, 3) if coupon and price and price > 0 else None
+        real_yield = round(ytm - inflation, 3) if ytm is not None and inflation is not None else None
+        cur_yield  = round(coupon / price * 100, 3) if coupon is not None and price is not None and price > 0 else None
 
         result = BondMetricsSnapshot(
             bond_type=bond_type,

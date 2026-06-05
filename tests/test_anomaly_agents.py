@@ -23,6 +23,7 @@ def _make_cockpit(vix=18.0, fear_greed=50.0, spread=1.2,
     cockpit.commodities.energy.signal = commodity_signal
     cockpit.commodities.industrial_metals.signal = commodity_signal
     cockpit.sectors.rotation.signal = Signal.NEUTRAL
+    cockpit.macro.buffett_indicator.countries = {}
     return cockpit
 
 

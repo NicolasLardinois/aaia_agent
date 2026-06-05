@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import numpy as np
 from scipy import stats
 from fredapi import Fred
@@ -60,6 +62,27 @@ class FredDataProvider(MacroDataProvider):
         if nom is not None and inf is not None:
             state["real_wage_growth"] = round(nom - inf, 3)
         return state
+
+    def get_buffett_data(self) -> dict[str, float]:
+        """Wilshire 5000 Full Cap (WILL5000INDFC) und US-BIP (GDP) von FRED."""
+        try:
+            market_cap = float(self.fred.get_series("WILL5000INDFC").dropna().iloc[-1])
+            gdp        = float(self.fred.get_series("GDP").dropna().iloc[-1])
+            return {"market_cap_bn": market_cap, "gdp_bn": gdp}
+        except Exception:
+            return {"market_cap_bn": None, "gdp_bn": None}
+
+    def get_buffett_history(self, years: int = 10) -> list[float]:
+        """Quartalsweise Buffett-Quoten (%) der letzten N Jahre, älteste zuerst."""
+        try:
+            start = f"{datetime.utcnow().year - years}-01-01"
+            wilshire = self.fred.get_series("WILL5000INDFC", observation_start=start).resample("Q").last().dropna()
+            gdp      = self.fred.get_series("GDP",           observation_start=start).resample("Q").last().dropna()
+            aligned  = wilshire.align(gdp, join="inner")
+            ratios   = (aligned[0] / aligned[1] * 100).dropna()
+            return [round(float(r), 1) for r in ratios]
+        except Exception:
+            return []
 
     def get_raw_series(self) -> dict:
         raw = {}

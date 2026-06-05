@@ -2,6 +2,7 @@ import json
 import os
 import time
 import urllib.parse
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -53,6 +54,7 @@ class SupabaseMemory(MemoryPort):
         if not self._url:
             raise RuntimeError("SUPABASE_DB_URL nicht gesetzt.")
 
+    @contextmanager
     def _connect(self):
         r = urllib.parse.urlparse(self._url)
         params = dict(
@@ -64,13 +66,20 @@ class SupabaseMemory(MemoryPort):
             cursor_factory=psycopg2.extras.RealDictCursor,
             sslmode="require",
         )
+        conn = None
         for attempt in range(3):
             try:
-                return psycopg2.connect(**params)
+                conn = psycopg2.connect(**params)
+                break
             except psycopg2.Error:
                 if attempt == 2:
                     raise
                 time.sleep(2)
+        try:
+            yield conn
+        finally:
+            if conn is not None:
+                conn.close()
 
     # ── Analyse speichern ───────────────────────────────────────────────
 
@@ -126,8 +135,8 @@ class SupabaseMemory(MemoryPort):
                         result.confidence,
                         result.xai_explanation,
                         resolved_price,
-                        "none",
-                        "none",
+                        result.top_down_anomaly.severity if result.top_down_anomaly else "none",
+                        result.bottom_up_anomaly.severity if result.bottom_up_anomaly else "none",
                         json.dumps(indicators),
                     ),
                 )

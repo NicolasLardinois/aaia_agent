@@ -5,7 +5,14 @@ from core.domain.models import (
     InvestmentRecommendation, Recommendation, ShortType, Signal,
 )
 
-FULL_ANALYSIS_MARKETS = {"USA", "EU", "CH"}
+# Alle Märkte mit vollständigem Top-Down-Kontext (Makrodaten vorhanden):
+# USA → FRED, CH → SNB, Eurozone-Länder → EZB
+_EUROZONE_MARKETS = {
+    "DE", "FR", "IT", "ES", "NL", "AT", "BE", "PT",
+    "FI", "IE", "GR", "SK", "SI", "EE", "LV", "LT",
+    "LU", "MT", "CY",
+}
+FULL_ANALYSIS_MARKETS = {"USA", "CH"} | _EUROZONE_MARKETS
 
 SHORT_WARNINGS = {
     ShortType.DEFENSIVE: (
@@ -89,7 +96,7 @@ def derive_recommendation(
         )
 
     full_analysis = top_down_available and market in FULL_ANALYSIS_MARKETS
-    bearish = signal == Signal.BEARISH or alignment in ("aligned_bearish", "contradicting")
+    bearish = signal == Signal.BEARISH or alignment == "aligned_bearish"
     bullish = signal == Signal.BULLISH or alignment == "aligned_bullish"
 
     if bearish and not in_portfolio and full_analysis:

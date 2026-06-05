@@ -14,12 +14,15 @@ _DEFAULT = FundamentalsSnapshot(
 )
 
 
-def _score(pe, forward_pe, peg, ev_ebitda, revenue_cagr, op_margin, debt_equity) -> Signal:
+def _score(pe, forward_pe, shiller, peg, ev_ebitda, revenue_cagr, op_margin, debt_equity) -> Signal:
     score = 0
     if pe is not None:
         score += 1 if pe < 20 else (-1 if pe > 40 else 0)
     if forward_pe is not None and pe is not None:
-        score += 1 if forward_pe < pe else 0   # earnings expected to grow
+        score += 1 if forward_pe < pe else 0
+    if shiller is not None:
+        # Shiller KGV glättet Konjunkturzyklen → striktere Schwellen als normales KGV
+        score += 1 if shiller < 15 else (-1 if shiller > 35 else 0)
     if peg is not None:
         score += 1 if peg < 1.5 else (-1 if peg > 3.0 else 0)
     if ev_ebitda is not None:
@@ -62,7 +65,7 @@ class FundamentalsAgent:
             price_book=price_book, price_sales=price_sales, price_fcf=price_fcf,
             dividend_yield=div_yield, wacc=wacc, revenue_cagr_3y=cagr_3y,
             operating_margin=op_margin, gross_margin=gross_m, debt_to_equity=debt_eq,
-            signal=_score(pe, forward_pe, peg, ev_ebitda, cagr_3y, op_margin, debt_eq),
+            signal=_score(pe, forward_pe, shiller, peg, ev_ebitda, cagr_3y, op_margin, debt_eq),
         )
         self.bus.publish(FundamentalsReady(source="fundamentals_agent", payload={"ticker": ticker}))
         return result

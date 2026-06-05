@@ -23,6 +23,10 @@ ROTATION_MAP: dict[MarketRegime, dict[str, list[str]]] = {
         "recommended": ["Financials", "Industrials", "Technology"],
         "avoid":       ["Utilities", "ConsumerStap"],
     },
+    MarketRegime.DEPRESSION: {
+        "recommended": ["Gold", "ConsumerStap", "Healthcare"],
+        "avoid":       ["Technology", "Energy", "Financials", "Industrials"],
+    },
 }
 
 _DEFAULT = SectorRotationSnapshot(recommended=[], avoid=[], alignment="neutral", signal=Signal.NEUTRAL)

@@ -73,7 +73,7 @@ class IndexValuationRangeAgent:
             pe_trailing = info.get("trailingPE")
 
             # Method 1: EPS × historische KGV-Bandbreite
-            if eps and eps > 0:
+            if eps is not None and eps > 0:
                 price_low  = round(eps * pe_low, 2)
                 price_mid  = round(eps * pe_mid, 2)
                 price_high = round(eps * pe_high, 2)
@@ -81,7 +81,7 @@ class IndexValuationRangeAgent:
                 price_low = price_mid = price_high = None
 
             m1_pts = 0
-            if current and price_low and price_high:
+            if current is not None and price_low is not None and price_high is not None:
                 _, m1_pts = _method1_position(current, price_low, price_high)
 
             # Method 2: Aktuelles KGV vs. historischem Durchschnitt

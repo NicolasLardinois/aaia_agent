@@ -18,8 +18,9 @@ class AnomalyChiefAgent:
         ticker_history: list[dict],
         global_history: list[dict],
     ) -> tuple[AnomalyReport, AnomalyReport]:
+        asset_class = getattr(bottom_up, "asset_class", "equity")
         td_anomaly = (
-            self.td_anomaly_agent.run(cockpit, global_history)
+            self.td_anomaly_agent.run(cockpit, global_history, asset_class=asset_class)
             if cockpit is not None
             else AnomalyReport.empty()
         )
