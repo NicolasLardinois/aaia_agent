@@ -8,31 +8,31 @@ from core.ports.data_provider import MacroDataProvider
 
 # Kern-Makrodaten (Regime-Erkennung)
 SERIES = {
-    "inflation":             ("CPIAUCSL", lambda s: s.pct_change(12).iloc[-1] * 100),
-    "unemployment":          ("UNRATE",   lambda s: s.iloc[-1]),
-    "fed_rate":              ("FEDFUNDS", lambda s: s.iloc[-1]),
-    "yield_curve":           ("T10Y2Y",   lambda s: s.iloc[-1]),
-    "gdp_growth":            ("GDP",      lambda s: s.pct_change(4).iloc[-1] * 100),
-    "consumer_sentiment":    ("UMCSENT",  lambda s: s.iloc[-1]),
-    "industrial_production": ("INDPRO",   lambda s: s.pct_change(12).iloc[-1] * 100),
+    "inflation":             ("CPIAUCSL", lambda s: s.pct_change(12).dropna().iloc[-1] * 100),
+    "unemployment":          ("UNRATE",   lambda s: s.dropna().iloc[-1]),
+    "fed_rate":              ("FEDFUNDS", lambda s: s.dropna().iloc[-1]),
+    "yield_curve":           ("T10Y2Y",   lambda s: s.dropna().iloc[-1]),
+    "gdp_growth":            ("GDP",      lambda s: s.pct_change(4).dropna().iloc[-1] * 100),
+    "consumer_sentiment":    ("UMCSENT",  lambda s: s.dropna().iloc[-1]),
+    "industrial_production": ("INDPRO",   lambda s: s.pct_change(12).dropna().iloc[-1] * 100),
 }
 
 # Neue Serien: Löhne, Reallöhne, Umlaufgeschwindigkeit, Kredit, Realzins
 EXTENDED_SERIES = {
     # Löhne (USA)
-    "nominal_wage_growth": ("AHETPI",   lambda s: s.pct_change(12).iloc[-1] * 100),
+    "nominal_wage_growth": ("AHETPI",   lambda s: s.pct_change(12).dropna().iloc[-1] * 100),
     # Umlaufgeschwindigkeit M2
-    "money_velocity":      ("M2V",      lambda s: s.iloc[-1]),
+    "money_velocity":      ("M2V",      lambda s: s.dropna().iloc[-1]),
     # Kreditwachstum: Total Loans & Leases, All Commercial Banks
-    "credit_growth":       ("TOTLL",    lambda s: s.pct_change(12).iloc[-1] * 100),
+    "credit_growth":       ("TOTLL",    lambda s: s.pct_change(12).dropna().iloc[-1] * 100),
     # Realzins 10J (TIPS-basiert)
-    "real_rate_10y":       ("DFII10",   lambda s: s.iloc[-1]),
+    "real_rate_10y":       ("DFII10",   lambda s: s.dropna().iloc[-1]),
     # Yield Curve 3M/10J
-    "yield_curve_3m10y":   ("T10Y3M",   lambda s: s.iloc[-1]),
+    "yield_curve_3m10y":   ("T10Y3M",   lambda s: s.dropna().iloc[-1]),
     # M2 Geldmenge (YoY %)
-    "m2_growth":           ("M2SL",     lambda s: s.pct_change(12).iloc[-1] * 100),
+    "m2_growth":           ("M2SL",     lambda s: s.pct_change(12).dropna().iloc[-1] * 100),
     # PPI (Producer Price Index)
-    "ppi":                 ("PPIACO",   lambda s: s.pct_change(12).iloc[-1] * 100),
+    "ppi":                 ("PPIACO",   lambda s: s.pct_change(12).dropna().iloc[-1] * 100),
 }
 
 
@@ -43,8 +43,12 @@ class FredDataProvider(MacroDataProvider):
     def get_economic_state(self) -> dict[str, float]:
         state = {}
         for key, (fred_id, transform) in SERIES.items():
-            data = self.fred.get_series(fred_id, observation_start="2018-01-01")
-            state[key] = round(float(transform(data)), 3)
+            try:
+                data = self.fred.get_series(fred_id, observation_start="2018-01-01")
+                value = float(transform(data))
+                state[key] = round(value, 3) if not np.isnan(value) else None
+            except Exception:
+                state[key] = None
         return state
 
     def get_extended_state(self) -> dict[str, float]:
@@ -53,12 +57,18 @@ class FredDataProvider(MacroDataProvider):
         for key, (fred_id, transform) in EXTENDED_SERIES.items():
             try:
                 data = self.fred.get_series(fred_id, observation_start="2015-01-01")
-                state[key] = round(float(transform(data)), 3)
+                value = float(transform(data))
+                state[key] = round(value, 3) if not np.isnan(value) else None
             except Exception:
                 state[key] = None
-        # Reallohnwachstum = Nominallohn - Inflation
+        # Reallohnwachstum = Nominallohn - Inflation (inline, kein get_economic_state()-Call)
         nom = state.get("nominal_wage_growth")
-        inf = self.get_economic_state().get("inflation")
+        try:
+            cpi = self.fred.get_series("CPIAUCSL", observation_start="2015-01-01")
+            inf_val = float(cpi.pct_change(12).dropna().iloc[-1] * 100)
+            inf = round(inf_val, 3) if not np.isnan(inf_val) else None
+        except Exception:
+            inf = None
         if nom is not None and inf is not None:
             state["real_wage_growth"] = round(nom - inf, 3)
         return state

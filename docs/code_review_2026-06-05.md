@@ -124,8 +124,12 @@ CBOE Put/Call Ratio ist via Yahoo Finance nicht als `^PCALL` verfügbar. Das ges
 ### 15. `adapters/data/fred_api.py:41–46` — `get_economic_state` hat keine Fehlerbehandlung
 Anders als `get_extended_state` wird hier nichts in try/except gewrappt. Jeder FRED-Ausfall oder Rate-Limit für eine einzelne Serie killt die gesamte Methode und crasht `MacroChiefAgent`.
 
+**✅ Gelöst (2026-06-08):** Jede Serie wird jetzt in einem eigenen `try/except`-Block gefetcht — identisch zu `get_extended_state`. Schlägt eine Serie fehl, landet `None` im Dict; die anderen Serien laufen weiter. `MacroChiefAgent` und `RegimeDetector` sehen `None`-Werte statt eines Crashes.
+
 ### 16. `adapters/data/fred_api.py:44,52` — `.iloc[-1]` auf leerer Series nach `pct_change(12)`
 Nach `pct_change(12)` werden die ersten 12 Observations zu NaN. Bei weniger als 13 Datenpunkten gibt `.iloc[-1]` `NaN` zurück. NaN-Floats fließen in den `RegimeDetector` wo sie als `0` scored werden — stil falsche Regime-Klassifikationen.
+
+**✅ Gelöst (2026-06-08):** Alle Lambdas in `SERIES` und `EXTENDED_SERIES` rufen jetzt `.dropna()` vor `.iloc[-1]` auf. Zusätzlich prüft `get_economic_state()` den Float-Wert mit `np.isnan()` und schreibt `None` statt NaN ins Dict.
 
 ### 17. `adapters/llm/claude_adapter.py:22` — IndexError wenn API leere Content-Liste zurückgibt
 ```python
@@ -216,6 +220,8 @@ Eine zweite `LLMProvider(ABC)`-Klasse existiert in `data_provider.py`, identisch
 
 ### 33. `adapters/data/fred_api.py:59` — `get_extended_state` ruft redundant `get_economic_state` auf
 Jeder Call feuert 7 zusätzliche FRED API HTTP-Requests — verdoppelt die API-Kosten und Latenz.
+
+**✅ Gelöst (2026-06-08):** `get_extended_state` ruft `get_economic_state()` nicht mehr auf. Stattdessen wird `CPIAUCSL` direkt inline gefetcht (1 API-Call statt 7) um den Inflationswert für `real_wage_growth` zu berechnen.
 
 ### 34. `agents/stock_deep_dive/bond/bond_metrics_agent.py:47` — `ytm=0.0` wird als fehlende Daten behandelt
 `if ytm and inflation` schlägt für Zero-Coupon- oder Null-Zins-Anleihen fehl. Real-Yield wird zu `None` statt `-inflation`, versteckt einen genuinen negativen Real-Yield.
