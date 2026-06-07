@@ -137,6 +137,13 @@ return message.content[0].text
 ```
 Raises `IndexError` wenn das Modell keine Content-Blöcke zurückgibt (z.B. am Token-Limit gestoppt bevor ein einziges Token generiert wurde).
 
+**✅ Gelöst (2026-06-08):** Vor dem Zugriff auf `content[0]` wird geprüft ob die Liste leer ist. Wenn ja, wird ein leerer String zurückgegeben — der aufrufende Agent fällt dann auf seinen Default-Wert zurück, statt abzustürzen.
+
+### 17b. `adapters/llm/claude_adapter.py:7` — Token-Limit zu niedrig für vollständige Analysen (neu entdeckt)
+`DEFAULT_TOKENS = 1024` (ca. 750 Wörter) ist zu knapp für den JudgmentOrchestrator und MoatAgent, die lange Prompts mit dem gesamten Analyse-Kontext schicken und eine ausführliche Begründung zurückerwarten. Analysen werden mittendrin abgeschnitten. Wir bezahlen nur für tatsächlich generierte Tokens — ein höheres Limit kostet also nichts extra wenn Claude weniger braucht.
+
+**✅ Gelöst (2026-06-08):** `DEFAULT_TOKENS` von 1024 auf 4096 erhöht. Gilt global für alle LLM-Aufrufe. Claude Sonnet 4.6 unterstützt bis zu 8192 Output-Tokens, 4096 ist ein guter Mittelwert der genug Platz für vollständige Analysen lässt.
+
 ### 18. `core/domain/top_down_context.py:43` — TypeError wenn `spread_10y2y` None ist und Kurve invertiert
 ```python
 notes.append(f"Zinskurve invertiert ({usa_yield.spread_10y2y:+.2f})")

@@ -4,7 +4,7 @@ import anthropic
 from core.ports.llm_provider import LLMProvider
 
 DEFAULT_MODEL  = "claude-sonnet-4-6"
-DEFAULT_TOKENS = 1024
+DEFAULT_TOKENS = 4096
 
 
 class ClaudeAdapter(LLMProvider):
@@ -19,4 +19,6 @@ class ClaudeAdapter(LLMProvider):
             system=system or anthropic.NOT_GIVEN,
             messages=[{"role": "user", "content": prompt}],
         )
+        if not message.content:
+            return ""
         return message.content[0].text
