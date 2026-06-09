@@ -138,7 +138,8 @@ def derive_top_down_context(
 
     usa_yield = cockpit.yield_curve.yield_spreads.usa
     if usa_yield.inverted:
-        notes.append(f"Zinskurve invertiert ({usa_yield.spread_10y2y:+.2f}) — Rezessionsrisiko erhöht")
+        spread_str = f"{usa_yield.spread_10y2y:+.2f}" if usa_yield.spread_10y2y is not None else "n/a"
+        notes.append(f"Zinskurve invertiert ({spread_str}) — Rezessionsrisiko erhöht")
 
     vix_value = cockpit.sentiment.vix.vix
     if vix_value is not None and vix_value > 30:
