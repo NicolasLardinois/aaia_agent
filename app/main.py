@@ -16,7 +16,8 @@ from config.settings import FRED_API_KEY, ANTHROPIC_API_KEY, FINNHUB_API_KEY
 from adapters.data.fred_api import FredDataProvider
 from adapters.data.yahoo_finance import YahooFinanceProvider
 from adapters.data.finnhub import FinnhubProvider
-from adapters.data.ecb_snb_stub import EcbStubProvider, SnbStubProvider
+from adapters.data.ecb_sdw import EcbSdwProvider
+from adapters.data.fred_snb import FredSnbProvider
 from adapters.event_bus.redis_bus import InMemoryEventBus
 from adapters.llm.claude_adapter import ClaudeAdapter
 from adapters.memory.supabase_memory import SupabaseMemory
@@ -32,8 +33,8 @@ async def run_dashboard() -> None:
     fred  = FredDataProvider(FRED_API_KEY)
     orch  = TopDownOrchestrator(
         macro=fred,
-        ecb=EcbStubProvider(),
-        snb=SnbStubProvider(),
+        ecb=EcbSdwProvider(),
+        snb=FredSnbProvider(FRED_API_KEY),
         market=YahooFinanceProvider(),
         bus=bus,
     )

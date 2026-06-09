@@ -2,6 +2,13 @@ from core.domain.models import AnomalyReport, Signal
 from core.utils.statistics import Z_THRESHOLD, compute_severity, z_score
 
 
+def _yield_region(market: str) -> str:
+    m = market.upper()
+    if m == "USA": return "usa"
+    if m in ("CH", "CHE"): return "switzerland"
+    return "eurozone"
+
+
 def _contradicts(a: Signal, b: Signal) -> bool:
     return (a == Signal.BULLISH and b == Signal.BEARISH) or \
            (a == Signal.BEARISH and b == Signal.BULLISH)
@@ -63,7 +70,7 @@ def _build_summary(statistical: list[str], contradictions: list[str], severity: 
 
 class TopDownAnomalyAgent:
 
-    def run(self, cockpit, history: list[dict], asset_class: str = "equity") -> AnomalyReport:
+    def run(self, cockpit, history: list[dict], asset_class: str = "equity", market: str = "USA") -> AnomalyReport:
         statistical: list[str] = []
         contradictions: list[str] = []
 
@@ -86,9 +93,13 @@ class TopDownAnomalyAgent:
                     f"{label}={current:.1f} ist ungewöhnlich {dir_} (Z={z:.1f})"
                 )
 
+        region    = _yield_region(market)
+        yield_pt  = getattr(cockpit.yield_curve.yield_spreads, region)
+        spread_val = yield_pt.spread_10y2y if yield_pt.spread_10y2y is not None else yield_pt.spread_10y3m
+
         _check("VIX", cockpit.sentiment.vix.vix, "vix")
         _check("Fear&Greed", cockpit.sentiment.fear_greed.value, "fear_greed")
-        _check("Yield-Spread 10J-2J", cockpit.yield_curve.yield_spreads.usa.spread_10y2y, "yield_spread_10y2y")
+        _check("Yield-Spread", spread_val, "yield_spread_10y2y")
         _check("Inflation CPI", cockpit.macro.inflation.usa.cpi, "inflation_cpi_usa")
 
         if asset_class.lower() in {"equity", "etf", "index"}:
@@ -112,7 +123,7 @@ class TopDownAnomalyAgent:
 
         macro_sig     = _dominant_macro(cockpit)
         sentiment_sig = _dominant_sentiment(cockpit)
-        yield_sig     = cockpit.yield_curve.yield_spreads.usa.signal
+        yield_sig     = yield_pt.signal
         commodity_sig = _dominant_commodity(cockpit)
 
         area_signals = {

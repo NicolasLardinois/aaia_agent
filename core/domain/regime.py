@@ -15,14 +15,19 @@ _TREND_STRONG = 0.12   # Schwelle für einen deutlichen Trend
 
 
 def _score_indicator(key: str, value: float) -> float:
+    _yc = lambda v: 1.0 if v > 1 else (0.5 if v > 0 else -1.0)
     rules = {
         "gdp_growth":            lambda v: 1.0 if v > 3 else (0.5 if v > 1 else (-0.5 if v > 0 else -1.0)),
         "inflation":             lambda v: 0.5 if 1 < v < 3 else (-1.0 if v > 6 else (-0.5 if v > 4 else (-0.25 if v >= 3 else 0.0))),
         "unemployment":          lambda v: 1.0 if v < 4 else (0.5 if v < 5 else (-0.5 if v < 7 else -1.0)),
         "fed_rate":              lambda v: 0.5 if v < 2 else (0.0 if v < 4 else (-0.5 if v < 6 else -1.0)),
-        "yield_curve":           lambda v: 1.0 if v > 1 else (0.5 if v > 0 else -1.0),
+        "yield_curve":           _yc,
         "consumer_sentiment":    lambda v: 1.0 if v > 90 else (0.5 if v > 70 else (-0.5 if v > 50 else -1.0)),
         "industrial_production": lambda v: 1.0 if v > 3 else (0.5 if v > 0 else (-0.5 if v > -2 else -1.0)),
+        "yield_curve_3m_usa":    _yc,
+        "yield_curve_10y2y_eu":  _yc,
+        "yield_curve_10y3m_eu":  _yc,
+        "yield_curve_10y3m_ch":  _yc,
     }
     return rules.get(key, lambda v: 0.0)(value)
 
@@ -31,10 +36,14 @@ INDICATOR_WEIGHTS = {
     "gdp_growth":            0.25,
     "unemployment":          0.20,
     "inflation":             0.15,
-    "yield_curve":           0.15,
+    "yield_curve":           0.12,  # USA 10y-2y
     "consumer_sentiment":    0.10,
     "industrial_production": 0.10,
     "fed_rate":              0.05,
+    "yield_curve_3m_usa":    0.08,
+    "yield_curve_10y2y_eu":  0.05,
+    "yield_curve_10y3m_eu":  0.04,
+    "yield_curve_10y3m_ch":  0.03,
 }
 
 

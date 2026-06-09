@@ -80,6 +80,67 @@ def test_high_severity_both_types():
     assert report.severity == "high"
 
 
+def _make_cockpit_ch(yield_signal=Signal.BEARISH, spread_10y3m=-0.20):
+    cockpit = MagicMock()
+    cockpit.sentiment.vix.vix = 18.0
+    cockpit.sentiment.vix.signal = Signal.NEUTRAL
+    cockpit.sentiment.fear_greed.value = 50.0
+    cockpit.sentiment.fear_greed.signal = Signal.NEUTRAL
+    cockpit.sentiment.put_call.signal = Signal.NEUTRAL
+    cockpit.yield_curve.yield_spreads.switzerland.spread_10y2y = None
+    cockpit.yield_curve.yield_spreads.switzerland.spread_10y3m = spread_10y3m
+    cockpit.yield_curve.yield_spreads.switzerland.signal = yield_signal
+    cockpit.yield_curve.yield_spreads.usa.spread_10y2y = 1.5
+    cockpit.yield_curve.yield_spreads.usa.signal = Signal.BULLISH
+    cockpit.macro.regime_confidence = 0.75
+    cockpit.macro.inflation.usa.cpi = 3.2
+    cockpit.macro.inflation.usa.signal = Signal.NEUTRAL
+    cockpit.macro.gdp.usa.signal = Signal.NEUTRAL
+    cockpit.commodities.energy.signal = Signal.NEUTRAL
+    cockpit.commodities.industrial_metals.signal = Signal.NEUTRAL
+    cockpit.sectors.rotation.signal = Signal.NEUTRAL
+    cockpit.macro.buffett_indicator.countries = {}
+    return cockpit
+
+
+def test_anomaly_agent_ch_uses_switzerland_yield_signal():
+    """market='CH': Widerspruch prüft Schweizer Zinskurve, nicht USA."""
+    agent = TopDownAnomalyAgent()
+    cockpit = _make_cockpit_ch(yield_signal=Signal.BEARISH)
+    cockpit.macro.inflation.usa.signal = Signal.BULLISH
+    cockpit.macro.gdp.usa.signal = Signal.BULLISH
+    report = agent.run(cockpit, [], market="CH")
+    # Macro=BULLISH vs YieldCurve=BEARISH → Widerspruch
+    assert any("YieldCurve" in c for c in report.contradictions)
+
+
+def test_anomaly_agent_ch_ignores_usa_yield_signal():
+    """market='CH' + USA Yield BULLISH + CH Yield BEARISH: USA soll nicht als YieldSig verwendet werden."""
+    agent = TopDownAnomalyAgent()
+    cockpit = MagicMock()
+    cockpit.sentiment.vix.vix = 18.0
+    cockpit.sentiment.vix.signal = Signal.NEUTRAL
+    cockpit.sentiment.fear_greed.value = 50.0
+    cockpit.sentiment.fear_greed.signal = Signal.NEUTRAL
+    cockpit.sentiment.put_call.signal = Signal.NEUTRAL
+    cockpit.yield_curve.yield_spreads.switzerland.spread_10y2y = None
+    cockpit.yield_curve.yield_spreads.switzerland.spread_10y3m = -0.30
+    cockpit.yield_curve.yield_spreads.switzerland.signal = Signal.BEARISH
+    cockpit.yield_curve.yield_spreads.usa.signal = Signal.BULLISH
+    cockpit.macro.regime_confidence = 0.75
+    cockpit.macro.inflation.usa.cpi = 3.2
+    cockpit.macro.inflation.usa.signal = Signal.BEARISH
+    cockpit.macro.gdp.usa.signal = Signal.BEARISH
+    cockpit.commodities.energy.signal = Signal.NEUTRAL
+    cockpit.commodities.industrial_metals.signal = Signal.NEUTRAL
+    cockpit.sectors.rotation.signal = Signal.NEUTRAL
+    cockpit.macro.buffett_indicator.countries = {}
+    # Macro=BEARISH, CH Yield=BEARISH → kein Widerspruch erwartet
+    report = agent.run(cockpit, [], market="CH")
+    yield_contradictions = [c for c in report.contradictions if "YieldCurve" in c]
+    assert len(yield_contradictions) == 0
+
+
 def _make_bottom_up(pe=22.0, short_float=3.0, insider_tx=2,
                     fund_signal=Signal.BULLISH, val_signal=Signal.BULLISH,
                     earn_signal=Signal.BULLISH, quality_signal=Signal.BULLISH,

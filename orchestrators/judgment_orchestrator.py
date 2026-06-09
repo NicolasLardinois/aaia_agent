@@ -45,7 +45,7 @@ class JudgmentOrchestrator:
         global_history = self.memory.load_global_history(days=90)
 
         td_anomaly, bu_anomaly = self.anomaly_chief.run(
-            cockpit, bottom_up, ticker_history, global_history
+            cockpit, bottom_up, ticker_history, global_history, market=market
         )
         backtester_context = self.backtester_chief.load_context()
 

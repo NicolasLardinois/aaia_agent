@@ -16,6 +16,11 @@ class MacroDataProvider(ABC):
     def get_buffett_history(self, years: int = 10) -> list[float]: ...
     """Gibt quartalsweise Buffett-Quoten (%) der letzten N Jahre zurück, älteste zuerst."""
 
+    @abstractmethod
+    def get_yield_spreads(self) -> dict[str, float | None]:
+        """USA 10y-2y und 10y-3m Treasury Spreads. Keys: '10y2y', '10y3m'."""
+        ...
+
 
 class EcbDataProvider(ABC):
     @abstractmethod
@@ -53,6 +58,11 @@ class EcbDataProvider(ABC):
         """Returns yields for DE, IT, FR, ES 10Y bonds."""
         ...
 
+    @abstractmethod
+    def get_yield_spreads(self) -> dict[str, float | None]:
+        """Eurozone AAA 10y-2y und 10y-3m Spreads. Keys: '10y2y', '10y3m'."""
+        ...
+
 
 class SnbDataProvider(ABC):
     @abstractmethod
@@ -84,6 +94,11 @@ class SnbDataProvider(ABC):
 
     @abstractmethod
     def get_sovereign_yield_2y(self) -> Optional[float]: ...
+
+    @abstractmethod
+    def get_yield_spreads(self) -> dict[str, float | None]:
+        """CH 10y-3m Spread (kein 2y verfügbar). Key: '10y3m'."""
+        ...
 
 
 class MarketDataProvider(ABC):

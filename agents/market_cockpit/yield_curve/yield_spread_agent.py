@@ -36,30 +36,29 @@ class YieldSpreadAgent:
         self.bus   = bus
 
     async def run(self) -> YieldSpreadSnapshot:
-        state, ext, snb_10y, snb_2y = await asyncio.gather(
+        state, ext, ecb_spreads, snb_spreads = await asyncio.gather(
             asyncio.to_thread(self.macro.get_economic_state),
             asyncio.to_thread(self.macro.get_extended_state),
-            asyncio.to_thread(self.snb.get_sovereign_yield_10y),
-            asyncio.to_thread(self.snb.get_sovereign_yield_2y),
+            asyncio.to_thread(self.ecb.get_yield_spreads),
+            asyncio.to_thread(self.snb.get_yield_spreads),
             return_exceptions=True,
         )
         def _safe(v): return None if isinstance(v, Exception) else v
-        state  = _safe(state)  or {}
-        ext    = _safe(ext)    or {}
-        snb_10y = _safe(snb_10y)
-        snb_2y  = _safe(snb_2y)
+        state       = _safe(state)       or {}
+        ext         = _safe(ext)         or {}
+        ecb_spreads = _safe(ecb_spreads) or {}
+        snb_spreads = _safe(snb_spreads) or {}
 
-        # USA
-        usa_10y2y = state.get("yield_curve")      # T10Y2Y
-        usa_10y3m = ext.get("yield_curve_3m10y")  # T10Y3M
+        # USA — T10Y2Y from economic_state, T10Y3M from extended_state
+        usa_10y2y = state.get("yield_curve")
+        usa_10y3m = ext.get("yield_curve_3m10y")
         usa = _point(usa_10y2y, usa_10y3m, None)
 
-        # EU — TODO: ECB Bund yields
-        eu = _point(None, None, None)
+        # EU — ECB SDW: SR_10Y minus SR_2Y und SR_10Y minus SR_3M
+        eu = _point(ecb_spreads.get("10y2y"), ecb_spreads.get("10y3m"), None)
 
-        # CH
-        ch_spread = round(snb_10y - snb_2y, 3) if snb_10y is not None and snb_2y is not None else None
-        ch = _point(ch_spread, None, None)
+        # CH — FRED OECD: 10y minus 3M SARON (kein 2J CH-Bond frei verfügbar)
+        ch = _point(None, snb_spreads.get("10y3m"), None)
 
         result = YieldSpreadSnapshot(usa=usa, eurozone=eu, switzerland=ch)
         self.bus.publish(YieldSpreadDataReady(source="yield_spread_agent", payload={

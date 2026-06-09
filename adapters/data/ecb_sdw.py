@@ -1,9 +1,12 @@
 """
 ECB Statistical Data Warehouse (SDW) adapter.
 Fetcht Euro-Area AAA Yield Curve Daten für Spread-Berechnungen.
+Alle anderen EcbDataProvider-Methoden bleiben gestubbt bis Eurostat/ECB-SDW vollständig angebunden ist.
 """
 import requests
 from typing import Optional
+
+from core.ports.data_provider import EcbDataProvider
 
 _BASE = (
     "https://data-api.ecb.europa.eu/service/data/YC/"
@@ -12,30 +15,18 @@ _BASE = (
 )
 
 
-class EcbSdwProvider:
-    """Fetcht Euro-Area AAA Yield Curve Daten vom ECB Statistical Data Warehouse."""
+class EcbSdwProvider(EcbDataProvider):
+    """ECB SDW: nur Yield-Spreads implementiert; alle anderen Methoden → None."""
 
     def get_yield_spreads(self) -> dict[str, float | None]:
-        """
-        Berechnet Zinskurven-Spreads für die Eurozone.
-
-        Returns:
-            {
-                "10y2y": float | None,  # 10J minus 2J Spread
-                "10y3m": float | None,  # 10J minus 3M Spread
-            }
-        """
         y10 = self._fetch_yield("SR_10Y")
-        y2 = self._fetch_yield("SR_2Y")
+        y2  = self._fetch_yield("SR_2Y")
         y3m = self._fetch_yield("SR_3M")
-
-        spread_10y2y = round(y10 - y2, 3) if y10 is not None and y2 is not None else None
+        spread_10y2y = round(y10 - y2,  3) if y10 is not None and y2  is not None else None
         spread_10y3m = round(y10 - y3m, 3) if y10 is not None and y3m is not None else None
-
         return {"10y2y": spread_10y2y, "10y3m": spread_10y3m}
 
     def _fetch_yield(self, maturity: str) -> Optional[float]:
-        """Fetcht einen einzelnen Yield-Wert vom ECB SDW. Bei Fehler → None."""
         url = _BASE.format(mat=maturity)
         try:
             response = requests.get(url, timeout=10)
@@ -48,3 +39,17 @@ class EcbSdwProvider:
             return float(observations[last_key][0])
         except Exception:
             return None
+
+    # ── Stubs ────────────────────────────────────────────────────────────────
+    def get_interest_rate(self) -> Optional[float]:         return None
+    def get_m3_growth(self) -> Optional[float]:             return None
+    def get_balance_sheet_growth(self) -> Optional[float]:  return None
+    def get_cpi(self) -> Optional[float]:                   return None
+    def get_core_cpi(self) -> Optional[float]:              return None
+    def get_ppi(self) -> Optional[float]:                   return None
+    def get_gdp_growth(self) -> Optional[float]:            return None
+    def get_unemployment(self) -> Optional[float]:          return None
+    def get_pmi(self) -> Optional[float]:                   return None
+    def get_m2_growth(self) -> Optional[float]:             return None
+    def get_sovereign_yields(self) -> dict[str, Optional[float]]:
+        return {"DE_10y": None, "IT_10y": None, "FR_10y": None, "ES_10y": None}

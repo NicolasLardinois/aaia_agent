@@ -23,6 +23,8 @@ class MacroChiefAgent:
         bus: EventBus,
     ):
         self._macro    = macro
+        self._ecb      = ecb
+        self._snb      = snb
         self._detector = RegimeDetector()
         self.bus       = bus
 
@@ -44,6 +46,9 @@ class MacroChiefAgent:
             self.credit_agent.run(),
             self.buffett_indicator_agent.run(),
             asyncio.to_thread(self._macro.get_economic_state),
+            asyncio.to_thread(self._macro.get_yield_spreads),
+            asyncio.to_thread(self._ecb.get_yield_spreads),
+            asyncio.to_thread(self._snb.get_yield_spreads),
             return_exceptions=True,
         )
 
@@ -57,6 +62,18 @@ class MacroChiefAgent:
         credit             = _safe(results[5], CreditAgent.default())
         buffett_indicator  = _safe(results[6], BuffettIndicatorAgent.default())
         state              = _safe(results[7], {})
+        usa_spreads        = _safe(results[8], {}) or {}
+        eu_spreads         = _safe(results[9], {}) or {}
+        ch_spreads         = _safe(results[10], {}) or {}
+
+        def _add(key, val):
+            if isinstance(val, (int, float)):
+                state[key] = val
+
+        _add("yield_curve_3m_usa",   usa_spreads.get("10y3m"))
+        _add("yield_curve_10y2y_eu", eu_spreads.get("10y2y"))
+        _add("yield_curve_10y3m_eu", eu_spreads.get("10y3m"))
+        _add("yield_curve_10y3m_ch", ch_spreads.get("10y3m"))
 
         regime, confidence, _ = self._detector.detect(state)
 
