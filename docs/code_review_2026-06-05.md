@@ -137,7 +137,7 @@ return message.content[0].text
 ```
 Raises `IndexError` wenn das Modell keine Content-Blöcke zurückgibt (z.B. am Token-Limit gestoppt bevor ein einziges Token generiert wurde).
 
-**✅ Gelöst (2026-06-08):** Vor dem Zugriff auf `content[0]` wird geprüft ob die Liste leer ist. Wenn ja, wird ein leerer String zurückgegeben — der aufrufende Agent fällt dann auf seinen Default-Wert zurück, statt abzustürzen.
+**✅ Gelöst (2026-06-09):** Retry-Mechanismus eingebaut (`MAX_RETRIES = 2`). Bei leerer Antwort oder API-Fehler wartet der Adapter 1 Sekunde und versucht es erneut — bis zu 3 Mal total. Erst wenn alle Versuche fehlschlagen wird ein leerer String zurückgegeben. Damit werden kurze Aussetzer der API automatisch überbrückt, ohne dass der Nutzer etwas davon merkt.
 
 ### 17b. `adapters/llm/claude_adapter.py:7` — Token-Limit zu niedrig für vollständige Analysen (neu entdeckt)
 `DEFAULT_TOKENS = 1024` (ca. 750 Wörter) ist zu knapp für den JudgmentOrchestrator und MoatAgent, die lange Prompts mit dem gesamten Analyse-Kontext schicken und eine ausführliche Begründung zurückerwarten. Analysen werden mittendrin abgeschnitten. Wir bezahlen nur für tatsächlich generierte Tokens — ein höheres Limit kostet also nichts extra wenn Claude weniger braucht.
