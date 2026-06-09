@@ -403,6 +403,27 @@ class BuffettIndicatorSnapshot:
 
 ---
 
+#### Yield Spread Provider — USA / Eurozone / Schweiz ✅ (drei unabhängige Adapter)
+
+**Hintergrund:** ECB- und SNB-Daten waren komplett gestubbt (`None`). Ausserdem war `T10Y3M` in `EXTENDED_SERIES` versteckt statt als dedizierter Yield-Spread-Endpunkt verfügbar. Gelöst mit drei separaten Providern, die alle `get_yield_spreads()` als einzigen Einstiegspunkt haben.
+
+**Provider:**
+- `FredDataProvider.get_yield_spreads()` (`adapters/data/fred_api.py`) — USA: `T10Y2Y` (10y-2y) + `T10Y3M` (10y-3m) via FRED; je unabhängig try/except; gibt `{"10y2y": float|None, "10y3m": float|None}`
+- `EcbSdwProvider.get_yield_spreads()` (`adapters/data/ecb_sdw.py`, **neu**) — Eurozone AAA: ECB Statistical Data Warehouse REST API (`/YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_{MAT}`); SR_10Y, SR_2Y, SR_3M; kein API-Key; gibt `{"10y2y": float|None, "10y3m": float|None}`
+- `FredSnbProvider.get_yield_spreads()` (`adapters/data/fred_snb.py`, **neu**) — Schweiz: FRED OECD-Serien `IRLTLT01CHM156N` (10y Staatsanleihe) + `IR3TIB01CHM156N` (3m SARON/Interbank als 2y-Proxy); gibt `{"10y3m": float|None}` (kein `10y2y` — 2J CH-Bond nicht frei verfügbar)
+
+**Tests:** `tests/adapters/test_usa_yield_spreads.py` (3), `tests/adapters/test_ecb_yield_spreads.py` (3), `tests/adapters/test_ch_yield_spreads.py` (3) — alle 9 grün, Gesamtsuite 110 Tests grün.
+
+**Ausstehende Integration** (nächste Schritte):
+- Abstrakten `get_yield_spreads()` in `MacroDataProvider`, `EcbDataProvider`, `SnbDataProvider` in `core/ports/data_provider.py` ergänzen
+- `EcbStubProvider` und `SnbStubProvider` in `ecb_snb_stub.py` mit Stub-Methode (`return {"10y2y": None, "10y3m": None}`) ergänzen
+- `MacroChiefAgent` — alle drei Provider aufrufen, kombiniertes Dict an `RegimeDetector` weitergeben
+- `core/domain/regime.py` — 4 neue Gewichte: `yield_curve_3m_usa` 0.08, `yield_curve_10y2y_eu` 0.05, `yield_curve_10y3m_eu` 0.04, `yield_curve_10y3m_ch` 0.03; `yield_curve` (USA 10y-2y) auf 0.12 umbenennen
+- `yield_spread_agent.py` — EU/CH-Sektionen mit echten Provider-Daten befüllen
+- `top_down_anomaly_agent.py` — `market`-Parameter hinzufügen, marktspezifisches Routing
+
+---
+
 ## Offene Ausbau-Ideen (aus Diskussion entstanden)
 
 ### A. Regime-Backtester: Selbstlernende Validierung
