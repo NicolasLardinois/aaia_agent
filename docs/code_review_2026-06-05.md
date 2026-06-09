@@ -414,13 +414,16 @@ class BuffettIndicatorSnapshot:
 
 **Tests:** `tests/adapters/test_usa_yield_spreads.py` (3), `tests/adapters/test_ecb_yield_spreads.py` (3), `tests/adapters/test_ch_yield_spreads.py` (3) — alle 9 grün, Gesamtsuite 110 Tests grün.
 
-**Ausstehende Integration** (nächste Schritte):
-- Abstrakten `get_yield_spreads()` in `MacroDataProvider`, `EcbDataProvider`, `SnbDataProvider` in `core/ports/data_provider.py` ergänzen
-- `EcbStubProvider` und `SnbStubProvider` in `ecb_snb_stub.py` mit Stub-Methode (`return {"10y2y": None, "10y3m": None}`) ergänzen
-- `MacroChiefAgent` — alle drei Provider aufrufen, kombiniertes Dict an `RegimeDetector` weitergeben
-- `core/domain/regime.py` — 4 neue Gewichte: `yield_curve_3m_usa` 0.08, `yield_curve_10y2y_eu` 0.05, `yield_curve_10y3m_eu` 0.04, `yield_curve_10y3m_ch` 0.03; `yield_curve` (USA 10y-2y) auf 0.12 umbenennen
-- `yield_spread_agent.py` — EU/CH-Sektionen mit echten Provider-Daten befüllen
-- `top_down_anomaly_agent.py` — `market`-Parameter hinzufügen, marktspezifisches Routing
+**Integration abgeschlossen** (commit `2c51068`):
+- `core/ports/data_provider.py`: abstraktes `get_yield_spreads()` in allen 3 Ports
+- `EcbSdwProvider` / `FredSnbProvider`: erben vollständig von ihren Ports (alle anderen Methoden → None)
+- `EcbStubProvider` / `SnbStubProvider`: Stub-Implementierungen
+- `MacroChiefAgent`: sammelt Yield-Spreads von allen 3 Providern, validiert numerisch, mergt in State-Dict
+- `core/domain/regime.py`: `yield_curve` 0.12 + 4 neue Gewichte (EU/CH Spreads)
+- `yield_spread_agent.py`: EU via `ecb.get_yield_spreads()`, CH via `snb.get_yield_spreads()`
+- `top_down_anomaly_agent.py`: `market`-Parameter + `_yield_region()` für marktspezifisches Signal
+- `app/main.py`: `EcbSdwProvider` + `FredSnbProvider(FRED_API_KEY)` statt Stubs
+- 112 Tests grün
 
 ---
 
