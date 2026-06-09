@@ -84,6 +84,21 @@ class FredDataProvider(MacroDataProvider):
         except Exception:
             return []
 
+    def get_yield_spreads(self) -> dict:
+        """10Y-2Y und 10Y-3M Treasury Spreads für den USA-Markt."""
+        result = {"10y2y": None, "10y3m": None}
+        try:
+            s = self.fred.get_series("T10Y2Y", observation_start="2018-01-01")
+            result["10y2y"] = round(float(s.dropna().iloc[-1]), 3)
+        except Exception:
+            pass
+        try:
+            s = self.fred.get_series("T10Y3M", observation_start="2018-01-01")
+            result["10y3m"] = round(float(s.dropna().iloc[-1]), 3)
+        except Exception:
+            pass
+        return result
+
     def get_raw_series(self) -> dict:
         raw = {}
         for key, (fred_id, _) in SERIES.items():
