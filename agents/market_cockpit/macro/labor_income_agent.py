@@ -25,7 +25,10 @@ class LaborIncomeAgent:
         self.bus = bus
 
     async def run(self) -> LaborIncomeSnapshot:
-        data = await asyncio.to_thread(self.provider.get_extended_state)
+        try:
+            data = await asyncio.to_thread(self.provider.get_extended_state)
+        except Exception:
+            return _DEFAULT
 
         usa = LaborIncomeDataPoint(
             nominal_wage_growth=data.get("nominal_wage_growth"),

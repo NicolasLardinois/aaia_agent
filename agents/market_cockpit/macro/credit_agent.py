@@ -25,7 +25,10 @@ class CreditAgent:
         self.bus = bus
 
     async def run(self) -> CreditSnapshot:
-        data = await asyncio.to_thread(self.provider.get_extended_state)
+        try:
+            data = await asyncio.to_thread(self.provider.get_extended_state)
+        except Exception:
+            return _DEFAULT
 
         usa = CreditDataPoint(
             credit_growth=data.get("credit_growth"),
