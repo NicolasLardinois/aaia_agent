@@ -150,7 +150,9 @@ notes.append(f"Zinskurve invertiert ({usa_yield.spread_10y2y:+.2f})")
 ```
 `spread_10y2y` ist `Optional[float]`. Die Guard prüft nur `inverted`, nicht ob der Wert `None` ist. Wenn aus dem Cache geladen ohne dieses Feld, crasht es.
 
-**✅ Gelöst (2026-06-09):** Vor der Formatierung wird `spread_10y2y` explizit auf `None` geprüft. Wenn der Wert vorhanden ist, wird er als `+.2f` formatiert; fehlt er, steht "n/a" im Text. Die Guard läuft jetzt: `spread_str = f"{...}" if ... is not None else "n/a"`. Zwei Tests in `tests/test_top_down_context.py` bestätigen: kein Crash bei `None`, korrekter Wert bei `-0.45`.
+**✅ Gelöst (2026-06-09):** Zwei Korrekturen in einem Commit:
+1. **None-Guard:** Vor der Formatierung wird `spread_10y2y` explizit auf `None` geprüft — fehlt der Wert, steht "n/a" im Text statt eines `TypeError`.
+2. **Market-Routing:** Die Zinskurve wird jetzt marktspezifisch gewählt. Neue Hilfsfunktion `_yield_region(market)` mappt `"USA"` → `.usa`, `"CH"/"CHE"` → `.switzerland`, alles andere → `.eurozone`. Damit zeigt eine CH-Analyse die Schweizer Zinskurve, eine IT-Analyse die Eurozone-Kurve. Fünf Tests in `tests/test_top_down_context.py` decken: kein Crash bei `None`-Spread, korrekter Wert, CH-Routing, EU-Routing, kein falscher Alarm bei CH-Analyse mit US-Inversion.
 
 ### 19. `adapters/event_bus/redis_bus.py:15–17` — Exception in einem Handler stoppt alle nachfolgenden Handler
 ```python

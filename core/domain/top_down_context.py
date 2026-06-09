@@ -124,6 +124,15 @@ def _buffett_notes(countries: dict, market: str, asset_class: str) -> list[str]:
     return []
 
 
+def _yield_region(market: str) -> str:
+    m = market.upper()
+    if m == "USA":
+        return "usa"
+    if m in ("CH", "CHE"):
+        return "switzerland"
+    return "eurozone"
+
+
 def derive_top_down_context(
     cockpit: CockpitResult,
     sector: str = "default",
@@ -136,9 +145,9 @@ def derive_top_down_context(
 
     notes: list[str] = []
 
-    usa_yield = cockpit.yield_curve.yield_spreads.usa
-    if usa_yield.inverted:
-        spread_str = f"{usa_yield.spread_10y2y:+.2f}" if usa_yield.spread_10y2y is not None else "n/a"
+    yield_pt = getattr(cockpit.yield_curve.yield_spreads, _yield_region(market))
+    if yield_pt.inverted:
+        spread_str = f"{yield_pt.spread_10y2y:+.2f}" if yield_pt.spread_10y2y is not None else "n/a"
         notes.append(f"Zinskurve invertiert ({spread_str}) — Rezessionsrisiko erhöht")
 
     vix_value = cockpit.sentiment.vix.vix
