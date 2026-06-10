@@ -1,4 +1,5 @@
 import asyncio
+import statistics
 
 from core.domain.events import ValuationRangeReady
 from core.domain.models import ValuationRangeSnapshot, ValuationMethod, Signal
@@ -17,6 +18,13 @@ _SECTOR_MULTIPLES: dict[str, dict] = {
     "Financials":  {"pe": (10, 16), "ev_ebitda": (8, 14)},
     "default":     {"pe": (15, 25), "ev_ebitda": (10, 18)},
 }
+
+
+def _combine_methods(methods: list[ValuationMethod]) -> tuple[float, float]:
+    """Median der lows/highs — vermeidet künstlich breites Band durch min/max."""
+    lows  = sorted(m.low  for m in methods)
+    highs = sorted(m.high for m in methods)
+    return statistics.median(lows), statistics.median(highs)
 
 
 def _position(price: float, low: float, high: float) -> tuple[str, Signal]:
@@ -63,16 +71,16 @@ class ValuationRangeAgent:
         growth = data.get("revenue_cagr_3y", 5) / 100 if data.get("revenue_cagr_3y") else 0.05
         if fcf_per_share is not None and wacc:
             terminal_growth = 0.025
-            dcf_low  = fcf_per_share * (1 + growth * 0.7) / (wacc - terminal_growth)
-            dcf_high = fcf_per_share * (1 + growth * 1.3) / (wacc - terminal_growth)
-            methods.append(ValuationMethod(name="DCF", low=round(dcf_low, 2), high=round(dcf_high, 2)))
+            if abs(wacc - terminal_growth) >= 0.001:
+                dcf_low  = fcf_per_share * (1 + growth * 0.7) / (wacc - terminal_growth)
+                dcf_high = fcf_per_share * (1 + growth * 1.3) / (wacc - terminal_growth)
+                methods.append(ValuationMethod(name="DCF", low=round(dcf_low, 2), high=round(dcf_high, 2)))
 
         if not methods:
             self.bus.publish(ValuationRangeReady(source="valuation_range_agent", payload={"ticker": ticker}))
             return _DEFAULT
 
-        combined_low  = min(m.low  for m in methods)
-        combined_high = max(m.high for m in methods)
+        combined_low, combined_high = _combine_methods(methods)
         position, signal = _position(current_price or 0, combined_low, combined_high)
 
         result = ValuationRangeSnapshot(
