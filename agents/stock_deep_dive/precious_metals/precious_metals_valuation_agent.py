@@ -1,6 +1,6 @@
 import asyncio
 
-from core.domain.events import ValuationRangeReady
+from core.domain.events import PreciousMetalsValuationReady
 from core.domain.models import ValuationRangeSnapshot, ValuationMethod, Signal
 from core.ports.data_provider import MacroDataProvider, MarketDataProvider
 from core.ports.event_bus import EventBus
@@ -51,10 +51,12 @@ class PreciousMetalsValuationAgent:
             # Inverse Beziehung: je tiefer Realzins, desto höher Gold-Fairer-Wert
             base = current_price or 2000
             adjustment = (0 - real_rate) * 150   # grobe Daumenregel
+            adj_low  = base + adjustment * (0.7 if adjustment >= 0 else 1.3)
+            adj_high = base + adjustment * (1.3 if adjustment >= 0 else 0.7)
             methods.append(ValuationMethod(
                 name="Realzins-Modell",
-                low=round(base + adjustment * 0.7, 0),
-                high=round(base + adjustment * 1.3, 0),
+                low=round(min(adj_low, adj_high), 0),
+                high=round(max(adj_low, adj_high), 0),
             ))
 
         # Methode 2: Inflationsbereinigt (Gold)
@@ -90,7 +92,7 @@ class PreciousMetalsValuationAgent:
             position=position,
             signal=signal,
         )
-        self.bus.publish(ValuationRangeReady(source="precious_metals_valuation_agent", payload={
+        self.bus.publish(PreciousMetalsValuationReady(source="precious_metals_valuation_agent", payload={
             "metal": metal, "position": position,
         }))
         return result

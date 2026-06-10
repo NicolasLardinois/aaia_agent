@@ -138,6 +138,9 @@ class ValuationRangeReady(AgentEvent): pass
 
 # --- Modus 2: Precious Metals ---
 @dataclass
+class PreciousMetalsValuationReady(AgentEvent): pass
+
+@dataclass
 class PreciousMetalDataReady(AgentEvent): pass
 
 @dataclass
