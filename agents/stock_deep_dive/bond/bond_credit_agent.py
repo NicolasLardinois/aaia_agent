@@ -26,7 +26,7 @@ JUNK_RATINGS = {"CCC+", "CCC", "CCC-", "CC", "C", "D",
 
 def _category(rating: str | None) -> str:
     if rating is None:
-        return "investment_grade"
+        return "unrated"
     if rating in IG_RATINGS:
         return "investment_grade"
     if rating in HY_RATINGS:
@@ -38,7 +38,7 @@ def _default_prob(rating: str | None) -> float | None:
     if rating is None:
         return None
     for prefix, rate in DEFAULT_RATES.items():
-        if rating.startswith(prefix[:2]):
+        if rating.startswith(prefix):
             return rate
     return None
 
