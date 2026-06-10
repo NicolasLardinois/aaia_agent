@@ -4,10 +4,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from adapters.event_bus.redis_bus import InMemoryEventBus
 from adapters.memory.supabase_memory import SupabaseMemory
-from agents.backtester.bottom_up_backtester_agent import BottomUpBacktesterAgent
-from agents.backtester.judgment_backtester_agent import JudgmentBacktesterAgent
-from agents.backtester.top_down_backtester_agent import TopDownBacktesterAgent
+from agents.backtester_chief_agent import BacktesterChiefAgent
 from agents.portfolio.portfolio_monitor_agent import PortfolioMonitorAgent
 
 
@@ -17,12 +16,13 @@ async def main() -> None:
     print("=" * 50)
 
     memory = SupabaseMemory()
+    bus    = InMemoryEventBus()
+
+    backtester = BacktesterChiefAgent(memory, bus)
 
     agents = [
-        ("TopDownBacktester",  TopDownBacktesterAgent(memory).run),
-        ("BottomUpBacktester", BottomUpBacktesterAgent(memory).run),
-        ("JudgmentBacktester", JudgmentBacktesterAgent(memory).run),
-        ("PortfolioMonitor",   PortfolioMonitorAgent(memory).run),
+        ("BacktesterChief", backtester.run),
+        ("PortfolioMonitor", PortfolioMonitorAgent(memory).run),
     ]
 
     for name, run_fn in agents:
