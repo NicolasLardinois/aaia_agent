@@ -11,6 +11,16 @@ _DEFAULT = ValuationRangeSnapshot(
     current_price=None, position="unknown", signal=Signal.NEUTRAL,
 )
 
+# Langfristige Wachstumsrate für DCF-Terminal-Value (nach Planungshorizont)
+# Kein Sektor wächst dauerhaft schneller als die Gesamtwirtschaft — Werte nahe BIP-Wachstum
+_TERMINAL_GROWTH: dict[str, float] = {
+    "Technology":  0.030,   # Innovationsprämie über BIP
+    "Healthcare":  0.030,   # Demografischer Rückenwind
+    "Financials":  0.025,
+    "Energy":      0.025,   # Energieverbrauch wächst mit Wirtschaft (unabhängig von Quelle)
+    "default":     0.025,
+}
+
 # Peer-Multiples als Fallback (werden später durch API-Daten ersetzt)
 _SECTOR_MULTIPLES: dict[str, dict] = {
     "Technology":  {"pe": (20, 35), "ev_ebitda": (15, 25)},
@@ -46,7 +56,8 @@ class ValuationRangeAgent:
         data = await asyncio.to_thread(self.fundamentals.get_fundamentals, ticker)
         current_price = await asyncio.to_thread(self.market.get_current_price, ticker)
 
-        multiples = _SECTOR_MULTIPLES.get(sector, _SECTOR_MULTIPLES["default"])
+        multiples       = _SECTOR_MULTIPLES.get(sector, _SECTOR_MULTIPLES["default"])
+        terminal_growth = _TERMINAL_GROWTH.get(sector, _TERMINAL_GROWTH["default"])
         methods: list[ValuationMethod] = []
 
         # KGV-Multiple
@@ -70,7 +81,6 @@ class ValuationRangeAgent:
         wacc = data.get("wacc", 0.09)
         growth = data.get("revenue_cagr_3y", 5) / 100 if data.get("revenue_cagr_3y") else 0.05
         if fcf_per_share is not None and wacc:
-            terminal_growth = 0.025
             if abs(wacc - terminal_growth) >= 0.001:
                 dcf_low  = fcf_per_share * (1 + growth * 0.7) / (wacc - terminal_growth)
                 dcf_high = fcf_per_share * (1 + growth * 1.3) / (wacc - terminal_growth)
