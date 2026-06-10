@@ -20,11 +20,14 @@ class AnomalyChiefAgent:
         market: str = "USA",
     ) -> tuple[AnomalyReport, AnomalyReport]:
         asset_class = getattr(bottom_up, "asset_class", "equity")
-        td_anomaly = (
-            self.td_anomaly_agent.run(cockpit, global_history, asset_class=asset_class, market=market)
-            if cockpit is not None
-            else AnomalyReport.empty()
-        )
+        try:
+            td_anomaly = (
+                self.td_anomaly_agent.run(cockpit, global_history, asset_class=asset_class, market=market)
+                if cockpit is not None
+                else AnomalyReport.empty()
+            )
+        except Exception:
+            td_anomaly = AnomalyReport.empty()
         try:
             bu_anomaly = self.bu_anomaly_agent.run(bottom_up, ticker_history)
         except Exception:
