@@ -1,0 +1,246 @@
+# Open TODOs
+
+Alle offenen Aufgaben aus Codebase, Code Review (2026-06-05) und Plan-Dateien.
+Stand: 2026-06-15 | Nach Erledigung: Zeile abhaken oder entfernen.
+
+---
+
+## GESAMTÜBERSICHT
+
+| Bereich | Offen |
+|---------|-------|
+| Offene Bugs (code_review_2026-06-05.md) | 12 |
+| Stub-APIs (ECB, SNB, etc.) | 20+ Methoden |
+| Agent-Stubs (komplette Implementierung fehlt) | 5 Agents |
+| Fehlende Einzelfeatures in bestehenden Agents | 15 |
+| Feature-Backlog (Pläne) | ~36 Tasks |
+| Test-Lücken | 6 |
+| Code-Qualität / toter Code | 3 |
+| Design-Entscheidungen (Frontend) | 10 |
+
+---
+
+## 1. OFFENE BUGS (aus code_review_2026-06-05.md)
+
+### Kritisch (Crash / Datenverlust)
+
+- [ ] **Bug #1** — `adapters/cache/result_cache.py:233`
+  `BottomUpResult` braucht 13 Felder; `load_bottom_up()` übergibt nur 11 — `index` und `commodity_deep` fehlen.
+  Raises `TypeError` jedes Mal wenn eine frische Bottom-Up-Cache-Datei existiert (normaler Happy Path).
+  **Lösung:** Die zwei fehlenden Felder analog zu den anderen 11 aus JSON lesen und übergeben.
+
+- [ ] **Bug #2** — `app/main.py:130`
+  `JudgmentOrchestrator(llm, bus)` — fehlt `memory` als drittes Argument.
+  Crasht sofort im `judge`-Modus. Das `memory`-Objekt ist weiter oben bereits instanziert.
+
+- [ ] **Bug #4** — `adapters/memory/supabase_memory.py:128-129`
+  Anomalie-Schweregrade sind hartcodiert auf `"none"` — die echten `AnomalyReport.severity`-Werte werden nie in die DB geschrieben.
+  Jede Datenbankzeile ist permanent korrumpiert.
+  **Lösung:** `result.top_down_anomaly.severity if result.top_down_anomaly else "none"` (analog bottom_up).
+
+- [ ] **Bug #5** — `adapters/memory/supabase_memory.py`
+  `psycopg2.connect()` wird in jeder Methode geöffnet, nie geschlossen → Connection Pool Leak.
+  **Lösung:** `_connect()` als `@contextmanager` mit `conn.close()` in `finally`-Block.
+
+### Medium Severity
+
+- [ ] **Bug #26** — `agents/market_cockpit/macro/shiller_cape_agent.py:29`
+  Kein unterer Schwellenwert für BULLISH — jeder CAPE-Wert unterhalb des Durchschnitts, egal wie weit, erzeugt BULLISH.
+  Ein Markt im Kollaps erzeugt dasselbe Signal wie einer, der leicht unterbewertet ist.
+
+- [ ] **Bug #30** — `agents/market_cockpit/macro_chief_agent.py:82`
+  `EXPANSION` als Default-Regime wenn alle Provider ausfallen.
+  Nachgelagerte Agenten generieren aktionabel wirkende "buy Tech" Empfehlungen ohne reale Datenbasis.
+  **Lösung:** Default auf `NEUTRAL` oder `UNKNOWN` setzen.
+
+- [ ] **Bug #34** — `agents/stock_deep_dive/bond/bond_metrics_agent.py:47`
+  `if ytm and inflation` schlägt für Zero-Coupon-Anleihen (`ytm=0.0`) fehl.
+  Real-Yield wird `None` statt `-inflation`, versteckt genuinen negativen Real-Yield.
+  **Lösung:** `if ytm is not None and inflation is not None`.
+
+- [ ] **Bug #36** — `agents/stock_deep_dive/commodity/supply_demand_agent.py:77`
+  `_signal()` ist definiert aber wird nie aufgerufen. `signal=Signal.NEUTRAL` ist hartcodiert.
+  Gesamte Signallogik ist toter Code.
+
+- [ ] **Bug #42** — `agents/stock_deep_dive/index/index_price_agent.py:61-62`
+  `close.index.searchsorted(f"{datetime.utcnow().year}-01-01")` wirft `TypeError` bei timezone-aware Index.
+  Ausserdem: wenn Jahresanfang nicht im 5-Jahres-Fenster liegt, wird YTD falsch berechnet.
+
+- [ ] **Bug #44** — `agents/stock_deep_dive/equity/fundamentals_agent.py`, `insider_agent.py`, `short_interest_agent.py`
+  Keine Exception-Guard auf Provider-Response (kein `if isinstance(data, Exception)`).
+  Inkonsistent mit `quality_agent.py` (hat den Guard). Exceptions propagieren unkontrolliert.
+
+- [ ] **Bug #46** — `adapters/memory/supabase_memory.py:44`
+  Breites `except AttributeError: pass` schluckt alle Fehler still.
+  Jede Umbenennung von `CockpitResult`-Unterfeldern führt zu einem leeren Snapshot ohne Fehlermeldung.
+
+- [ ] **Bug #47** — `agents/stock_deep_dive/equity_chief_agent.py`, `bond_chief_agent.py`, `commodity_chief_agent_mikro.py`
+  Chief Agents sammeln Sub-Agent-Ergebnisse, synthetisieren aber kein aggregiertes Gesamt-Signal.
+  Downstream-Consumer müssen die Aggregation selbst reimplementieren.
+  *(Teilweise durch ChiefAgents-Plan adressiert — `docs/superpowers/plans/2026-06-04-chief-agents.md`)*
+
+---
+
+## 2. STUB-APIS — DATENQUELLEN NICHT ANGEBUNDEN
+
+### adapters/data/ecb_snb_stub.py
+
+ECB (`EcbStubProvider`) — alle geben `None` zurück:
+- [ ] `get_interest_rate()` — Quelle: ECB SDW
+- [ ] `get_m3_growth()` — Quelle: ECB SDW
+- [ ] `get_balance_sheet_growth()` — Quelle: ECB SDW
+- [ ] `get_cpi()` — Quelle: Eurostat
+- [ ] `get_core_cpi()` — Quelle: Eurostat
+- [ ] `get_ppi()` — Quelle: Eurostat
+- [ ] `get_gdp_growth()` — Quelle: Eurostat
+- [ ] `get_unemployment()` — Quelle: Eurostat
+- [ ] `get_pmi()` — Quelle: S&P Global
+- [ ] `get_m2_growth()` — Quelle: ECB SDW
+- [ ] `get_sovereign_yields()` — Quelle: ECB SDW (DE, IT, FR, ES 10Y)
+
+SNB (`SnbStubProvider`) — alle geben `None` zurück:
+- [ ] `get_interest_rate()` — Quelle: data.snb.ch
+- [ ] `get_m3_growth()` — Quelle: data.snb.ch
+- [ ] `get_balance_sheet_growth()` — Quelle: data.snb.ch
+- [ ] `get_cpi()` — Quelle: BFS
+- [ ] `get_core_cpi()` — Quelle: BFS
+- [ ] `get_gdp_growth()` — Quelle: SECO
+- [ ] `get_unemployment()` — Quelle: SECO
+- [ ] `get_m2_growth()` — Quelle: data.snb.ch
+- [ ] `get_sovereign_yield_10y()` — Quelle: Yahoo Finance / SNB
+- [ ] `get_sovereign_yield_2y()` — Quelle: Yahoo Finance / SNB
+
+### adapters/event_bus/redis_bus.py (Zeile 36)
+- [ ] Redis-Implementierung für Produktion
+  Klasse ist auskommentiert, wirft `NotImplementedError`. Aktuell läuft alles über `InMemoryEventBus`.
+
+---
+
+## 3. AGENT-STUBS — KOMPLETTE IMPLEMENTIERUNGEN AUSSTEHEND
+
+- [ ] **`agents/stock_deep_dive/index/index_breadth_agent.py` (Zeile 14)**
+  Gibt nur Default-Werte zurück. Benötigt Preisdaten aller Index-Komponenten.
+  Quellen: FRED (SPSICOMP), StockCharts, Bloomberg Terminal.
+
+- [ ] **`agents/stock_deep_dive/commodity/cot_agent.py` (Zeile 11)**
+  CFTC Commitment of Traders Report. Format: CSV, wöchentlich.
+  Signallogik: KONTRÄR — Spekulanten liegen am Extrempunkt oft falsch.
+  Quelle: https://www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm
+
+- [ ] **`agents/stock_deep_dive/commodity/supply_demand_agent.py` (Zeile 61)**
+  EIA API (Öl/Gas), USDA (Agrar), LME (Metalle) nicht angebunden.
+
+- [ ] **`agents/market_cockpit/sentiment/fear_greed_agent.py` (Zeile 28)**
+  CNN Fear & Greed API nicht angebunden. Gibt immer `None` zurück.
+
+- [ ] **`agents/stock_deep_dive/equity/valuation_range_agent.py` (Zeile 55)**
+  Vollständige Implementierung wartet auf Finnhub/FMP Adapter.
+
+---
+
+## 4. FEHLENDE EINZELFEATURES IN BESTEHENDEN AGENTS
+
+### agents/market_cockpit/macro/inflation_agent.py
+
+- [ ] **CPI Trend-Analyse** (`_signal()`, Parameter `trend` — reserviert, Zeile 20)
+  `trend="rising"` soll Signal verschärfen, `trend="falling"` mildern.
+  Benötigt: neue Provider-Methode `get_cpi_history(months=6)`.
+
+- [ ] **USA Core CPI** (`InflationDataPoint.core_cpi` für USA ist `None`, Zeile 81)
+  Quelle: FRED `CPILFESL` via `extended_state`.
+
+- [ ] **USA PCE** (`InflationDataPoint.pce` für USA ist `None`, Zeile 82)
+  Quelle: FRED `PCEPI`. Wichtig: Fed-Ziel bezieht sich auf PCE, nicht CPI.
+
+- [ ] **Eurozone Real Rate 10Y** (`InflationDataPoint.real_rate_10y` für EU ist `None`)
+  Berechnung: EZB 10Y-Rendite minus EZB CPI.
+
+- [ ] **Schweiz PPI** (`InflationDataPoint.ppi` für CH ist `None`)
+  Quelle: SNB / BFS Erzeugerpreisindex.
+
+### agents/market_cockpit/macro/interest_rate_agent.py (Zeile 77)
+- [ ] **FRED WALCL** — Fed Balance Sheet Growth (`balance_sheet_growth=None`)
+
+### agents/market_cockpit/macro/gdp_agent.py (Zeilen 58, 70)
+- [ ] **ISM Manufacturing PMI** für USA (`pmi=None`) — Quelle: FRED / ISM
+- [ ] **procure.ch PMI** für Schweiz (`pmi=None`)
+
+### agents/market_cockpit/macro/credit_agent.py (Zeilen 38–39)
+- [ ] EU-Kreditwachstum via ECB API (aktuell immer NEUTRAL)
+- [ ] CH-Kreditwachstum via SNB API (aktuell immer NEUTRAL)
+
+### agents/market_cockpit/macro/labor_income_agent.py (Zeilen 38–39)
+- [ ] EU-Löhne via Eurostat / ECB API (aktuell immer NEUTRAL)
+- [ ] CH-Löhne via SNB API (aktuell immer NEUTRAL)
+
+### agents/stock_deep_dive/precious_metals/precious_metal_price_agent.py (Zeilen 44–54)
+- [ ] RSI und MA50/MA200 aus Preishistorie berechnen
+- [ ] Performance 1W/1M/3M/1Y/5Y aus Preishistorie
+- [ ] Korrelation mit Realzins (`real_yield_correlation=None`)
+- [ ] Signal aus Momentum ableiten (aktuell immer `Signal.NEUTRAL`)
+
+### agents/stock_deep_dive/index/sector_composition_agent.py (Zeilen 40, 57)
+- [ ] ETF-Holdings via echte APIs (iShares, SPDR) — aktuell hard-coded (~2025, braucht manuelle Updates)
+- [ ] `top_10_concentration` berechnen (aktuell `None`)
+
+### agents/stock_deep_dive/index/index_valuation_agent.py (Zeile 59)
+- [ ] Shiller CAPE (`shiller_cape=None`) — Quelle: Quandl / multpl.com
+
+### agents/stock_deep_dive/commodity/commodity_valuation_range_agent.py (Zeile 64)
+- [ ] Commodity-spezifische Kostenmodelle (`production_cost_low/high=None`)
+
+---
+
+## 5. FEATURE-BACKLOG (aus Plan-Dateien)
+
+### Agricultural Investment Signal
+- [ ] 4 Tasks — `docs/superpowers/plans/2026-06-15-agricultural-investment-signal.md`
+  Wenn agricultural BEARISH → Hinweis auf Rohstoff-ETFs (DBA, WEAT, CORN, SOYB).
+
+### Big Mac Index
+- [ ] 5 Tasks — `docs/superpowers/plans/2026-06-08-big-mac-index.md`
+  Adjustierter Big Mac Index für ~50 Länder (Economist GitHub CSV).
+
+### ChiefAgents-Refactoring
+- [ ] 12 Tasks — `docs/superpowers/plans/2026-06-04-chief-agents.md`
+  3-schichtige Architektur: Orchestratoren → ChiefAgents → SubAgents, parallel + fehlertolerant.
+
+### Confidence + Memory + Backtester + XAI + Portfolio
+- [ ] 11 Tasks — `docs/superpowers/plans/2026-06-04-confidence-memory-backtester-xai.md`
+  Anomalieerkennung, dynamische Konfidenz, Supabase-Memory, tägliche Backtester-Läufe.
+
+### Regime-Backtester: Selbstlernende Validierung (Ausbau-Idee aus code_review)
+- [ ] Composite-Score + erkanntes Regime mit Datum speichern.
+  Nach 3 Monaten prüfen ob das damalige Regime tatsächlich eingetreten ist.
+  Falls nicht: Gewichte in `INDICATOR_WEIGHTS` oder Schwellenwerte in `_regime_from` anpassen.
+  Echter Lernkreislauf: Vorhersage → Realität → Kalibrierung.
+
+---
+
+## 6. TEST-LÜCKEN
+
+- [ ] **RegimeDetector** — vollständig ungetestet (Scoring-Logik treibt jede Empfehlung an)
+- [ ] **MoatAgent** — `_overall()`-Schwellenwerte, Score-Clamping, JSON-Parsing ungetestet
+- [ ] **ValuationRangeAgent** — DCF, KGV-Multiple, EV/EBITDA-Formeln ungetestet
+- [ ] **FundamentalsAgent** — `_score()` mit 7 Indikatoren ungetestet
+- [ ] **Chief-Agent-Tests** — prüfen nur `isinstance(result, XxxResult)`, keine Logik oder Aggregation
+- [ ] **BacktesterChiefAgent** — `backtester_context`-Einfluss auf Confidence nie getestet
+
+---
+
+## 7. CODE-QUALITÄT / TOTER CODE
+
+- [ ] `core/utils/statistics.py` (Zeile 4) — `Z_THRESHOLD = 2.5` wird nirgends verwendet; entfernen oder einbinden
+- [ ] `tests/test_recommendation.py` (Zeile 6) — `_short_report()` definiert aber nie aufgerufen; entfernen
+- [ ] `docs/code_review_2026-06-05.md` — Bug-Fixes Tasks 1–18 als ✅ markieren (alle abgeschlossen, Datei spiegelt das nicht wider)
+
+---
+
+## 8. DESIGN-ENTSCHEIDUNGEN (Frontend — docs/frontend_notes.md)
+
+- [ ] Weltkarte vs. Tabelle für Buffett-Indikator-Widget
+- [ ] Drill-down: Einzelland-Zeitreihe (10 Jahre) im Buffett-Widget
+- [ ] Big Mac Index: Halbjährliche Daten-Refresh-Strategie (manuelle Pflege vs. API)
+- [ ] Mobile-first oder Desktop-first
+- [ ] Framework-Wahl: React / Vue / Svelte (noch nicht entschieden)
+- [ ] Echtzeit-Refresh: WebSocket oder Polling für Dashboard-Updates
