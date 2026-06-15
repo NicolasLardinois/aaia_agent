@@ -18,11 +18,10 @@ def _signal(value: float | None) -> Signal:
     if value is None:
         return Signal.NEUTRAL
     # Contrarian: Extreme Fear → Kaufgelegenheit, Extreme Greed → Vorsicht
-    if value <= 25:  return Signal.BULLISH
-    if value <= 45:  return Signal.BULLISH
-    if value >= 75:  return Signal.BEARISH
-    if value >= 55:  return Signal.BEARISH
-    return Signal.NEUTRAL
+    if value <= 25:  return Signal.BULLISH   # Extreme Fear → Contrarian Kauf
+    if value <= 45:  return Signal.BULLISH   # Fear → leicht bullish
+    if value >= 75:  return Signal.BEARISH   # Greed/Extreme Greed → Contrarian Vorsicht
+    return Signal.NEUTRAL                    # 46–74 → Neutral (konsistent mit _label)
 
 
 async def _fetch_fear_greed() -> float | None:
