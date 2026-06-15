@@ -8,20 +8,42 @@ _NEUTRAL = InflationDataPoint(cpi=None, core_cpi=None, pce=None, ppi=None, real_
 _DEFAULT = InflationSnapshot(usa=_NEUTRAL, eurozone=_NEUTRAL, switzerland=_NEUTRAL)
 
 
-def _signal(cpi: float | None, trend: str = "stable") -> Signal:
-    # trend: "rising" | "falling" | "stable" — für spätere Trendanalyse reserviert
-    # (benötigt historische CPI-Daten, noch nicht implementiert)
+_USA_EU = {"low": 1.0, "high": 3.0, "bearish": 4.0}
+_CH     = {"low": 0.5, "high": 2.0, "bearish": 3.0}
+
+
+def _signal(
+    cpi: float | None,
+    core_cpi: float | None = None,
+    ppi: float | None = None,
+    region: str = "usa",
+    trend: str = "stable",   # reserviert: "rising"|"falling"|"stable" (benötigt CPI-Historie)
+) -> Signal:
     if cpi is None:
         return Signal.NEUTRAL
+
+    thr = _CH if region == "ch" else _USA_EU
+
     if cpi < 0.0:
-        return Signal.BEARISH   # Deflation
-    if cpi < 1.0:
-        return Signal.NEUTRAL   # zu tief — Deflationsrisiko
-    if cpi <= 3.0:
-        return Signal.BULLISH   # Zielbereich
-    if cpi >= 4.0:
-        return Signal.BEARISH   # klar zu hoch
-    return Signal.NEUTRAL       # 3–4%: erhöht aber nicht kritisch
+        sig = Signal.BEARISH
+    elif cpi < thr["low"]:
+        sig = Signal.NEUTRAL
+    elif cpi <= thr["high"]:
+        sig = Signal.BULLISH
+    elif cpi >= thr["bearish"]:
+        sig = Signal.BEARISH
+    else:
+        sig = Signal.NEUTRAL   # erhöht aber nicht kritisch
+
+    # Core CPI: BEARISH abschwächen wenn Kerninflation im Zielbereich (transiente Inflation)
+    if sig == Signal.BEARISH and core_cpi is not None and core_cpi <= thr["high"]:
+        sig = Signal.NEUTRAL
+
+    # PPI: NEUTRAL verstärken wenn Erzeugerpreise Pipeline-Inflation anzeigen
+    if sig == Signal.NEUTRAL and ppi is not None and ppi >= thr["bearish"]:
+        sig = Signal.BEARISH
+
+    return sig
 
 
 class InflationAgent:
@@ -52,23 +74,25 @@ class InflationAgent:
         snb_cpi  = _safe(snb_cpi)
         snb_core = _safe(snb_core)
 
+        usa_cpi = state.get("inflation")
+        usa_ppi = ext.get("ppi")
         usa = InflationDataPoint(
-            cpi=state.get("inflation"),
+            cpi=usa_cpi,
             core_cpi=None,           # TODO: FRED CPILFESL via extended_state
             pce=None,                # TODO: FRED PCEPI via extended_state
-            ppi=ext.get("ppi"),
+            ppi=usa_ppi,
             real_rate_10y=ext.get("real_rate_10y"),
-            signal=_signal(state.get("inflation")),
+            signal=_signal(usa_cpi, ppi=usa_ppi, region="usa"),
         )
         eu = InflationDataPoint(
             cpi=ecb_cpi, core_cpi=ecb_core, pce=None,
             ppi=ecb_ppi, real_rate_10y=None,
-            signal=_signal(ecb_cpi),
+            signal=_signal(ecb_cpi, core_cpi=ecb_core, ppi=ecb_ppi, region="eu"),
         )
         ch = InflationDataPoint(
             cpi=snb_cpi, core_cpi=snb_core, pce=None,
             ppi=None, real_rate_10y=None,
-            signal=_signal(snb_cpi),
+            signal=_signal(snb_cpi, core_cpi=snb_core, region="ch"),
         )
         result = InflationSnapshot(usa=usa, eurozone=eu, switzerland=ch)
         self.bus.publish(InflationDataReady(source="inflation_agent", payload={
