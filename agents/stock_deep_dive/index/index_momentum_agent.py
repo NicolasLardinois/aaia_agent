@@ -6,6 +6,7 @@ from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 
 _WORLD_BENCHMARK = "URTH"   # iShares MSCI World ETF
+_CROSS_WINDOW    = 5        # Handelstage für Kreuzungspunkt-Erkennung
 
 _DEFAULT = IndexMomentumSnapshot(
     rsi_14=None, ma50=None, ma200=None,
@@ -25,12 +26,30 @@ def _compute_rsi(prices, period: int = 14) -> float | None:
         return None
 
 
+def _detect_crossover(ma50_series, ma200_series) -> bool | None:
+    """True = Golden Cross, False = Death Cross, None = kein Kreuzungspunkt in letzten 5 Tagen."""
+    try:
+        diff   = ma50_series - ma200_series
+        recent = diff.iloc[-(_CROSS_WINDOW + 1):]
+        if len(recent) < 2:
+            return None
+        was_above = recent.iloc[0] > 0
+        is_above  = recent.iloc[-1] > 0
+        if not was_above and is_above:
+            return True
+        if was_above and not is_above:
+            return False
+        return None
+    except Exception:
+        return None
+
+
 def _signal(golden_cross: bool | None, rsi: float | None) -> Signal:
     if golden_cross is None:
         return Signal.NEUTRAL
     if golden_cross and (rsi is None or rsi < 70):
         return Signal.BULLISH
-    if not golden_cross and (rsi is None or rsi > 30):
+    if not golden_cross and (rsi is None or rsi > 70):
         return Signal.BEARISH
     return Signal.NEUTRAL
 
@@ -50,11 +69,13 @@ class IndexMomentumAgent:
             if isinstance(hist, Exception):
                 return _DEFAULT
 
-            close = hist["Close"]
-            ma50  = round(float(close.rolling(50).mean().iloc[-1]), 2)
-            ma200 = round(float(close.rolling(200).mean().iloc[-1]), 2)
-            rsi   = _compute_rsi(close)
-            golden = bool(ma50 > ma200)
+            close    = hist["Close"]
+            ma50_s   = close.rolling(50).mean()
+            ma200_s  = close.rolling(200).mean()
+            ma50     = round(float(ma50_s.iloc[-1]), 2)
+            ma200    = round(float(ma200_s.iloc[-1]), 2)
+            rsi      = _compute_rsi(close)
+            golden   = _detect_crossover(ma50_s, ma200_s)
 
             rs = None
             if not isinstance(bench, Exception):
