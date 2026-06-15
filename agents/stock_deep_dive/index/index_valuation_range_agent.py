@@ -26,31 +26,31 @@ _PE_RANGES: dict[str, tuple[float, float, float]] = {
 }
 _DEFAULT_PE_RANGE = (15.0, 18.0, 25.0)
 
-def _method1_position(current: float, price_low: float, price_high: float) -> tuple[str, int]:
-    """Method 1: EPS × historische KGV-Bandbreite."""
-    if current < price_low * 0.95:
-        return "undervalued", 1
-    if current > price_high * 1.05:
-        return "overvalued", -1
-    return "fair", 0
+def _method1_score(current: float, price_low: float, price_mid: float, price_high: float) -> float:
+    """Kontinuierlicher Score [-1, +1]: +1 bei price_low, 0 bei price_mid, -1 bei price_high."""
+    if current <= price_mid:
+        raw = (price_mid - current) / (price_mid - price_low)
+    else:
+        raw = -(current - price_mid) / (price_high - price_mid)
+    return max(-1.0, min(1.0, raw))
 
 
-def _method2_signal(pe_trailing: float | None, pe_mid: float) -> int:
-    """Method 2: Aktuelles KGV vs. historischem Durchschnitt."""
+def _method2_score(pe_trailing: float | None, pe_mid: float) -> float:
+    """Kontinuierlicher Score [-1, +1]: 30% unter Durchschnitt → +1, 30% drüber → -1."""
     if pe_trailing is None:
-        return 0
-    if pe_trailing < pe_mid * 0.85:
-        return 1    # deutlich günstiger als historischer Schnitt
-    if pe_trailing > pe_mid * 1.20:
-        return -1   # deutlich teurer als historischer Schnitt
-    return 0
+        return 0.0
+    deviation = (pe_mid - pe_trailing) / pe_mid
+    return max(-1.0, min(1.0, deviation / 0.30))
 
 
-def _combine(m1_pts: int, m2_pts: int) -> tuple[str, Signal]:
-    total = m1_pts + m2_pts
-    if total >= 2:
+_FUZZY_THRESHOLD = 0.70
+
+
+def _combine(m1_score: float, m2_score: float) -> tuple[str, Signal]:
+    avg = (m1_score + m2_score) / 2
+    if avg >= _FUZZY_THRESHOLD:
         return "undervalued", Signal.BULLISH
-    if total <= -2:
+    if avg <= -_FUZZY_THRESHOLD:
         return "overvalued", Signal.BEARISH
     return "fair", Signal.NEUTRAL
 
@@ -80,14 +80,14 @@ class IndexValuationRangeAgent:
             else:
                 price_low = price_mid = price_high = None
 
-            m1_pts = 0
+            m1 = 0.0
             if current is not None and price_low is not None and price_high is not None:
-                _, m1_pts = _method1_position(current, price_low, price_high)
+                m1 = _method1_score(current, price_low, price_mid, price_high)
 
             # Method 2: Aktuelles KGV vs. historischem Durchschnitt
-            m2_pts = _method2_signal(pe_trailing, pe_mid)
+            m2 = _method2_score(pe_trailing, pe_mid)
 
-            pos, sig = _combine(m1_pts, m2_pts)
+            pos, sig = _combine(m1, m2)
 
             result = IndexValuationRangeSnapshot(
                 eps_estimate=round(eps, 2) if eps else None,
