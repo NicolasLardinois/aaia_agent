@@ -127,8 +127,3 @@ class FundamentalsProvider(ABC):
 
     @abstractmethod
     def get_bond_data(self, ticker: str) -> dict: ...
-
-
-class LLMProvider(ABC):
-    @abstractmethod
-    def complete(self, prompt: str, system: str = "") -> str: ...
