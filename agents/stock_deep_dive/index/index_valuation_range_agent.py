@@ -48,9 +48,9 @@ def _method2_signal(pe_trailing: float | None, pe_mid: float) -> int:
 
 def _combine(m1_pts: int, m2_pts: int) -> tuple[str, Signal]:
     total = m1_pts + m2_pts
-    if total >= 1:
+    if total >= 2:
         return "undervalued", Signal.BULLISH
-    if total <= -1:
+    if total <= -2:
         return "overvalued", Signal.BEARISH
     return "fair", Signal.NEUTRAL
 
