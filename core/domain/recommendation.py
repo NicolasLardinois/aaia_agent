@@ -75,8 +75,6 @@ def derive_recommendation(
     confidence: float,
 ) -> InvestmentRecommendation:
 
-    market = market.upper().strip()
-
     if confidence < 0.35:
         return InvestmentRecommendation(
             action=Recommendation.HOLD,
