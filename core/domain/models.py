@@ -260,10 +260,11 @@ class YieldSpreadSnapshot:
 
 @dataclass
 class SovereignSpreadSnapshot:
-    btp_bund: Optional[float]     # Italy vs Germany (bps)
-    oat_bund: Optional[float]     # France vs Germany
-    bonos_bund: Optional[float]   # Spain vs Germany
+    btp_bund: Optional[float]     # Italy vs Germany (bps) — backward compat
+    oat_bund: Optional[float]     # France vs Germany — backward compat
+    bonos_bund: Optional[float]   # Spain vs Germany — backward compat
     signal: Signal
+    spreads_by_country: dict = field(default_factory=dict)   # {"{CC}_10y": bp}
 
 
 @dataclass

@@ -124,6 +124,29 @@ def _buffett_notes(countries: dict, market: str, asset_class: str) -> list[str]:
     return []
 
 
+_EUROZONE_ISO2 = {
+    "AT", "BE", "CY", "EE", "ES", "FI", "FR",
+    "GR", "HR", "IE", "IT", "LT", "LU", "LV", "MT",
+    "NL", "PT", "SI", "SK",
+}
+
+
+def _sovereign_spread_note(market: str, sovereign_spreads) -> list[str]:
+    """Länderspezifischer Spread vs Bund — nur für Eurozone-Aktien (nicht DE)."""
+    m = market.upper()
+    if m not in _EUROZONE_ISO2:
+        return []
+    spreads = getattr(sovereign_spreads, "spreads_by_country", {})
+    spread = spreads.get(f"{m}_10y")
+    if not isinstance(spread, (int, float)):
+        return []
+    if spread > 300:
+        return [f"Sovereign Spread {m}-Bund {spread:.0f}bp — Krisenniveau (>300bp)"]
+    if spread > 150:
+        return [f"Sovereign Spread {m}-Bund {spread:.0f}bp — erhöht (>150bp)"]
+    return []
+
+
 def _yield_region(market: str) -> str:
     m = market.upper()
     if m == "USA":
@@ -160,6 +183,8 @@ def derive_top_down_context(
 
     buffett_countries = getattr(cockpit.macro.buffett_indicator, "countries", {})
     notes.extend(_buffett_notes(buffett_countries, market, asset_class))
+
+    notes.extend(_sovereign_spread_note(market, cockpit.yield_curve.sovereign_spreads))
 
     suffix = ". ".join(notes)
     result = f"[{regime.value}] {context}"

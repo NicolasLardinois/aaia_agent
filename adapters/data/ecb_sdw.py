@@ -14,6 +14,19 @@ _BASE = (
     "?format=jsondata&lastNObservations=1"
 )
 
+# Maastricht-Kriterium: 10J Staatsanleihen-Renditen nach Land (IRS-Dataset)
+_IRS_BASE = (
+    "https://data-api.ecb.europa.eu/service/data/IRS/"
+    "M.{country}.L40.CI.0.EUR.N.Z"
+    "?format=jsondata&lastNObservations=1"
+)
+
+EUROZONE_COUNTRIES = [
+    "AT", "BE", "CY", "DE", "EE", "ES", "FI", "FR",
+    "GR", "HR", "IE", "IT", "LT", "LU", "LV", "MT",
+    "NL", "PT", "SI", "SK",
+]
+
 
 class EcbSdwProvider(EcbDataProvider):
     """ECB SDW: nur Yield-Spreads implementiert; alle anderen Methoden → None."""
@@ -52,4 +65,18 @@ class EcbSdwProvider(EcbDataProvider):
     def get_pmi(self) -> Optional[float]:                   return None
     def get_m2_growth(self) -> Optional[float]:             return None
     def get_sovereign_yields(self) -> dict[str, Optional[float]]:
-        return {"DE_10y": None, "IT_10y": None, "FR_10y": None, "ES_10y": None}
+        return {f"{c}_10y": self._fetch_country_yield(c) for c in EUROZONE_COUNTRIES}
+
+    def _fetch_country_yield(self, country: str) -> Optional[float]:
+        url = _IRS_BASE.format(country=country)
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            series = data["dataSets"][0]["series"]
+            first_key = next(iter(series))
+            observations = series[first_key]["observations"]
+            last_key = next(reversed(observations))
+            return float(observations[last_key][0])
+        except Exception:
+            return None
