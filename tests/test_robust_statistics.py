@@ -70,3 +70,16 @@ def test_bonferroni_konkreter_wert():
     # base=1.96 → alpha = 2*(1-Phi(1.96)) ≈ 0.05; n=5 → alpha_adj=0.01
     # Phi^-1(1-0.005)=Phi^-1(0.995) ≈ 2.5758
     assert abs(bonferroni_z_threshold(1.96, 5) - 2.5758) < 1e-2
+
+
+def test_bonferroni_extreme_schwelle_kein_crash():
+    # base_threshold=10.0 → cdf==1.0 → alpha==0.0 → Guard greift, gibt 10.0 zurück
+    result = bonferroni_z_threshold(10.0, 5)
+    assert result == 10.0
+
+
+def test_bonferroni_extremes_n_kein_crash():
+    # n_tests=10**18 → alpha_adj Unterflow → Guard greift, gibt endliche Zahl ≥ 2.5 zurück
+    result = bonferroni_z_threshold(2.5, 10**18)
+    assert math.isfinite(result)
+    assert result >= 2.5

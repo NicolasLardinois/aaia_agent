@@ -28,3 +28,10 @@ def test_excess_over_nominal_gdp_positiv():
 
 def test_excess_over_nominal_gdp_negativ():
     assert excess_over_nominal_gdp(3.0, 4.0) == -1.0
+
+
+def test_to_real_inflation_minus_100_wirft_value_error():
+    # inflation=-100 % → Nenner 0 → ValueError erwartet
+    import pytest
+    with pytest.raises(ValueError):
+        to_real(2.0, -100.0)

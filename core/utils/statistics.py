@@ -1,4 +1,5 @@
 import math
+from statistics import median, NormalDist
 
 
 Z_THRESHOLD = 2.5
@@ -27,9 +28,6 @@ def compute_severity(statistical: list[str], contradictions: list[str]) -> str:
     return "none"
 
 
-from statistics import median, NormalDist
-
-
 ROBUST_Z_THRESHOLD = 3.5
 MIN_SAMPLE_N = 20
 
@@ -48,10 +46,19 @@ def robust_z_score(current: float, history: list[float], min_n: int = MIN_SAMPLE
 
 def bonferroni_z_threshold(base_threshold: float, n_tests: int) -> float:
     """Zweiseitige Bonferroni-Korrektur der Z-Schwelle:
-    alpha = 2*(1-Phi(base)); alpha_adj = alpha/n; return Phi^-1(1-alpha_adj/2)."""
+    alpha = 2*(1-Phi(base)); alpha_adj = alpha/n; return Phi^-1(1-alpha_adj/2).
+    Bei extrem strenger Ausgangsschwelle (alpha==0) oder Unterflow wird die
+    unkorrigierte base_threshold zurueckgegeben (keine sinnvolle Korrektur moeglich)."""
     if n_tests < 1:
         return base_threshold
     nd = NormalDist()
     alpha = 2.0 * (1.0 - nd.cdf(base_threshold))
+    if alpha == 0.0:
+        return base_threshold
     alpha_adj = alpha / n_tests
-    return nd.inv_cdf(1.0 - alpha_adj / 2.0)
+    if alpha_adj == 0.0:
+        return base_threshold
+    p = 1.0 - alpha_adj / 2.0
+    if p >= 1.0:
+        return base_threshold
+    return nd.inv_cdf(p)
