@@ -1,77 +1,99 @@
-from typing import Optional
-import yfinance as yf
+from datetime import datetime, timezone
+from typing import Callable, Optional
+
 from core.ports.memory_port import MemoryPort
+from core.utils.backtest import (
+    HORIZONS_DAYS, MIN_SAMPLE, forward_return, hit_rate_ci,
+    is_correct, market_adjusted_return,
+)
+from core.utils.performance_metrics import (
+    apply_costs, max_drawdown, profit_factor, sharpe_ratio, sortino_ratio,
+)
+from agents.backtester.bottom_up_backtester_agent import (
+    _default_benchmark_return, _default_price_on_horizon,
+)
 
-
-def _fetch_price(ticker: str) -> Optional[float]:
-    try:
-        return float(yf.Ticker(ticker).fast_info["last_price"])
-    except Exception:
-        return None
-
-
-def _verdict(recommendation: str, return_pct: float) -> str:
-    if recommendation == "BUY"  and return_pct >= 3.0:
-        return "correct"
-    if recommendation in ("SELL", "SHORT") and return_pct <= -3.0:
-        return "correct"
-    if recommendation == "HOLD" and abs(return_pct) <= 5.0:
-        return "correct"
-    if abs(return_pct) <= 1.5:
-        return "neutral"
-    return "incorrect"
+_DIRECTIONAL = {"BUY", "SELL", "SHORT"}  # HOLD = keine Richtungswette
 
 
 class JudgmentBacktesterAgent:
 
-    def __init__(self, memory: MemoryPort):
+    def __init__(
+        self,
+        memory: MemoryPort,
+        price_on_horizon: Callable[[str, datetime, int], Optional[float]] = _default_price_on_horizon,
+        benchmark_return: Callable[[str, datetime, int], Optional[float]] = _default_benchmark_return,
+        cost_per_side: float = 0.0005,
+    ):
         self.memory = memory
+        self.price_on_horizon = price_on_horizon
+        self.benchmark_return = benchmark_return
+        self.cost_per_side = cost_per_side
 
     async def run(self) -> None:
-        history = self.memory.load_global_history(days=90)
+        history = self.memory.load_global_history(days=180)
+        now = datetime.now(timezone.utc)
+
         evaluable = [
             h for h in history
-            if h.get("ticker") and h.get("recommendation") and h.get("price_at_analysis")
+            if h.get("ticker") and h.get("recommendation")
+            and h.get("price_at_analysis") and h.get("timestamp")
+            and h["recommendation"] in _DIRECTIONAL
         ]
         if not evaluable:
             print("[JudgmentBacktester] Keine auswertbaren Einträge — übersprungen.")
             return
 
-        correct = 0
-        total   = 0
+        adjusted_returns: list[float] = []
+        evaluated = 0
 
         for entry in evaluable:
             ticker     = entry["ticker"]
             price_then = float(entry["price_at_analysis"])
             rec        = entry["recommendation"]
+            market     = entry.get("market", "USA")
+            entry_date = entry["timestamp"]
 
-            price_now = _fetch_price(ticker)
-            if price_now is None:
+            age_days = (now - entry_date).days
+            horizon = max((h for h in HORIZONS_DAYS if h <= age_days), default=None)
+            if horizon is None:
                 continue
 
-            return_pct = ((price_now - price_then) / price_then) * 100
-            verdict    = _verdict(rec, return_pct)
+            fwd_px = self.price_on_horizon(ticker, entry_date, horizon)
+            raw_ret = forward_return(price_then, fwd_px)
+            if raw_ret is None:
+                continue
 
-            if verdict == "correct":
-                correct += 1
-            total += 1
+            bench_ret = self.benchmark_return(market, entry_date, horizon)
+            adj_ret = market_adjusted_return(raw_ret, bench_ret)
+            adj_ret = apply_costs(adj_ret, self.cost_per_side)
+            verdict = "correct" if is_correct(rec, adj_ret) else "incorrect"
+
+            # Für SHORT ist der "Trade-Return" das Spiegelbild des Alpha
+            trade_ret = -adj_ret if rec == "SHORT" else adj_ret
+            adjusted_returns.append(trade_ret)
+            evaluated += 1
 
             self.memory.save_backtester_report({
                 "backtester_type":        "judgment",
                 "ticker":                 ticker,
                 "original_recommendation": rec,
                 "price_at_recommendation": price_then,
-                "price_today":            price_now,
-                "return_pct":             round(return_pct, 2),
+                "price_today":            fwd_px,
+                "return_pct":             round(adj_ret * 100, 2),
                 "verdict":                verdict,
                 "accuracy_30d":           None,
                 "accuracy_60d":           None,
                 "accuracy_90d":           None,
-                "notes": f"Empfehlung={rec} | Return={return_pct:.1f}% | Urteil={verdict}",
+                "notes": (
+                    f"Empfehlung={rec} | Horizont={horizon}d | "
+                    f"Alpha={adj_ret * 100:.1f}% | Urteil={verdict}"
+                ),
             })
 
-        if total > 0:
-            accuracy = round(correct / total, 3)
+        if evaluated >= MIN_SAMPLE:
+            correct = sum(1 for r in adjusted_returns if r > 0)
+            lo, hi = hit_rate_ci(correct, evaluated)
             self.memory.save_backtester_report({
                 "backtester_type":        "judgment",
                 "ticker":                 None,
@@ -79,10 +101,24 @@ class JudgmentBacktesterAgent:
                 "price_at_recommendation": None,
                 "price_today":            None,
                 "return_pct":             None,
-                "verdict": "correct" if accuracy >= 0.60 else "incorrect",
-                "accuracy_30d":  accuracy,
-                "accuracy_60d":  None,
-                "accuracy_90d":  None,
-                "notes": f"Gesamttreffsicherheit: {accuracy:.0%} aus {total} Empfehlungen",
+                "verdict":                None,
+                "accuracy_30d":           None,
+                "accuracy_60d":           None,
+                "accuracy_90d":           None,
+                "sample_size":            evaluated,
+                "hit_rate":               round(correct / evaluated, 3),
+                "hit_rate_ci_low":        lo,
+                "hit_rate_ci_high":       hi,
+                "sharpe":                 round(sharpe_ratio(adjusted_returns, annualization=1), 3),
+                "sortino":                round(sortino_ratio(adjusted_returns, annualization=1), 3),
+                "max_drawdown":           round(max_drawdown(adjusted_returns), 3),
+                "profit_factor":          round(profit_factor(adjusted_returns), 3),
+                "notes": (
+                    f"N={evaluated} | Hit-Rate={correct / evaluated:.0%} "
+                    f"[{lo:.0%}–{hi:.0%}] (95%-CI, HOLD ausgeschlossen)"
+                ),
             })
-            print(f"[JudgmentBacktester] {total} ausgewertet | Treffsicherheit: {accuracy:.0%}")
+            print(f"[JudgmentBacktester] {evaluated} ausgewertet | "
+                  f"Hit-Rate={correct / evaluated:.0%} [{lo:.0%}–{hi:.0%}]")
+        else:
+            print(f"[JudgmentBacktester] {evaluated} ausgewertet (< MIN_SAMPLE, kein Aggregat).")
