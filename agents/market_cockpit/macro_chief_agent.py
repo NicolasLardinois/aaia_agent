@@ -86,6 +86,7 @@ class MacroChiefAgent:
         sub_signals = {
             "money_supply": _sig_score(money_supply.usa.signal),
             "credit":       _sig_score(credit.usa.signal),
+            "labor":        _sig_score(labor_income.usa.signal),
             "buffett":      _sig_score(buffett_indicator.signal),
         }
 
