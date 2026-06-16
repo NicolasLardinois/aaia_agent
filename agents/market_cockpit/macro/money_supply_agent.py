@@ -65,13 +65,15 @@ class MoneySupplyAgent:
             signal=_signal(usa_excess, None),
         )
         eu_m = ecb_m3 if ecb_m3 is not None else ecb_m2
-        eu_excess = excess_over_nominal_gdp(eu_m, None) if eu_m is not None else None
+        eu_nom_gdp = None  # TODO: EZB/Eurostat nominales BIP anbinden
+        eu_excess = excess_over_nominal_gdp(eu_m, eu_nom_gdp) if (eu_m is not None and eu_nom_gdp is not None) else None
         eu = MoneySupplyDataPoint(
             m2_growth=ecb_m2, m3_growth=ecb_m3, velocity_m2=None,
             signal=_signal(eu_excess, None),
         )
         ch_m = snb_m3 if snb_m3 is not None else snb_m2
-        ch_excess = excess_over_nominal_gdp(ch_m, None) if ch_m is not None else None
+        ch_nom_gdp = None  # TODO: SNB nominales BIP anbinden
+        ch_excess = excess_over_nominal_gdp(ch_m, ch_nom_gdp) if (ch_m is not None and ch_nom_gdp is not None) else None
         ch = MoneySupplyDataPoint(
             m2_growth=snb_m2, m3_growth=snb_m3, velocity_m2=None,
             signal=_signal(ch_excess, None),
