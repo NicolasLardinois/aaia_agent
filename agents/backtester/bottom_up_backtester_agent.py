@@ -61,7 +61,8 @@ class BottomUpBacktesterAgent:
             print("[BottomUpBacktester] Keine auswertbaren Einträge — übersprungen.")
             return
 
-        adjusted_returns: list[float] = []
+        strategy_returns: list[float] = []
+        correct_count = 0
         evaluated = 0
 
         for entry in evaluable:
@@ -85,9 +86,17 @@ class BottomUpBacktesterAgent:
             bench_ret = self.benchmark_return(market, entry_date, horizon)
             adj_ret = market_adjusted_return(raw_ret, bench_ret)
             adj_ret = apply_costs(adj_ret, self.cost_per_side)
-            verdict = "correct" if is_correct(signal, adj_ret) else "incorrect"
+            trade_correct = is_correct(signal, adj_ret)
+            verdict = "correct" if trade_correct else "incorrect"
 
-            adjusted_returns.append(adj_ret)
+            if trade_correct:
+                correct_count += 1
+
+            # Strategie-Rendite: für bearish-Signale vorzeichen-spiegeln,
+            # damit korrekte bearish-Calls positiv zu Sharpe/Sortino/profit_factor beitragen.
+            sig_lower = (signal or "").strip().lower()
+            strategy_ret = -adj_ret if sig_lower in ("bearish", "sell", "short") else adj_ret
+            strategy_returns.append(strategy_ret)
             evaluated += 1
 
             self.memory.save_backtester_report({
@@ -108,8 +117,7 @@ class BottomUpBacktesterAgent:
             })
 
         if evaluated >= MIN_SAMPLE:
-            correct = sum(1 for r in adjusted_returns if r > 0)
-            lo, hi = hit_rate_ci(correct, evaluated)
+            lo, hi = hit_rate_ci(correct_count, evaluated)
             self.memory.save_backtester_report({
                 "backtester_type":        "bottomup",
                 "ticker":                 None,
@@ -122,15 +130,15 @@ class BottomUpBacktesterAgent:
                 "accuracy_60d":           None,
                 "accuracy_90d":           None,
                 "sample_size":            evaluated,
-                "hit_rate":               round(correct / evaluated, 3),
+                "hit_rate":               round(correct_count / evaluated, 3),
                 "hit_rate_ci_low":        lo,
                 "hit_rate_ci_high":       hi,
-                "sharpe":                 round(sharpe_ratio(adjusted_returns, annualization=1), 3),
-                "sortino":                round(sortino_ratio(adjusted_returns, annualization=1), 3),
-                "max_drawdown":           round(max_drawdown(adjusted_returns), 3),
-                "profit_factor":          round(profit_factor(adjusted_returns), 3),
+                "sharpe":                 round(sharpe_ratio(strategy_returns, annualization=1), 3),
+                "sortino":                round(sortino_ratio(strategy_returns, annualization=1), 3),
+                "max_drawdown":           round(max_drawdown(strategy_returns), 3),
+                "profit_factor":          round(profit_factor(strategy_returns), 3),
                 "notes": (
-                    f"N={evaluated} | Hit-Rate={correct / evaluated:.0%} "
+                    f"N={evaluated} | Hit-Rate={correct_count / evaluated:.0%} "
                     f"[{lo:.0%}–{hi:.0%}] (95%-CI, marktbereinigt)"
                 ),
             })

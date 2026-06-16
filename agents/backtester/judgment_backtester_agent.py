@@ -44,7 +44,8 @@ class JudgmentBacktesterAgent:
             print("[JudgmentBacktester] Keine auswertbaren Einträge — übersprungen.")
             return
 
-        adjusted_returns: list[float] = []
+        strategy_returns: list[float] = []
+        correct_count = 0
         evaluated = 0
 
         for entry in evaluable:
@@ -67,11 +68,16 @@ class JudgmentBacktesterAgent:
             bench_ret = self.benchmark_return(market, entry_date, horizon)
             adj_ret = market_adjusted_return(raw_ret, bench_ret)
             adj_ret = apply_costs(adj_ret, self.cost_per_side)
-            verdict = "correct" if is_correct(rec, adj_ret) else "incorrect"
+            trade_correct = is_correct(rec, adj_ret)
+            verdict = "correct" if trade_correct else "incorrect"
 
-            # Für SHORT ist der "Trade-Return" das Spiegelbild des Alpha
-            trade_ret = -adj_ret if rec == "SHORT" else adj_ret
-            adjusted_returns.append(trade_ret)
+            if trade_correct:
+                correct_count += 1
+
+            # Für SHORT und SELL ist der "Trade-Return" das Spiegelbild des Alpha,
+            # damit korrekte bearish-Calls positiv zu Sharpe/Sortino/profit_factor beitragen.
+            trade_ret = -adj_ret if rec in ("SHORT", "SELL") else adj_ret
+            strategy_returns.append(trade_ret)
             evaluated += 1
 
             self.memory.save_backtester_report({
@@ -92,8 +98,7 @@ class JudgmentBacktesterAgent:
             })
 
         if evaluated >= MIN_SAMPLE:
-            correct = sum(1 for r in adjusted_returns if r > 0)
-            lo, hi = hit_rate_ci(correct, evaluated)
+            lo, hi = hit_rate_ci(correct_count, evaluated)
             self.memory.save_backtester_report({
                 "backtester_type":        "judgment",
                 "ticker":                 None,
@@ -106,19 +111,19 @@ class JudgmentBacktesterAgent:
                 "accuracy_60d":           None,
                 "accuracy_90d":           None,
                 "sample_size":            evaluated,
-                "hit_rate":               round(correct / evaluated, 3),
+                "hit_rate":               round(correct_count / evaluated, 3),
                 "hit_rate_ci_low":        lo,
                 "hit_rate_ci_high":       hi,
-                "sharpe":                 round(sharpe_ratio(adjusted_returns, annualization=1), 3),
-                "sortino":                round(sortino_ratio(adjusted_returns, annualization=1), 3),
-                "max_drawdown":           round(max_drawdown(adjusted_returns), 3),
-                "profit_factor":          round(profit_factor(adjusted_returns), 3),
+                "sharpe":                 round(sharpe_ratio(strategy_returns, annualization=1), 3),
+                "sortino":                round(sortino_ratio(strategy_returns, annualization=1), 3),
+                "max_drawdown":           round(max_drawdown(strategy_returns), 3),
+                "profit_factor":          round(profit_factor(strategy_returns), 3),
                 "notes": (
-                    f"N={evaluated} | Hit-Rate={correct / evaluated:.0%} "
+                    f"N={evaluated} | Hit-Rate={correct_count / evaluated:.0%} "
                     f"[{lo:.0%}–{hi:.0%}] (95%-CI, HOLD ausgeschlossen)"
                 ),
             })
             print(f"[JudgmentBacktester] {evaluated} ausgewertet | "
-                  f"Hit-Rate={correct / evaluated:.0%} [{lo:.0%}–{hi:.0%}]")
+                  f"Hit-Rate={correct_count / evaluated:.0%} [{lo:.0%}–{hi:.0%}]")
         else:
             print(f"[JudgmentBacktester] {evaluated} ausgewertet (< MIN_SAMPLE, kein Aggregat).")
