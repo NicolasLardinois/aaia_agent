@@ -39,7 +39,7 @@ class BottomUpAnomalyAgent:
         # Z-Score Checks (nur Equity, nur bei genug History)
         if is_equity and enough_history:
             # Anzahl potenzieller Z-Checks für Multiple-Testing-Korrektur
-            n_tests = 2  # KGV + Short-Float
+            n_tests = 3  # KGV + Short-Float + Insider
             threshold = bonferroni_z_threshold(ROBUST_Z_THRESHOLD, n_tests)
 
             def _check(label: str, current, key: str):
