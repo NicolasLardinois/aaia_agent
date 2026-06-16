@@ -1,10 +1,13 @@
 import json
 import os
 from datetime import date
+from typing import Optional
+
+from core.ports.dated_history import DatedHistoryPort
 
 
-class DatedHistory:
-    """JSON-datei-gestuetzte, datierte Zeitreihen-Historie.
+class JsonDatedHistory(DatedHistoryPort):
+    """JSON-datei-gestuetzte Umsetzung von DatedHistoryPort.
 
     Ersetzt prozess-globalen In-Memory-State (_RATE_HISTORY, regime-History).
     Persistenzformat: {series: {ISO-Datum: value}}.
@@ -34,21 +37,18 @@ class DatedHistory:
             json.dump(self._data, f)
 
     def append(self, series: str, observation_date: date, value: float) -> None:
-        """Idempotent pro (series, observation_date): gleicher Tag
-        ueberschreibt, haengt nicht doppelt an."""
         self._data.setdefault(series, {})[observation_date.isoformat()] = value
         self._save()
 
     def values(self, series: str) -> list[tuple[date, float]]:
-        """Chronologisch sortiert."""
         entries = self._data.get(series, {})
         return [
             (date.fromisoformat(d), v)
             for d, v in sorted(entries.items())
         ]
 
-    def value_on_or_before(self, series: str, target: date) -> float | None:
-        result: float | None = None
+    def value_on_or_before(self, series: str, target: date) -> Optional[float]:
+        result: Optional[float] = None
         for d, v in self.values(series):
             if d <= target:
                 result = v
@@ -56,6 +56,6 @@ class DatedHistory:
                 break
         return result
 
-    def latest(self, series: str) -> tuple[date, float] | None:
+    def latest(self, series: str) -> Optional[tuple[date, float]]:
         vals = self.values(series)
         return vals[-1] if vals else None

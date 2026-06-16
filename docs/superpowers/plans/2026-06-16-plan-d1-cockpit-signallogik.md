@@ -12,7 +12,7 @@
 - `core/utils/relative.py`: `percentile_rank(value, history, winsorize=0.0)`, `zscore_vs_history(value, history, robust=True, min_n=20)`
 - `core/utils/real_nominal.py`: `to_real(nominal_rate, inflation)`, `excess_over_nominal_gdp(growth, nominal_gdp_growth)`
 - `core/utils/aggregation.py`: `weighted_signal(items: list[tuple[Signal, float, SignalStatus]]) -> tuple[Signal, float]`
-- `core/utils/timeseries_history.py`: `DatedHistory` (Methoden `value_on_or_before(date)`, `latest()`)
+- **Port** `core/ports/dated_history.py`: `DatedHistoryPort` (Multi-Serie-API: `append(series, date, value)`, `values(series)`, `value_on_or_before(series, target)`, `latest(series)`). Umsetzungen: `adapters/persistence/json_dated_history.py` `JsonDatedHistory(path)` (persistent) und `adapters/persistence/in_memory_dated_history.py` `InMemoryDatedHistory(data?)` (in-memory, für Tests/Provider-Reihen). **Hinweis:** die alte `core/utils/timeseries_history.py`/`DatedHistory` wurde hinter diesen Port refaktoriert — NICHT mehr importieren.
 - `core/domain/models.py`: `SignalStatus` (Enum `AVAILABLE | UNAVAILABLE`)
 
 ---
@@ -1204,21 +1204,22 @@ Befund P3.7/P4.5 (❌/⚠️): `_RATE_HISTORY` misst Aufruffrequenz statt geldpo
 from datetime import date
 from agents.market_cockpit.macro.interest_rate_agent import _direction, _signal
 from core.domain.models import Signal
-from core.utils.timeseries_history import DatedHistory
+from adapters.persistence.in_memory_dated_history import InMemoryDatedHistory
 
 
 def test_direction_rising_from_dated_history():
-    h = DatedHistory([(date(2026, 1, 1), 4.0), (date(2026, 6, 1), 4.5)])
-    assert _direction(current=4.5, history=h, months_back=3) == "rising"
+    h = InMemoryDatedHistory({"fed_rate": [(date(2026, 1, 1), 4.0), (date(2026, 6, 1), 4.5)]})
+    # today injiziert → deterministisch: ref = 2026-06-01 − 3M = 2026-03-01 → prev = 4.0
+    assert _direction(current=4.5, history=h, series="fed_rate", months_back=3, today=date(2026, 6, 1)) == "rising"
 
 
 def test_direction_falling_from_dated_history():
-    h = DatedHistory([(date(2026, 1, 1), 5.0), (date(2026, 6, 1), 4.0)])
-    assert _direction(current=4.0, history=h, months_back=3) == "falling"
+    h = InMemoryDatedHistory({"fed_rate": [(date(2026, 1, 1), 5.0), (date(2026, 6, 1), 4.0)]})
+    assert _direction(current=4.0, history=h, series="fed_rate", months_back=3, today=date(2026, 6, 1)) == "falling"
 
 
 def test_direction_stable_without_history():
-    assert _direction(current=4.0, history=None, months_back=3) == "stable"
+    assert _direction(current=4.0, history=None, series="fed_rate", months_back=3) == "stable"
 
 
 def test_signal_falling_negative_real_is_bullish():
@@ -1233,17 +1234,29 @@ def test_signal_rising_high_real_is_bearish_for_eu_too():
 - [ ] **Implementierung** — `_RATE_HISTORY` entfernen, `_direction` über `DatedHistory`:
 ```python
 from datetime import date
-from dateutil.relativedelta import relativedelta   # falls verfügbar; sonst manuelle Monatsdifferenz
+from typing import Optional
 from core.utils.real_nominal import to_real
-from core.utils.timeseries_history import DatedHistory
+from core.ports.dated_history import DatedHistoryPort
 
 
-def _direction(current: float | None, history: DatedHistory | None, months_back: int = 3) -> str:
-    """Richtung aus DATIERTER Historie: aktueller Wert vs. Wert vor `months_back` Monaten."""
+def _months_back(d: date, months: int) -> date:
+    """Datum `months` Monate zurück (ohne externe Abhängigkeit wie dateutil)."""
+    m = d.month - 1 - months
+    year = d.year + m // 12
+    month = m % 12 + 1
+    leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+    days_in_month = [31, 29 if leap else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]
+    return date(year, month, min(d.day, days_in_month))
+
+
+def _direction(current: Optional[float], history: Optional[DatedHistoryPort], series: str,
+               months_back: int = 3, today: Optional[date] = None) -> str:
+    """Richtung aus DATIERTER Historie: aktueller Wert vs. Wert vor `months_back` Monaten.
+    `today` injizierbar für deterministische Tests; nutzt die Multi-Serie-Port-API."""
     if current is None or history is None:
         return "stable"
-    ref_date = date.today() - relativedelta(months=months_back)
-    prev = history.value_on_or_before(ref_date)
+    ref_date = _months_back(today or date.today(), months_back)
+    prev = history.value_on_or_before(series, ref_date)
     if prev is None:
         return "stable"
     if current > prev:
@@ -1262,11 +1275,11 @@ def _signal(rate: float | None, direction: str, real_rate: float | None) -> Sign
         return Signal.BEARISH
     return Signal.NEUTRAL
 ```
-Im `run()`: prozess-globales `_RATE_HISTORY` löschen; je Region eine `DatedHistory` aus dem Provider beziehen (sofern eine datierte Zins-Reihe verfügbar ist; andernfalls `None` → `"stable"`, kein State-Leak). EU-Realzins `to_real(ecb_rate, ecb_cpi)`, CH-Realzins `to_real(snb_rate, snb_cpi)` (CPI über die jeweiligen Provider).
+Im `run()`: prozess-globales `_RATE_HISTORY` löschen. Falls der Provider eine **datierte Zins-Reihe** liefert, diese in `InMemoryDatedHistory({"<series>": reihe})` umhüllen und an `_direction(..., series="<series>", ...)` geben; liefert er nur den aktuellen Wert, einen persistenten `JsonDatedHistory(path)` nutzen (pro Lauf `append(series, heute, wert)`, dann abfragen) — beide implementieren `DatedHistoryPort`. Ist keine Reihe verfügbar → `history=None` → `"stable"`, kein State-Leak. EU-Realzins `to_real(ecb_rate, ecb_cpi)`, CH-Realzins `to_real(snb_rate, snb_cpi)` (CPI über die jeweiligen Provider).
 - [ ] **Run → PASS** — `python -m pytest tests/agents/market_cockpit/macro/test_interest_rate_agent.py -q`.
 - [ ] **Commit** — `fix(interest_rate): DatedHistory-Richtung + real_rate für EU/CH (P3.7/P4.5)`
 
-**Self-Review:** Kein prozess-globaler Zustand mehr — die Richtung misst echte Vorperioden-Dynamik. Der "rising→bearish"-Zweig ist für EU/CH kein toter Code mehr. Annahme: `DatedHistory.value_on_or_before(date)` aus Plan 0; datierte Zinsreihe pro Region optional (sonst `None`). Falls `dateutil` nicht im Projekt ist, Monatsdifferenz manuell berechnen.
+**Self-Review:** Kein prozess-globaler Zustand mehr — die Richtung misst echte Vorperioden-Dynamik. Der "rising→bearish"-Zweig ist für EU/CH kein toter Code mehr. Nutzt die Multi-Serie-Port-API `DatedHistoryPort.value_on_or_before(series, date)` (Plan-0-Refaktorierung, Adapter `InMemoryDatedHistory`/`JsonDatedHistory`); datierte Zinsreihe pro Region optional (sonst `None`). Monatsdifferenz via `_months_back` ohne externe Abhängigkeit.
 
 ---
 
