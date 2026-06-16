@@ -210,6 +210,7 @@ class CommodityChiefResult:
     industrial_metals: IndustrialMetalsSnapshot
     precious_metals: PreciousMetalsMacroSnapshot
     agricultural: AgriculturalSnapshot
+    signal: Signal = Signal.NEUTRAL
 
 
 # ─────────────────────────────────────────────
