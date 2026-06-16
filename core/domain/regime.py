@@ -27,11 +27,10 @@ def _score_indicator(key: str, value: float) -> float:
         ),
         "unemployment":          lambda v: 1.0 if v < 4 else (0.5 if v < 5 else (-0.5 if v < 7 else -1.0)),
         "fed_rate":              lambda v: 0.5 if v < 2 else (0.0 if v < 4 else (-0.5 if v < 6 else -1.0)),
-        "yield_curve":           _yc,
+        "yield_curve":           _yc,   # Fallback-Key (rückwärtskompatibel)
         "consumer_sentiment":    lambda v: 1.0 if v > 90 else (0.5 if v > 70 else (-0.5 if v > 50 else -1.0)),
         "industrial_production": lambda v: 1.0 if v > 3 else (0.5 if v > 0 else (-0.5 if v > -2 else -1.0)),
-        "yield_curve_3m_usa":    _yc,
-        "yield_curve_10y3m_usa": _yc,   # neuer Key (Task 19), gleiche Logik
+        "yield_curve_10y3m_usa": _yc,
         "yield_curve_10y2y_eu":  _yc,
         "yield_curve_10y3m_eu":  _yc,
         "yield_curve_10y3m_ch":  _yc,
@@ -40,16 +39,16 @@ def _score_indicator(key: str, value: float) -> float:
 
 
 # Gewichte normiert auf Summe 1.0 (Verhältnisse aus ursprünglicher Konfiguration beibehalten).
+# yield_curve (10y-2y USA) entfernt — Doppelzählung mit yield_curve_10y3m_usa aufgelöst.
 # Bei fehlenden Keys re-normalisiert detect() über weight_total dynamisch.
 INDICATOR_WEIGHTS = {
     "gdp_growth":            0.2136752137,
     "unemployment":          0.1709401709,
     "inflation":             0.1282051282,
-    "yield_curve":           0.1025641026,  # USA 10y-2y (Gewicht abgewertet in Task 19)
     "consumer_sentiment":    0.0854700855,
     "industrial_production": 0.0854700855,
     "fed_rate":              0.0427350427,
-    "yield_curve_3m_usa":    0.0683760684,  # → yield_curve_10y3m_usa in Task 19
+    "yield_curve_10y3m_usa": 0.1709401710,  # 10Y-3M primär (inkl. ehem. yield_curve-Gewicht)
     "yield_curve_10y2y_eu":  0.0427350427,
     "yield_curve_10y3m_eu":  0.0341880342,
     "yield_curve_10y3m_ch":  0.0256410256,
