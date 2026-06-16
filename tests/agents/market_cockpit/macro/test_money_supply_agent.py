@@ -65,3 +65,13 @@ def test_ch_money_supply_no_gdp_no_crash():
     agent = _make_agent(ch_m3=4.0)  # ch_m gesetzt, aber ch_nom_gdp bleibt None
     result = asyncio.run(agent.run())
     assert result.switzerland.signal == Signal.NEUTRAL
+
+
+def test_usa_money_supply_no_nominal_gdp_no_crash():
+    """USA-Geldmenge vorhanden, aber nominales BIP None (gdp_growth fehlt) →
+    kein TypeError, USA-Signal NEUTRAL."""
+    # usa_m2 ist gesetzt, inflation ist gesetzt, aber gdp_growth fehlt →
+    # usa_nom_gdp bleibt None → excess_over_nominal_gdp(5.0, None) würde TypeError werfen
+    agent = _make_agent(ext={"m2_growth": 5.0, "inflation": 3.0})
+    result = asyncio.run(agent.run())
+    assert result.usa.signal == Signal.NEUTRAL

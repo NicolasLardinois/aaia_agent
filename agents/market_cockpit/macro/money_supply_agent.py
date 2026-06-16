@@ -57,7 +57,7 @@ class MoneySupplyAgent:
         usa_gdp  = ext.get("gdp_growth")
         usa_cpi  = ext.get("inflation")
         usa_nom_gdp = (usa_gdp + usa_cpi) if (usa_gdp is not None and usa_cpi is not None) else None
-        usa_excess = excess_over_nominal_gdp(usa_m2, usa_nom_gdp) if usa_m2 is not None else None
+        usa_excess = excess_over_nominal_gdp(usa_m2, usa_nom_gdp) if (usa_m2 is not None and usa_nom_gdp is not None) else None
 
         usa = MoneySupplyDataPoint(
             m2_growth=usa_m2, m3_growth=None,  # USA publiziert kein M3
