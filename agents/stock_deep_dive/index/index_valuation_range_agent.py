@@ -29,7 +29,15 @@ _DEFAULT_PE_RANGE = (15.0, 18.0, 25.0)
 
 
 def _method1_score(current: float, price_low: float, price_mid: float, price_high: float) -> float:
-    """Kontinuierlicher Score [-1, +1]: +1 bei price_low, 0 bei price_mid, -1 bei price_high."""
+    """Kontinuierlicher Score [-1, +1]: +1 bei price_low, 0 bei price_mid, -1 bei price_high.
+
+    Guards gegen Division durch 0: price_mid==price_low → kein Raum unterhalb des Mittelpunkts
+    (max bullish = 1.0); price_mid==price_high → kein Raum oberhalb (max bearish = -1.0).
+    """
+    if price_mid == price_low:
+        return 1.0
+    if price_mid == price_high:
+        return -1.0
     if current <= price_mid:
         raw = (price_mid - current) / (price_mid - price_low)
     else:

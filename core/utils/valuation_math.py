@@ -63,20 +63,20 @@ def two_stage_dcf(
 
     pv_explicit = 0.0
     fcf_t = fcf0
-    discounted_last = fcf0
+    discount_factor_n = 1.0
     for t in range(1, years + 1):
         fcf_t = fcf0 * (1.0 + growth) ** t
         discount = (1.0 + wacc) ** t
         pv_explicit += fcf_t / discount
         if t == years:
-            discounted_last = discount
+            discount_factor_n = discount
 
     # Terminal Value (Gordon) am Ende von Stufe 1, dann auf t0 diskontiert.
     spread = wacc - terminal_growth
     if spread < _MIN_WACC_GROWTH_SPREAD:
         spread = _MIN_WACC_GROWTH_SPREAD
     terminal_value = fcf_t * (1.0 + terminal_growth) / spread
-    pv_terminal = terminal_value / discounted_last
+    pv_terminal = terminal_value / discount_factor_n
 
     return pv_explicit + pv_terminal
 

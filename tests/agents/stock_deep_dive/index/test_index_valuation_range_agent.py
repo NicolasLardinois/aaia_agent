@@ -73,3 +73,20 @@ def test_combine_moderate_signal_now_votes():
     # avg 0.4 löst jetzt (Schwelle 0.30) BULLISH aus — vorher (0.70) NEUTRAL.
     _, sig = _combine(0.5, 0.3)
     assert sig == Signal.BULLISH
+
+
+# ── Fix 4: Division-by-Zero-Guard in _method1_score ──────────────────────────
+
+def test_m1_no_div_by_zero_when_price_mid_equals_price_low():
+    """price_mid == price_low → Divisor 0 in current<=price_mid-Branch.
+    Erwartetes Verhalten: maximaler Bullish-Score (1.0), kein ZeroDivisionError."""
+    # Vor dem Fix: ZeroDivisionError oder undefined
+    result = _method1_score(current=3960, price_low=3960, price_mid=3960, price_high=5500)
+    assert result == 1.0, f"Erwartet 1.0 (max bullish), got {result}"
+
+
+def test_m1_no_div_by_zero_when_price_mid_equals_price_high():
+    """price_mid == price_high → Divisor 0 in current>price_mid-Branch.
+    Erwartetes Verhalten: maximaler Bearish-Score (-1.0), kein ZeroDivisionError."""
+    result = _method1_score(current=5000, price_low=3300, price_mid=5500, price_high=5500)
+    assert result == -1.0, f"Erwartet -1.0 (max bearish), got {result}"
