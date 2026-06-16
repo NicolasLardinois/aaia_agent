@@ -242,6 +242,7 @@ class SentimentChiefResult:
     vix: VIXSnapshot
     fear_greed: FearGreedSnapshot
     put_call: PutCallSnapshot
+    signal: Signal = Signal.NEUTRAL
 
 
 # ─────────────────────────────────────────────
