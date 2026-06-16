@@ -32,7 +32,7 @@ def test_no_anomalies_normal_conditions():
     history = [
         {"indicators_snapshot": {"vix": 18.0, "fear_greed": 52.0,
                                  "yield_spread_10y2y": 1.1, "inflation_cpi_usa": 3.1}}
-        for _ in range(10)
+        for _ in range(25)
     ]
     report = agent.run(_make_cockpit(), history)
     assert report.severity == "none"
@@ -44,7 +44,7 @@ def test_statistical_anomaly_high_vix():
     history = [
         {"indicators_snapshot": {"vix": 18.0 + i*0.5, "fear_greed": 50.0,
                                  "yield_spread_10y2y": 1.0, "inflation_cpi_usa": 3.0}}
-        for i in range(10)
+        for i in range(25)
     ]
     report = agent.run(_make_cockpit(vix=45.0), history)
     assert report.has_anomalies is True
@@ -68,7 +68,7 @@ def test_high_severity_both_types():
     history = [
         {"indicators_snapshot": {"vix": 18.0 + i*0.5, "fear_greed": 50.0,
                                  "yield_spread_10y2y": 1.0, "inflation_cpi_usa": 3.0}}
-        for i in range(10)
+        for i in range(25)
     ]
     cockpit = _make_cockpit(
         vix=50.0,
@@ -236,3 +236,25 @@ def test_bottomup_insider_direction_aware():
     report = agent.run(bu, [{"indicators_snapshot": {"insider_transactions": 3}} for _ in range(25)])
     insider_flags = [s for s in report.statistical if "Insider" in s]
     assert insider_flags and "Kauf" in insider_flags[0]
+
+
+def test_topdown_below_min_n_skips_zscore():
+    agent = TopDownAnomalyAgent()
+    history = [
+        {"indicators_snapshot": {"vix": 18.0, "fear_greed": 50.0,
+                                 "yield_spread_10y2y": 1.0, "inflation_cpi_usa": 3.0}}
+        for _ in range(15)  # < 20
+    ]
+    report = agent.run(_make_cockpit(vix=80.0), history)
+    assert not any("VIX" in s for s in report.statistical)
+
+
+def test_topdown_robust_vix_anomaly_min_n():
+    agent = TopDownAnomalyAgent()
+    history = [
+        {"indicators_snapshot": {"vix": 18.0 + (i % 3) * 0.4, "fear_greed": 50.0,
+                                 "yield_spread_10y2y": 1.0, "inflation_cpi_usa": 3.0}}
+        for i in range(25)
+    ]
+    report = agent.run(_make_cockpit(vix=70.0), history)
+    assert any("VIX" in s for s in report.statistical)
