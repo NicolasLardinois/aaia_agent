@@ -11,14 +11,31 @@ _NEUTRAL_PT = YieldSpreadDataPoint(
 _DEFAULT = YieldSpreadSnapshot(usa=_NEUTRAL_PT, eurozone=_NEUTRAL_PT, switzerland=_NEUTRAL_PT)
 
 
-def _point(s10y2y: float | None, s10y3m: float | None, s30y10y: float | None) -> YieldSpreadDataPoint:
-    inverted = (s10y2y is not None and s10y2y < 0) or (s10y3m is not None and s10y3m < 0)
-    ref = s10y2y if s10y2y is not None else s10y3m
+_STEEP = 1.0   # ref > 1.0 = deutlich positive Kurve
+
+
+def _point(
+    s10y2y: float | None,
+    s10y3m: float | None,
+    s30y10y: float | None,
+    prev_10y3m: float | None = None,
+) -> YieldSpreadDataPoint:
+    """
+    10Y-3M als Primärspread (NY-Fed/Estrella — überlegener Rezessionsprädiktor).
+    Inversions-LAG: Eine Inversion ist eine WARNUNG, kein sofortiges BEARISH —
+    historisch laufen Aktien 6–18M nach Inversion weiter. Das eigentliche
+    Timing-Signal (BEARISH) ist das Bull-Steepening: der Spread bewegt sich aus
+    der Inversion heraus nach oben (prev < 0 und current > prev).
+    """
+    inverted = (s10y3m is not None and s10y3m < 0) or (s10y2y is not None and s10y2y < 0)
+    ref = s10y3m if s10y3m is not None else s10y2y
     if ref is None:
         sig = Signal.NEUTRAL
+    elif prev_10y3m is not None and prev_10y3m < 0 and ref > prev_10y3m:
+        sig = Signal.BEARISH        # Bull-Steepening nach Inversion = Timing-Signal
     elif ref < 0:
-        sig = Signal.BEARISH
-    elif ref > 1.0:
+        sig = Signal.NEUTRAL        # frische/fortlaufende Inversion = Warnung, kein BEARISH
+    elif ref > _STEEP:
         sig = Signal.BULLISH
     else:
         sig = Signal.NEUTRAL
