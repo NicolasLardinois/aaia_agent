@@ -1,63 +1,77 @@
+from datetime import datetime, timezone
+from typing import Callable, Optional
+
 from core.ports.memory_port import MemoryPort
+from core.utils.backtest import HORIZONS_DAYS, hit_rate_ci
+from agents.backtester.bottom_up_backtester_agent import _default_benchmark_return
 
-REGIME_CYCLE = ["Boom", "Aufschwung", "Erholung", "Abschwung", "Rezession"]
-
-_ADJACENT: dict[str, set] = {
-    r: {
-        REGIME_CYCLE[max(0, i - 1)],
-        r,
-        REGIME_CYCLE[min(len(REGIME_CYCLE) - 1, i + 1)],
-    }
-    for i, r in enumerate(REGIME_CYCLE)
-}
+# Regime → erwartete Richtung des realisierten Benchmark-Returns (risk-on/off).
+_RISK_ON  = {"Boom", "Aufschwung", "Erholung"}
+_RISK_OFF = {"Abschwung", "Rezession", "Depression"}
 
 
-def _is_adjacent(a: str, b: str) -> bool:
-    return b in _ADJACENT.get(a, {a})
+def _regime_expectation(regime: str) -> float:
+    if regime in _RISK_ON:
+        return 1.0
+    if regime in _RISK_OFF:
+        return -1.0
+    return 0.0
 
 
-def _accuracy(entries: list[dict], reference_regime: str) -> float:
-    if not entries:
-        return 0.0
-    correct = sum(1 for e in entries if _is_adjacent(e["regime"], reference_regime))
-    return round(correct / len(entries), 3)
+def _regime_correct(regime: str, realized_return: float) -> bool:
+    exp = _regime_expectation(regime)
+    if exp == 0.0:
+        return False
+    return (exp > 0 and realized_return > 0) or (exp < 0 and realized_return < 0)
 
 
 class TopDownBacktesterAgent:
 
-    def __init__(self, memory: MemoryPort):
+    def __init__(
+        self,
+        memory: MemoryPort,
+        benchmark_return: Callable[[str, datetime, int], Optional[float]] = _default_benchmark_return,
+    ):
         self.memory = memory
+        self.benchmark_return = benchmark_return
 
     async def run(self) -> None:
-        history = self.memory.load_global_history(days=90)
+        history = self.memory.load_global_history(days=180)
         if not history:
             print("[TopDownBacktester] Keine Einträge — übersprungen.")
             return
 
-        latest = max(history, key=lambda h: h["timestamp"])
-        ref_regime = latest.get("regime")
-        if not ref_regime:
-            print("[TopDownBacktester] Kein Regime im letzten Eintrag — übersprungen.")
+        now = datetime.now(timezone.utc)
+        horizon = max(HORIZONS_DAYS)  # längstes Window für die Prognoseprüfung
+
+        entries = [
+            h for h in history
+            if h.get("regime") and h.get("timestamp")
+            and (now - h["timestamp"]).days >= horizon
+        ]
+        if not entries:
+            print("[TopDownBacktester] Kein abgeschlossenes Forward-Window — übersprungen.")
             return
 
-        from datetime import datetime, timedelta, timezone
-        now = datetime.now(timezone.utc)
+        correct = 0
+        total = 0
+        for e in entries:
+            regime = e["regime"]
+            if _regime_expectation(regime) == 0.0:
+                continue
+            realized = self.benchmark_return(e.get("market", "USA"), e["timestamp"], horizon)
+            if realized is None:
+                continue
+            total += 1
+            if _regime_correct(regime, realized):
+                correct += 1
 
-        def entries_in_window(days: int) -> list[dict]:
-            cutoff = now - timedelta(days=days)
-            return [
-                h for h in history
-                if h.get("regime") and h["timestamp"] >= cutoff
-            ]
+        if total == 0:
+            print("[TopDownBacktester] Keine bewertbaren Regime-Prognosen — übersprungen.")
+            return
 
-        e30 = entries_in_window(30)
-        e60 = entries_in_window(60)
-        e90 = entries_in_window(90)
-
-        acc30 = _accuracy(e30, ref_regime)
-        acc60 = _accuracy(e60, ref_regime)
-        acc90 = _accuracy(e90, ref_regime)
-
+        accuracy = round(correct / total, 3)
+        lo, hi = hit_rate_ci(correct, total)
         report = {
             "backtester_type": "topdown",
             "ticker": None,
@@ -65,14 +79,18 @@ class TopDownBacktesterAgent:
             "price_at_recommendation": None,
             "price_today": None,
             "return_pct": None,
-            "verdict": "correct" if acc30 >= 0.70 else "incorrect",
-            "accuracy_30d": acc30,
-            "accuracy_60d": acc60,
-            "accuracy_90d": acc90,
+            "verdict": "correct" if lo >= 0.50 else "incorrect",
+            "accuracy_30d": None,
+            "accuracy_60d": None,
+            "accuracy_90d": accuracy,
+            "sample_size": total,
+            "hit_rate_ci_low": lo,
+            "hit_rate_ci_high": hi,
             "notes": (
-                f"Referenz-Regime: {ref_regime}. "
-                f"Treffsicherheit 30d={acc30:.0%} 60d={acc60:.0%} 90d={acc90:.0%}"
+                f"Prognose-Backtest (Regime t → Benchmark t+{horizon}d): "
+                f"{accuracy:.0%} aus N={total} [{lo:.0%}–{hi:.0%}]"
             ),
         }
         self.memory.save_backtester_report(report)
-        print(f"[TopDownBacktester] Treffsicherheit 30d={acc30:.0%} | Regime: {ref_regime}")
+        print(f"[TopDownBacktester] Prognosegüte {horizon}d={accuracy:.0%} "
+              f"[{lo:.0%}–{hi:.0%}] | N={total}")
