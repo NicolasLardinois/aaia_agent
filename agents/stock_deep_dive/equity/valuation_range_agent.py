@@ -5,6 +5,7 @@ from core.domain.events import ValuationRangeReady
 from core.domain.models import ValuationRangeSnapshot, ValuationMethod, Signal
 from core.ports.data_provider import FundamentalsProvider, MarketDataProvider
 from core.ports.event_bus import EventBus
+from core.utils.valuation_math import two_stage_dcf, capm_wacc
 
 _DEFAULT = ValuationRangeSnapshot(
     methods=[], combined_low=0.0, combined_high=0.0,
@@ -76,15 +77,30 @@ class ValuationRangeAgent:
             ev_high = ebitda_per_share * multiples["ev_ebitda"][1] - net_debt_per_share
             methods.append(ValuationMethod(name="EV/EBITDA-Multiple", low=round(ev_low, 2), high=round(ev_high, 2)))
 
-        # DCF (vereinfacht — TODO: vollständiges DCF wenn FCF-Daten verfügbar)
+        # DCF — echtes 2-Stufen-DCF mit CAPM-WACC (ersetzt Gordon-Growth)
         fcf_per_share = data.get("fcf_per_share")
-        wacc = data.get("wacc", 0.09)
-        growth = data.get("revenue_cagr_3y", 5) / 100 if data.get("revenue_cagr_3y") else 0.05
-        if fcf_per_share is not None and wacc:
-            if abs(wacc - terminal_growth) >= 0.001:
-                dcf_low  = fcf_per_share * (1 + growth * 0.7) / (wacc - terminal_growth)
-                dcf_high = fcf_per_share * (1 + growth * 1.3) / (wacc - terminal_growth)
-                methods.append(ValuationMethod(name="DCF", low=round(dcf_low, 2), high=round(dcf_high, 2)))
+        if fcf_per_share is not None:
+            wacc = capm_wacc(
+                rf=data.get("risk_free_rate", 0.04),
+                beta=data.get("beta", 1.0),
+                erp=data.get("erp", 0.05),
+                cost_of_debt=data.get("cost_of_debt", 0.05),
+                tax_rate=data.get("tax_rate", 0.21),
+                equity_weight=data.get("equity_weight", 0.8),
+                debt_weight=data.get("debt_weight", 0.2),
+            )
+            growth = (data.get("revenue_cagr_3y") or 5) / 100
+            # Szenario-Band: konservativer (0.7×) bis optimistischer (1.3×) Wachstumspfad
+            dcf_low = two_stage_dcf(
+                fcf0=fcf_per_share, growth=growth * 0.7,
+                terminal_growth=terminal_growth, wacc=wacc, years=5,
+            )
+            dcf_high = two_stage_dcf(
+                fcf0=fcf_per_share, growth=growth * 1.3,
+                terminal_growth=terminal_growth, wacc=wacc, years=5,
+            )
+            lo, hi = min(dcf_low, dcf_high), max(dcf_low, dcf_high)
+            methods.append(ValuationMethod(name="DCF", low=round(lo, 2), high=round(hi, 2)))
 
         if not methods:
             self.bus.publish(ValuationRangeReady(source="valuation_range_agent", payload={"ticker": ticker}))
