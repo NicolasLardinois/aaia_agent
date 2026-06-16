@@ -278,6 +278,7 @@ class SovereignSpreadSnapshot:
 class YieldCurveChiefResult:
     yield_spreads: YieldSpreadSnapshot
     sovereign_spreads: SovereignSpreadSnapshot
+    signal: Signal = Signal.NEUTRAL
 
 
 # ─────────────────────────────────────────────
