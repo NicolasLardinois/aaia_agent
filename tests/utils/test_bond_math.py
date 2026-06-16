@@ -4,6 +4,7 @@ from core.utils.bond_math import (
     macaulay_duration, modified_duration, convexity,
     effective_duration, dv01, price_change_estimate,
 )
+from core.utils.bond_math import yield_to_worst
 
 
 def test_par_bond_ytm_equals_coupon():
@@ -64,3 +65,15 @@ def test_price_change_estimate_includes_convexity():
     est = price_change_estimate(7.79, 76.0, 0.01)
     assert math.isclose(est, -7.79*0.01 + 0.5*76.0*0.01**2, abs_tol=1e-12)
     assert est > -7.79*0.01  # Convexity hebt die lineare Schätzung an
+
+
+def test_ytw_picks_lower_of_ytm_and_ytc():
+    assert yield_to_worst(0.052, 0.041) == 0.041
+
+
+def test_ytw_ignores_none_ytc():
+    assert yield_to_worst(0.052, None) == 0.052
+
+
+def test_ytw_both_none_returns_none():
+    assert yield_to_worst(None, None) is None
