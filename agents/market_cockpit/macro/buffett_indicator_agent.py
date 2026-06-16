@@ -10,6 +10,9 @@ from core.ports.event_bus import EventBus
 _BULLISH_THRESHOLD = 75.0
 _BEARISH_THRESHOLD = 135.0
 
+_Z_HIGH = 1.5
+_Z_LOW  = -1.5
+
 # mrv=15 → letzte 15 Jahreswerte pro Land (reicht für Z-Score-Berechnung)
 # per_page=5000 verhindert Paginierung bei ~150 Ländern × 15 Jahre = ~2250 Einträgen
 _WB_URL = (
@@ -21,12 +24,28 @@ _DEFAULT = BuffettIndicatorSnapshot(countries={}, signal=Signal.NEUTRAL)
 
 
 def _signal(ratio: float | None) -> Signal:
+    """Älterer Absolut-Fallback (für Länder ohne ausreichende Historie)."""
     if ratio is None:
         return Signal.NEUTRAL
     if ratio < _BULLISH_THRESHOLD:
         return Signal.BULLISH
     if ratio > _BEARISH_THRESHOLD:
         return Signal.BEARISH
+    return Signal.NEUTRAL
+
+
+def _signal_from_z(z: float | None) -> Signal:
+    """
+    Klassifizierung über den z-Score zur LANDESHISTORIE (Abweichung vom landeseigenen
+    Mittel), NICHT über eine globale 75/135%-Schwelle. CH (strukturell 200–250%) und DE
+    (50–60%) werden so korrekt relativ bewertet.
+    """
+    if z is None:
+        return Signal.NEUTRAL
+    if z >= _Z_HIGH:
+        return Signal.BEARISH
+    if z <= _Z_LOW:
+        return Signal.BULLISH
     return Signal.NEUTRAL
 
 
@@ -114,8 +133,10 @@ class BuffettIndicatorAgent:
 
         for code, (ratio, year, history) in wb_data.items():
             z = _z_score(ratio, history)
+            # z-Score-Pfad primär; Fallback auf Absolut-Schwelle wenn keine ausreichende Historie
+            sig = _signal_from_z(z) if z is not None else _signal(ratio)
             countries[code] = BuffettCountryPoint(
-                ratio_pct=ratio, signal=_signal(ratio), year=year, z_score=z,
+                ratio_pct=ratio, signal=sig, year=year, z_score=z,
             )
             all_ratios.append(ratio)
 
@@ -129,8 +150,9 @@ class BuffettIndicatorAgent:
         if market_cap is not None and gdp is not None and gdp > 0:
             usa_ratio = round(market_cap / gdp * 100, 1)
         usa_z = _z_score(usa_ratio, fred_history)
+        usa_sig = _signal_from_z(usa_z) if usa_z is not None else _signal(usa_ratio)
         countries["USA"] = BuffettCountryPoint(
-            ratio_pct=usa_ratio, signal=_signal(usa_ratio), year=None, z_score=usa_z,
+            ratio_pct=usa_ratio, signal=usa_sig, year=None, z_score=usa_z,
         )
 
         usa_signal = countries["USA"].signal
