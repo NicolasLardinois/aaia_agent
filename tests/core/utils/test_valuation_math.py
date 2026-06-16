@@ -2,6 +2,7 @@ import math
 import pytest
 
 from core.utils.valuation_math import capm_wacc
+from core.utils.valuation_math import two_stage_dcf
 
 
 def test_capm_wacc_textbook_numbers():
@@ -35,3 +36,40 @@ def test_capm_wacc_weights_normalized_when_not_summing_to_one():
     )
     # ke=0.09, kd_after=0.04 → 0.75*0.09 + 0.25*0.04 = 0.0675 + 0.01 = 0.0775
     assert math.isclose(wacc, 0.0775, abs_tol=1e-9)
+
+
+def test_two_stage_dcf_known_value():
+    # fcf0=10, growth=0%, terminal_growth=0%, wacc=10%, years=5
+    # FCF jedes Jahr = 10 (kein Wachstum)
+    # PV(explizit) = 10*(1.1^-1 + ... + 1.1^-5) = 10*3.790786769 = 37.90786769
+    # TV am Jahr 5 = FCF_5*(1+0)/(0.10-0) = 10/0.10 = 100; PV(TV)=100*1.1^-5=62.09213231
+    # Summe = 100.0
+    value = two_stage_dcf(fcf0=10.0, growth=0.0, terminal_growth=0.0, wacc=0.10, years=5)
+    assert abs(value - 100.0) < 1e-6
+
+
+def test_two_stage_dcf_high_growth_increases_value():
+    base = two_stage_dcf(fcf0=10.0, growth=0.00, terminal_growth=0.02, wacc=0.10, years=5)
+    fast = two_stage_dcf(fcf0=10.0, growth=0.15, terminal_growth=0.02, wacc=0.10, years=5)
+    assert fast > base
+
+
+def test_two_stage_dcf_lower_wacc_increases_value():
+    high_wacc = two_stage_dcf(fcf0=10.0, growth=0.05, terminal_growth=0.02, wacc=0.12, years=5)
+    low_wacc  = two_stage_dcf(fcf0=10.0, growth=0.05, terminal_growth=0.02, wacc=0.08, years=5)
+    assert low_wacc > high_wacc
+
+
+def test_two_stage_dcf_stable_when_wacc_near_terminal_growth():
+    # WACC sehr nah an terminal_growth -> kein Crash, endlicher Wert
+    value = two_stage_dcf(fcf0=5.0, growth=0.05, terminal_growth=0.025, wacc=0.026, years=5)
+    assert value == value  # not NaN
+    assert value > 0
+    assert value < 1e9     # nicht explodiert
+
+
+def test_two_stage_dcf_wacc_below_terminal_growth_does_not_explode():
+    # Ökonomisch unzulässig (WACC < g_term) -> Mindestabstand greift, endlich & positiv
+    value = two_stage_dcf(fcf0=5.0, growth=0.05, terminal_growth=0.04, wacc=0.03, years=5)
+    assert value > 0
+    assert value < 1e9

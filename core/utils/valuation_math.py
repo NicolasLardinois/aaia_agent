@@ -33,3 +33,49 @@ def capm_wacc(
     cost_of_equity = rf + beta * erp
     after_tax_kd = cost_of_debt * (1.0 - tax_rate)
     return w_e * cost_of_equity + w_d * after_tax_kd
+
+
+# Mindestabstand WACC - terminal_growth zur Vermeidung ökonomischer Instabilität.
+# Bei WACC <= g_term + _MIN_SPREAD wird der Nenner auf _MIN_SPREAD geklemmt
+# (Gordon-Term explodiert sonst gegen unendlich bzw. wird negativ).
+_MIN_WACC_GROWTH_SPREAD = 0.01
+
+
+def two_stage_dcf(
+    fcf0: float,
+    growth: float,
+    terminal_growth: float,
+    wacc: float,
+    years: int = 5,
+) -> float:
+    """2-Stufen-DCF auf Basis des Free Cash Flow.
+
+    Stufe 1: explizite Projektion von FCF über `years` Jahre mit Rate `growth`.
+    Stufe 2: Terminal Value via Gordon mit konsistenter `terminal_growth`-Rate.
+    Alle Cashflows werden mit `wacc` auf t0 diskontiert.
+
+    Stabilität: der Diskont-/Wachstumsabstand (wacc - terminal_growth) wird auf
+    mindestens `_MIN_WACC_GROWTH_SPREAD` geklemmt, um ökonomische Instabilität bei
+    wacc ~= terminal_growth abzufangen.
+    """
+    if years < 1:
+        years = 1
+
+    pv_explicit = 0.0
+    fcf_t = fcf0
+    discounted_last = fcf0
+    for t in range(1, years + 1):
+        fcf_t = fcf0 * (1.0 + growth) ** t
+        discount = (1.0 + wacc) ** t
+        pv_explicit += fcf_t / discount
+        if t == years:
+            discounted_last = discount
+
+    # Terminal Value (Gordon) am Ende von Stufe 1, dann auf t0 diskontiert.
+    spread = wacc - terminal_growth
+    if spread < _MIN_WACC_GROWTH_SPREAD:
+        spread = _MIN_WACC_GROWTH_SPREAD
+    terminal_value = fcf_t * (1.0 + terminal_growth) / spread
+    pv_terminal = terminal_value / discounted_last
+
+    return pv_explicit + pv_terminal
