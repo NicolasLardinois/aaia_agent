@@ -8,9 +8,30 @@ from agents.stock_deep_dive.index.index_momentum_agent import IndexMomentumAgent
 from agents.stock_deep_dive.index.sector_composition_agent import SectorCompositionAgent
 from agents.stock_deep_dive.index.index_valuation_range_agent import IndexValuationRangeAgent
 from core.domain.events import IndexChiefReady
-from core.domain.models import IndexResult
+from core.domain.models import IndexResult, Signal, SignalStatus
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
+from core.utils.aggregation import weighted_signal
+
+# Top-down-Gewichte: Bewertung = Langfrist-Anker, Momentum/Breadth = Timing.
+_W_VALUATION = 0.30
+_W_MOMENTUM  = 0.25
+_W_BREADTH   = 0.20
+_W_EARNINGS  = 0.15
+_W_PRICE     = 0.10
+
+
+def _aggregate_index_signal(valuation_sig, momentum_sig, earnings_sig,
+                            breadth_sig, price_sig) -> tuple[Signal, float]:
+    A = SignalStatus.AVAILABLE
+    items = [
+        (valuation_sig, _W_VALUATION, A),
+        (momentum_sig,  _W_MOMENTUM,  A),
+        (breadth_sig,   _W_BREADTH,   A),
+        (earnings_sig,  _W_EARNINGS,  A),
+        (price_sig,     _W_PRICE,     A),
+    ]
+    return weighted_signal(items)
 
 
 class IndexChiefAgent:
@@ -46,7 +67,17 @@ class IndexChiefAgent:
         composition     = _safe(results[5], SectorCompositionAgent.default())
         valuation_range = _safe(results[6], IndexValuationRangeAgent.default())
 
-        self.bus.publish(IndexChiefReady(source="index_chief_agent", payload={"ticker": ticker}))
+        overall_signal, confidence = _aggregate_index_signal(
+            valuation_sig=valuation.signal,
+            momentum_sig=momentum.signal,
+            earnings_sig=earnings.signal,
+            breadth_sig=breadth.signal,
+            price_sig=price.signal,
+        )
+
+        self.bus.publish(IndexChiefReady(source="index_chief_agent", payload={
+            "ticker": ticker, "signal": overall_signal.value, "confidence": round(confidence, 3),
+        }))
 
         return IndexResult(
             ticker=ticker, price=price, valuation=valuation, earnings=earnings,
