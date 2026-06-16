@@ -10,16 +10,36 @@ _NEUTRAL = GDPDataPoint(
 )
 _DEFAULT = GDPSnapshot(usa=_NEUTRAL, eurozone=_NEUTRAL, switzerland=_NEUTRAL)
 
+# Länderspezifische Trend-BIP-Schwellen
+_TREND_GDP = {"usa": 2.0, "eu": 1.2, "ch": 1.2}
 
-def _signal(gdp: float | None, pmi: float | None, unemployment: float | None) -> Signal:
-    score = 0
-    if gdp is not None:
-        score += 1 if gdp > 2.0 else (-1 if gdp < 0 else 0)
+
+def _sahm_recession(unemp_3m_avg: float | None, unemp_12m_low: float | None) -> bool | None:
+    """Sahm-Regel: 3M-Durchschnitts-Arbeitslosenquote ≥0.5pp über 12M-Tief = Rezession."""
+    if unemp_3m_avg is None or unemp_12m_low is None:
+        return None
+    return (unemp_3m_avg - unemp_12m_low) >= 0.5
+
+
+def _signal(gdp_above_trend: bool | None, pmi: float | None, sahm: bool | None) -> Signal:
+    """
+    Score normiert auf die ANZAHL vorhandener Indikatoren (Durchschnitt statt fixer
+    Summenschwelle). BIP relativ zum länderspezifischen Trendwachstum (gdp_above_trend),
+    Arbeitslosigkeit über die Sahm-Regel (sahm) statt absoluter 5/8%-Schwellen.
+    """
+    if sahm is True:
+        return Signal.BEARISH        # Sahm-Trigger dominiert (harter Rezessionsindikator)
+    scores = []
+    if gdp_above_trend is not None:
+        scores.append(1 if gdp_above_trend else -1)
     if pmi is not None:
-        score += 1 if pmi > 52 else (-1 if pmi < 48 else 0)
-    if unemployment is not None:
-        score += 1 if unemployment < 5.0 else (-1 if unemployment > 8.0 else 0)
-    return Signal.BULLISH if score >= 2 else (Signal.BEARISH if score <= -2 else Signal.NEUTRAL)
+        scores.append(1 if pmi > 52 else (-1 if pmi < 48 else 0))
+    if sahm is False:
+        scores.append(1)             # keine Rezession laut Sahm = leicht positiv
+    if not scores:
+        return Signal.NEUTRAL
+    avg = sum(scores) / len(scores)
+    return Signal.BULLISH if avg >= 0.5 else (Signal.BEARISH if avg <= -0.5 else Signal.NEUTRAL)
 
 
 class GDPAgent:
@@ -30,10 +50,9 @@ class GDPAgent:
         self.bus   = bus
 
     async def run(self) -> GDPSnapshot:
-        state, ecb_gdp, ecb_ind, ecb_unemp, ecb_pmi, snb_gdp, snb_unemp = await asyncio.gather(
+        state, ecb_gdp, ecb_unemp, ecb_pmi, snb_gdp, snb_unemp = await asyncio.gather(
             asyncio.to_thread(self.macro.get_economic_state),
             asyncio.to_thread(self.ecb.get_gdp_growth),
-            asyncio.to_thread(self.ecb.get_unemployment),  # using unemployment as proxy
             asyncio.to_thread(self.ecb.get_unemployment),
             asyncio.to_thread(self.ecb.get_pmi),
             asyncio.to_thread(self.snb.get_gdp_growth),
@@ -42,33 +61,40 @@ class GDPAgent:
         )
         def _safe(v): return None if isinstance(v, Exception) else v
 
-        state      = _safe(state) or {}
-        ecb_gdp    = _safe(ecb_gdp)
-        ecb_ind    = _safe(ecb_ind)
-        ecb_unemp  = _safe(ecb_unemp)
-        ecb_pmi    = _safe(ecb_pmi)
-        snb_gdp    = _safe(snb_gdp)
-        snb_unemp  = _safe(snb_unemp)
+        state     = _safe(state) or {}
+        ecb_gdp   = _safe(ecb_gdp)
+        ecb_unemp = _safe(ecb_unemp)
+        ecb_pmi   = _safe(ecb_pmi)
+        snb_gdp   = _safe(snb_gdp)
+        snb_unemp = _safe(snb_unemp)
+
+        usa_gdp   = state.get("gdp_growth")
+        usa_unemp = state.get("unemployment")
+        usa_above = (usa_gdp > _TREND_GDP["usa"]) if usa_gdp is not None else None
+        # Sahm-Regel: 3M-Schnitt / 12M-Tief aus Historia nicht verfügbar → None
+        usa_sahm  = _sahm_recession(None, None)
 
         usa = GDPDataPoint(
-            gdp_growth=state.get("gdp_growth"),
+            gdp_growth=usa_gdp,
             industrial_production=state.get("industrial_production"),
-            unemployment=state.get("unemployment"),
+            unemployment=usa_unemp,
             consumer_sentiment=state.get("consumer_sentiment"),
             pmi=None,   # TODO: ISM Manufacturing via FRED/ISM
-            signal=_signal(state.get("gdp_growth"), None, state.get("unemployment")),
+            signal=_signal(usa_above, None, usa_sahm),
         )
+        eu_above = (ecb_gdp > _TREND_GDP["eu"]) if ecb_gdp is not None else None
         eu = GDPDataPoint(
             gdp_growth=ecb_gdp, industrial_production=None,
             unemployment=ecb_unemp, consumer_sentiment=None,
             pmi=ecb_pmi,
-            signal=_signal(ecb_gdp, ecb_pmi, ecb_unemp),
+            signal=_signal(eu_above, ecb_pmi, None),
         )
+        ch_above = (snb_gdp > _TREND_GDP["ch"]) if snb_gdp is not None else None
         ch = GDPDataPoint(
             gdp_growth=snb_gdp, industrial_production=None,
             unemployment=snb_unemp, consumer_sentiment=None,
             pmi=None,   # TODO: procure.ch PMI
-            signal=_signal(snb_gdp, None, snb_unemp),
+            signal=_signal(ch_above, None, None),
         )
         result = GDPSnapshot(usa=usa, eurozone=eu, switzerland=ch)
         self.bus.publish(GDPDataReady(source="gdp_agent", payload={
