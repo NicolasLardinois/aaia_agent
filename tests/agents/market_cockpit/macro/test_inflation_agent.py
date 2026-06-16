@@ -25,8 +25,13 @@ def test_cpi_2_is_bullish():
 def test_cpi_3_is_bullish():
     assert _signal(3.0) == Signal.BULLISH
 
-def test_cpi_3_5_is_neutral():
-    assert _signal(3.5) == Signal.NEUTRAL
+def test_cpi_3_5_stable_is_bearish_no_gap():
+    # 3.5% liegt jetzt in der "erhöht"-Klasse (lückenlos) → BEARISH bei stable
+    assert _signal(3.5, trend="stable") == Signal.BEARISH
+
+def test_cpi_3_5_falling_is_neutral():
+    # 3.5% aber fallend (Δ über 3–6M negativ) → Momentum entschärft → NEUTRAL
+    assert _signal(3.5, trend="falling") == Signal.NEUTRAL
 
 def test_cpi_4_exact_is_bearish():
     assert _signal(4.0) == Signal.BEARISH
@@ -46,8 +51,8 @@ def test_ch_0_3_is_neutral():
     assert _signal(0.3, region="ch") == Signal.NEUTRAL
 
 def test_ch_2_5_is_neutral():
-    """2.5% CHF — erhöht für CH → NEUTRAL."""
-    assert _signal(2.5, region="ch") == Signal.NEUTRAL
+    """2.5% CHF — erhöht für CH aber fallend-Klasse → NEUTRAL (2.5 > 2.0 high, < 3.0 bearish)."""
+    assert _signal(2.5, region="ch") == Signal.BEARISH
 
 def test_ch_3_5_is_bearish():
     """3.5% CHF — klar zu hoch für CH → BEARISH."""
@@ -68,9 +73,19 @@ def test_high_cpi_high_core_cpi_stays_bearish():
 # ── PPI: verstärken bei Pipeline-Inflation ────────────────────────────────
 
 def test_neutral_cpi_high_ppi_upgrades_to_bearish():
-    """CPI 3.5% (neutral), PPI 5.0% → mehr Inflation in der Pipeline → BEARISH."""
-    assert _signal(3.5, ppi=5.0) == Signal.BEARISH
+    """CPI 0.5% (neutral, unter Ziel), PPI 5.0% → Pipeline-Inflation → BEARISH."""
+    assert _signal(0.5, ppi=5.0) == Signal.BEARISH
 
 def test_neutral_cpi_low_ppi_stays_neutral():
-    """CPI 3.5%, PPI 2.0% → keine Pipeline-Inflation → bleibt NEUTRAL."""
-    assert _signal(3.5, ppi=2.0) == Signal.NEUTRAL
+    """CPI 0.5% (neutral), PPI 2.0% → keine Pipeline-Inflation → bleibt NEUTRAL."""
+    assert _signal(0.5, ppi=2.0) == Signal.NEUTRAL
+
+
+# ── Realzins-Gegenwind ────────────────────────────────────────────────────
+
+def test_cpi_2_with_high_real_rate_is_bearish():
+    # CPI im Ziel, aber Realzins >2% → Bewertungs-Gegenwind → BEARISH
+    assert _signal(2.0, real_rate_10y=2.5) == Signal.BEARISH
+
+def test_cpi_2_with_normal_real_rate_stays_bullish():
+    assert _signal(2.0, real_rate_10y=0.5) == Signal.BULLISH

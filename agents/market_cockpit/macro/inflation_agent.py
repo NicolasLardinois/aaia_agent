@@ -17,30 +17,40 @@ def _signal(
     core_cpi: float | None = None,
     ppi: float | None = None,
     region: str = "usa",
-    trend: str = "stable",   # reserviert: "rising"|"falling"|"stable" (benötigt CPI-Historie)
+    trend: str = "stable",          # "rising" | "falling" | "stable"
+    real_rate_10y: float | None = None,
 ) -> Signal:
     if cpi is None:
         return Signal.NEUTRAL
 
     thr = _CH if region == "ch" else _USA_EU
 
+    # Lückenlose Bänder: jeder Wert fällt in genau eine Klasse.
     if cpi < 0.0:
-        sig = Signal.BEARISH
+        sig = Signal.BEARISH                         # Deflation
     elif cpi < thr["low"]:
-        sig = Signal.NEUTRAL
+        sig = Signal.NEUTRAL                         # unter Ziel, keine Deflation
     elif cpi <= thr["high"]:
-        sig = Signal.BULLISH
-    elif cpi >= thr["bearish"]:
-        sig = Signal.BEARISH
+        sig = Signal.BULLISH                         # Zielzone
+    elif cpi < thr["bearish"]:
+        sig = Signal.BEARISH                         # erhöht (3–4%) — vormals blinde Lücke
     else:
-        sig = Signal.NEUTRAL   # erhöht aber nicht kritisch
+        sig = Signal.BEARISH                         # klar über Ziel
 
-    # Core CPI: BEARISH abschwächen wenn Kerninflation im Zielbereich (transiente Inflation)
+    # Core-Abschwächung (transiente Inflation)
     if sig == Signal.BEARISH and core_cpi is not None and core_cpi <= thr["high"]:
         sig = Signal.NEUTRAL
 
-    # PPI: NEUTRAL verstärken wenn Erzeugerpreise Pipeline-Inflation anzeigen
+    # Trend-Modifikator: über Ziel + fallend → entschärfen
+    if sig == Signal.BEARISH and cpi > thr["high"] and trend == "falling":
+        sig = Signal.NEUTRAL
+
+    # PPI Pipeline-Inflation verstärkt NEUTRAL → BEARISH
     if sig == Signal.NEUTRAL and ppi is not None and ppi >= thr["bearish"]:
+        sig = Signal.BEARISH
+
+    # Realzins-Gegenwind: hoher Realzins drückt Bewertungen
+    if real_rate_10y is not None and real_rate_10y > 2.0 and sig != Signal.BEARISH:
         sig = Signal.BEARISH
 
     return sig
@@ -82,7 +92,7 @@ class InflationAgent:
             pce=None,                # TODO: FRED PCEPI via extended_state
             ppi=usa_ppi,
             real_rate_10y=ext.get("real_rate_10y"),
-            signal=_signal(usa_cpi, ppi=usa_ppi, region="usa"),
+            signal=_signal(usa_cpi, ppi=usa_ppi, region="usa", real_rate_10y=ext.get("real_rate_10y")),
         )
         eu = InflationDataPoint(
             cpi=ecb_cpi, core_cpi=ecb_core, pce=None,
