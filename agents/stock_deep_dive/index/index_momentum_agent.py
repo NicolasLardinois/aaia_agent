@@ -4,9 +4,13 @@ from core.domain.events import IndexMomentumReady
 from core.domain.models import IndexMomentumSnapshot, Signal
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
+from core.utils.scoring import wilder_rsi
 
 _WORLD_BENCHMARK = "URTH"   # iShares MSCI World ETF
 _CROSS_WINDOW    = 5        # Handelstage für Kreuzungspunkt-Erkennung
+_HISTORY_PERIOD  = "2y"     # MA200 braucht ≥2y für ein stabiles Cross-Fenster (P4.2)
+_RSI_OVERBOUGHT  = 70.0
+_RSI_OVERSOLD    = 30.0
 
 _DEFAULT = IndexMomentumSnapshot(
     rsi_14=None, ma50=None, ma200=None,
@@ -15,15 +19,8 @@ _DEFAULT = IndexMomentumSnapshot(
 
 
 def _compute_rsi(prices, period: int = 14) -> float | None:
-    try:
-        delta = prices.diff().dropna()
-        gain  = delta.clip(lower=0).rolling(period).mean()
-        loss  = (-delta.clip(upper=0)).rolling(period).mean()
-        rs    = gain / loss.replace(0, float("nan"))
-        rsi   = 100 - (100 / (1 + rs))
-        return round(float(rsi.iloc[-1]), 2)
-    except Exception:
-        return None
+    """Wilder-Smoothing-RSI (delegiert an core.utils.scoring.wilder_rsi)."""
+    return wilder_rsi(prices, period=period)
 
 
 def _detect_crossover(ma50_series, ma200_series) -> bool | None:
@@ -44,14 +41,23 @@ def _detect_crossover(ma50_series, ma200_series) -> bool | None:
         return None
 
 
-def _signal(golden_cross: bool | None, rsi: float | None) -> Signal:
-    if golden_cross is None:
+def _signal(ma50: float | None, ma200: float | None, rsi: float | None) -> Signal:
+    """Signal aus dem Trend-STATUS (ma50 vs ma200) + RSI-Extreme statt nur Cross-Event.
+    - Aufwärtstrend (ma50 > ma200) + RSI nicht überkauft → BULLISH.
+    - Abwärtstrend (ma50 < ma200) + RSI nicht überverkauft → BEARISH.
+    - Extreme dämpfen (überkauft im Up / überverkauft im Down) → NEUTRAL.
+    """
+    if ma50 is None or ma200 is None:
         return Signal.NEUTRAL
-    if golden_cross and (rsi is None or rsi < 70):
+    uptrend = ma50 > ma200
+    if uptrend:
+        if rsi is not None and rsi > _RSI_OVERBOUGHT:
+            return Signal.NEUTRAL
         return Signal.BULLISH
-    if not golden_cross and (rsi is None or rsi > 70):
-        return Signal.BEARISH
-    return Signal.NEUTRAL
+    # Abwärtstrend
+    if rsi is not None and rsi < _RSI_OVERSOLD:
+        return Signal.NEUTRAL
+    return Signal.BEARISH
 
 
 class IndexMomentumAgent:
@@ -62,8 +68,8 @@ class IndexMomentumAgent:
     async def run(self, ticker: str) -> IndexMomentumSnapshot:
         try:
             hist, bench = await asyncio.gather(
-                asyncio.to_thread(self.market.get_price_history, ticker, "1y"),
-                asyncio.to_thread(self.market.get_price_history, _WORLD_BENCHMARK, "1y"),
+                asyncio.to_thread(self.market.get_price_history, ticker, _HISTORY_PERIOD),
+                asyncio.to_thread(self.market.get_price_history, _WORLD_BENCHMARK, _HISTORY_PERIOD),
                 return_exceptions=True,
             )
             if isinstance(hist, Exception):
@@ -87,7 +93,7 @@ class IndexMomentumAgent:
             result = IndexMomentumSnapshot(
                 rsi_14=rsi, ma50=ma50, ma200=ma200,
                 golden_cross=golden, relative_strength=rs,
-                signal=_signal(golden, rsi),
+                signal=_signal(ma50, ma200, rsi),
             )
         except Exception:
             return _DEFAULT
