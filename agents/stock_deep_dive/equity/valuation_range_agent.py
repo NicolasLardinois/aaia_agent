@@ -61,25 +61,25 @@ class ValuationRangeAgent:
         terminal_growth = _TERMINAL_GROWTH.get(sector, _TERMINAL_GROWTH["default"])
         methods: list[ValuationMethod] = []
 
-        # KGV-Multiple
+        # KGV-Multiple — nur bei positivem EPS (negatives EPS → invertiertes Band)
         pe = data.get("pe_ratio")
         eps = data.get("eps")
-        if pe is not None and eps is not None:
+        if pe is not None and pe > 0 and eps is not None and eps > 0:
             pe_low  = eps * multiples["pe"][0]
             pe_high = eps * multiples["pe"][1]
             methods.append(ValuationMethod(name="KGV-Multiple", low=round(pe_low, 2), high=round(pe_high, 2)))
 
-        # EV/EBITDA-Multiple
+        # EV/EBITDA-Multiple — nur bei positivem EBITDA (negatives EBITDA → negatives Band)
         ebitda_per_share = data.get("ebitda_per_share")
         net_debt_per_share = data.get("net_debt_per_share", 0)
-        if ebitda_per_share:
+        if ebitda_per_share is not None and ebitda_per_share > 0:
             ev_low  = ebitda_per_share * multiples["ev_ebitda"][0] - net_debt_per_share
             ev_high = ebitda_per_share * multiples["ev_ebitda"][1] - net_debt_per_share
             methods.append(ValuationMethod(name="EV/EBITDA-Multiple", low=round(ev_low, 2), high=round(ev_high, 2)))
 
-        # DCF — echtes 2-Stufen-DCF mit CAPM-WACC (ersetzt Gordon-Growth)
+        # DCF — echtes 2-Stufen-DCF mit CAPM-WACC; nur bei positivem FCF (neg. FCF → neg. Fair Value)
         fcf_per_share = data.get("fcf_per_share")
-        if fcf_per_share is not None:
+        if fcf_per_share is not None and fcf_per_share > 0:
             wacc = capm_wacc(
                 rf=data.get("risk_free_rate", 0.04),
                 beta=data.get("beta", 1.0),
@@ -89,7 +89,8 @@ class ValuationRangeAgent:
                 equity_weight=data.get("equity_weight", 0.8),
                 debt_weight=data.get("debt_weight", 0.2),
             )
-            growth = (data.get("revenue_cagr_3y") or 5) / 100
+            _cagr = data.get("revenue_cagr_3y")
+            growth = (_cagr if _cagr is not None else 5) / 100
             # Szenario-Band: konservativer (0.7×) bis optimistischer (1.3×) Wachstumspfad
             dcf_low = two_stage_dcf(
                 fcf0=fcf_per_share, growth=growth * 0.7,
