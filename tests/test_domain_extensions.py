@@ -61,3 +61,16 @@ def test_anomaly_report_empty_factory():
     assert report.severity == "none"
     assert report.statistical == []
     assert report.contradictions == []
+
+
+def test_signal_status_werte():
+    from core.domain.models import SignalStatus
+    assert SignalStatus.AVAILABLE.value == "available"
+    assert SignalStatus.UNAVAILABLE.value == "unavailable"
+
+
+def test_signal_status_ist_str_enum():
+    # Stil wie vorhandene Enums (Signal, MarketRegime): str-basiert
+    from core.domain.models import SignalStatus
+    assert isinstance(SignalStatus.AVAILABLE, str)
+    assert SignalStatus.AVAILABLE == "available"

@@ -18,6 +18,11 @@ class Signal(str, Enum):
     NEUTRAL = "neutral"
 
 
+class SignalStatus(str, Enum):
+    AVAILABLE   = "available"
+    UNAVAILABLE = "unavailable"
+
+
 class Recommendation(str, Enum):
     BUY   = "BUY"
     HOLD  = "HOLD"
