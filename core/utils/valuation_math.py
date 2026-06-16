@@ -79,3 +79,33 @@ def two_stage_dcf(
     pv_terminal = terminal_value / discounted_last
 
     return pv_explicit + pv_terminal
+
+
+def earnings_yield(pe: float | None) -> float | None:
+    """Earnings Yield = 1/PE. None bei fehlendem oder nicht-positivem PE."""
+    if pe is None or pe <= 0:
+        return None
+    return 1.0 / pe
+
+
+def equity_risk_premium(ey: float | None, riskfree: float | None) -> float | None:
+    """ERP = Earnings Yield - risikofreier Zins (Fed-Modell-Brücke).
+
+    `riskfree` als Dezimalzahl (0.03 = 3 %), konsistent zu `earnings_yield`.
+    """
+    if ey is None or riskfree is None:
+        return None
+    return ey - riskfree
+
+
+def shiller_cape(price: float | None, eps_10y_real: list[float]) -> float | None:
+    """Shiller-CAPE = Preis / Mittelwert der 10J inflationsbereinigten EPS.
+
+    None, falls Preis fehlt oder der Mittelwert nicht positiv ist.
+    """
+    if price is None or not eps_10y_real:
+        return None
+    mean_eps = statistics.fmean(eps_10y_real)
+    if mean_eps <= 0:
+        return None
+    return price / mean_eps

@@ -3,6 +3,7 @@ import pytest
 
 from core.utils.valuation_math import capm_wacc
 from core.utils.valuation_math import two_stage_dcf
+from core.utils.valuation_math import earnings_yield, equity_risk_premium, shiller_cape
 
 
 def test_capm_wacc_textbook_numbers():
@@ -73,3 +74,35 @@ def test_two_stage_dcf_wacc_below_terminal_growth_does_not_explode():
     value = two_stage_dcf(fcf0=5.0, growth=0.05, terminal_growth=0.04, wacc=0.03, years=5)
     assert value > 0
     assert value < 1e9
+
+
+def test_earnings_yield_inverse_of_pe():
+    assert earnings_yield(20.0) == 0.05
+    assert earnings_yield(25.0) == 0.04
+
+
+def test_earnings_yield_none_or_nonpositive_returns_none():
+    assert earnings_yield(None) is None
+    assert earnings_yield(0.0) is None
+    assert earnings_yield(-10.0) is None
+
+
+def test_equity_risk_premium():
+    # E/P = 0.05, riskfree 10y = 0.03 -> ERP = 0.02
+    assert abs(equity_risk_premium(0.05, 0.03) - 0.02) < 1e-9
+
+
+def test_equity_risk_premium_none_inputs():
+    assert equity_risk_premium(None, 0.03) is None
+    assert equity_risk_premium(0.05, None) is None
+
+
+def test_shiller_cape_basic():
+    # price 4000, mean(10J real EPS) = 200 -> CAPE = 20
+    assert shiller_cape(4000.0, [180, 190, 200, 210, 220, 200, 200, 200, 200, 200]) == 20.0
+
+
+def test_shiller_cape_empty_or_nonpositive_mean_returns_none():
+    assert shiller_cape(4000.0, []) is None
+    assert shiller_cape(4000.0, [0.0, 0.0]) is None
+    assert shiller_cape(None, [200.0]) is None
