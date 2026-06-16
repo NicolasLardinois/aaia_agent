@@ -4,6 +4,7 @@ from core.domain.events import AgriculturalDataReady
 from core.domain.models import AgriculturalSnapshot, Signal
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
+from core.utils.relative import zscore_vs_history
 
 TICKERS = {
     "wheat":        "ZW=F",
@@ -19,31 +20,43 @@ _DEFAULT = AgriculturalSnapshot(
     sugar_usd=None, cotton_usd=None, orange_juice_usd=None, signal=Signal.NEUTRAL,
 )
 
-
-_BEARISH_THRESHOLD =  0.20   # +20% Jahresveränderung → Agrar-Inflation
-_BULLISH_THRESHOLD = -0.20   # -20% Jahresveränderung → Preisentlastung
+_Z_THRESHOLD = 1.0   # Median-z der Jahresveränderungen
 
 
-def _signal(changes: list[float]) -> Signal:
-    """Median der 1J-Preisveränderungen aller Rohstoffe → Signal."""
-    if not changes:
+def _signal(z_changes: list[float]) -> Signal:
+    """
+    Median der z-Normierten Jahresveränderungen aller Agrar-Rohstoffe.
+    Hohe Agrarpreise (Median-z > +1) = Inflationsdruck → BEARISH;
+    Preisentlastung (Median-z < -1) = BULLISH. z-Score statt fixer ±20%
+    macht die Schwelle volatilitäts-adjustiert.
+    """
+    if not z_changes:
         return Signal.NEUTRAL
-    med = statistics.median(changes)
-    if med > _BEARISH_THRESHOLD:
+    med = statistics.median(z_changes)
+    if med > _Z_THRESHOLD:
         return Signal.BEARISH
-    if med < _BULLISH_THRESHOLD:
+    if med < -_Z_THRESHOLD:
         return Signal.BULLISH
     return Signal.NEUTRAL
 
 
-def _yoy_change(hist) -> float | None:
+def _yoy_change_z(hist) -> float | None:
+    """Geglättete (5-Tage) Jahresveränderung als z-Score gegen die Return-Historie."""
     if isinstance(hist, Exception) or hist is None:
         return None
     try:
         close = hist["Close"].dropna()
-        if len(close) < 2:
+        if len(close) < 30:
             return None
-        return float((close.iloc[-1] - close.iloc[0]) / close.iloc[0])
+        start = float(close.iloc[:5].mean())
+        end   = float(close.iloc[-5:].mean())
+        if start <= 0:
+            return None
+        current = (end - start) / start
+        monthly = close.pct_change(21).dropna()
+        if len(monthly) < 20:
+            return None
+        return zscore_vs_history(current, monthly.tolist(), robust=True, min_n=20)
     except Exception:
         return None
 
@@ -79,7 +92,7 @@ class AgriculturalAgent:
         def _safe(v): return None if isinstance(v, Exception) else v
         wheat, corn, soy, coffee, sugar, cotton, oj = [_safe(v) for v in prices]
 
-        changes = [c for c in (_yoy_change(h) for h in histories) if c is not None]
+        changes = [z for z in (_yoy_change_z(h) for h in histories) if z is not None]
 
         result = AgriculturalSnapshot(
             wheat_usd=wheat, corn_usd=corn, soy_usd=soy, coffee_usd=coffee,
