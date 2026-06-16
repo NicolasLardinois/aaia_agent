@@ -95,8 +95,8 @@ def test_normal_buy_high_confidence():
 
 
 def test_confidence_uses_calibration_bucket():
-    # Bucket (aligned_bullish, none) hat historische Trefferrate 0.62 → ersetzt 0.70-Basis
-    calib = {("aligned_bullish", "none"): {"hit_rate": 0.62, "n": 40}}
+    # Bucket "aligned_bullish:none" (String-Key) hat historische Trefferrate 0.62
+    calib = {"aligned_bullish:none": {"hit_rate": 0.62, "n": 40}}
     conf = compute_confidence(
         alignment="aligned_bullish",
         regime_confidence=0.75,
@@ -110,7 +110,7 @@ def test_confidence_uses_calibration_bucket():
 
 def test_confidence_ignores_thin_bucket():
     # n unter Mindestgröße → Fallback auf 0.70-Heuristik
-    calib = {("aligned_bullish", "none"): {"hit_rate": 0.62, "n": 3}}
+    calib = {"aligned_bullish:none": {"hit_rate": 0.62, "n": 3}}
     conf = compute_confidence(
         alignment="aligned_bullish",
         regime_confidence=0.75,
@@ -119,6 +119,25 @@ def test_confidence_ignores_thin_bucket():
         calibration=calib,
     )
     assert conf == round(0.70 + 0.10, 2)
+
+
+def test_confidence_string_key_works_after_json_roundtrip():
+    """Tuple-Keys gehen nach JSON-Roundtrip verloren; String-Keys bleiben erhalten."""
+    import json
+    calib_orig = {"aligned_bullish:none": {"hit_rate": 0.65, "n": 20}}
+    # Simuliere JSON-Roundtrip (wie er bei Memory-Persistenz auftritt)
+    calib_rt = json.loads(json.dumps(calib_orig))
+    conf = compute_confidence(
+        alignment="aligned_bullish",
+        regime_confidence=0.75,
+        td_anomaly=_empty_anomaly(),
+        bu_anomaly=_empty_anomaly(),
+        calibration=calib_rt,
+    )
+    # Nach Roundtrip muss der kalibrierte Pfad noch funktionieren
+    assert conf == round(0.65 + 0.10, 2), (
+        f"conf={conf} — Kalibrierung nach JSON-Roundtrip verloren (Bug 3)"
+    )
 
 
 def test_confidence_backward_compatible_without_calibration():

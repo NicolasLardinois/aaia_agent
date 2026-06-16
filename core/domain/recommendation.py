@@ -65,10 +65,16 @@ def compute_confidence(
     calibration: Optional[dict] = None,
 ) -> float:
     # Basis: historisch kalibrierte bedingte Trefferrate je (alignment, severity)-Bucket.
+    # Keys sind Strings im Format "alignment:severity" (JSON-serialisierbar, Tuple-Keys
+    # würden nach JSON-Roundtrip durch Memory-Persistenz verloren gehen).
+    # TODO: Bucket-Befüllung ist eine dokumentierte Folge-Aufgabe — sie erfordert, dass
+    # alignment und severity je Trade in der History persistiert werden (kein Producer
+    # existiert noch; derzeit daher stets Fallback 0.70).
     sev = _combined_severity(td_anomaly.severity, bu_anomaly.severity)
     base = 0.70
     if calibration:
-        bucket = calibration.get((alignment, sev))
+        key = f"{alignment}:{sev}"
+        bucket = calibration.get(key)
         if bucket and bucket.get("n", 0) >= _CALIB_MIN_N and bucket.get("hit_rate") is not None:
             base = float(bucket["hit_rate"])
 
