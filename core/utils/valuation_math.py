@@ -109,3 +109,56 @@ def shiller_cape(price: float | None, eps_10y_real: list[float]) -> float | None
     if mean_eps <= 0:
         return None
     return price / mean_eps
+
+
+def real_rate_anchor(
+    real_rate: float,
+    intercept: float,
+    slope: float,
+    band_pct: float = 0.10,
+) -> tuple[float, float]:
+    """Preis-UNABHÄNGIGER fairer Edelmetall-Wert aus einer Realzins-Regression.
+
+    fair = intercept + slope * real_rate   (slope < 0 für Gold/Silber: inverse Beziehung)
+    Band = fair * (1 - band_pct) .. fair * (1 + band_pct).
+
+    `intercept`/`slope` sind injizierte, empirisch kalibrierte Konstanten — bewusst
+    NICHT aus dem aktuellen Preis abgeleitet (Entzirkularisierung). `band_pct` ist die
+    metallspezifische prozentuale Sensitivität (Unsicherheitsband).
+    """
+    fair = intercept + slope * real_rate
+    if fair < 0:
+        fair = 0.0
+    band = abs(fair) * band_pct
+    return fair - band, fair + band
+
+
+def weighted_median_range(
+    methods: list[tuple[float, float, float]],
+) -> tuple[float, float]:
+    """Gewichteter Median der lows bzw. highs statt min/max-Union.
+
+    `methods`: Liste von (low, high, weight). Bänder konvergieren so zur Mitte der
+    Methoden statt sich zur breitesten Union aufzuspannen.
+    """
+    if not methods:
+        return 0.0, 0.0
+    low = _weighted_median([(m[0], m[2]) for m in methods])
+    high = _weighted_median([(m[1], m[2]) for m in methods])
+    return low, high
+
+
+def _weighted_median(pairs: list[tuple[float, float]]) -> float:
+    """Gewichteter Median: kleinster Wert x, ab dem die kumulierte Gewichtssumme
+    mindestens die Hälfte des Gesamtgewichts erreicht."""
+    ordered = sorted(pairs, key=lambda p: p[0])
+    total = sum(w for _, w in ordered)
+    if total <= 0:
+        return statistics.median([v for v, _ in ordered])
+    half = total / 2.0
+    cumulative = 0.0
+    for value, weight in ordered:
+        cumulative += weight
+        if cumulative >= half:
+            return value
+    return ordered[-1][0]

@@ -4,6 +4,7 @@ import pytest
 from core.utils.valuation_math import capm_wacc
 from core.utils.valuation_math import two_stage_dcf
 from core.utils.valuation_math import earnings_yield, equity_risk_premium, shiller_cape
+from core.utils.valuation_math import real_rate_anchor, weighted_median_range
 
 
 def test_capm_wacc_textbook_numbers():
@@ -106,3 +107,54 @@ def test_shiller_cape_empty_or_nonpositive_mean_returns_none():
     assert shiller_cape(4000.0, []) is None
     assert shiller_cape(4000.0, [0.0, 0.0]) is None
     assert shiller_cape(None, [200.0]) is None
+
+
+def test_real_rate_anchor_is_price_independent():
+    # Fairer Wert hängt NUR von intercept/slope/real_rate ab, nicht vom aktuellen Preis.
+    low_a, high_a = real_rate_anchor(real_rate=0.0, intercept=2000.0, slope=-200.0, band_pct=0.10)
+    # intercept + slope*0 = 2000 -> Band 1800..2200
+    assert abs(low_a - 1800.0) < 1e-6
+    assert abs(high_a - 2200.0) < 1e-6
+
+
+def test_real_rate_anchor_inverse_relationship():
+    # Höherer Realzins -> niedrigerer fairer Goldwert (slope negativ).
+    _, high_low_rate  = real_rate_anchor(real_rate=-0.01, intercept=2000.0, slope=-200.0, band_pct=0.10)
+    _, high_high_rate = real_rate_anchor(real_rate=0.03,  intercept=2000.0, slope=-200.0, band_pct=0.10)
+    assert high_low_rate > high_high_rate
+
+
+def test_real_rate_anchor_band_never_inverted():
+    low, high = real_rate_anchor(real_rate=0.05, intercept=2000.0, slope=-200.0, band_pct=0.10)
+    assert low < high
+
+
+def test_weighted_median_range_converges_not_union():
+    # min/max-Union wäre (85, 130); gewichteter Median konvergiert in die Mitte.
+    methods = [
+        (90.0, 130.0, 1.0),   # (low, high, weight)
+        (85.0, 120.0, 1.0),
+        (95.0, 125.0, 1.0),
+    ]
+    low, high = weighted_median_range(methods)
+    assert low == 90.0    # Median der lows
+    assert high == 125.0  # Median der highs
+    # nicht die Union (85, 130)
+    assert low != 85.0
+    assert high != 130.0
+
+
+def test_weighted_median_range_respects_weights():
+    # DCF (Gewicht 3) dominiert -> Ergebnis nahe (100, 140).
+    methods = [
+        (100.0, 140.0, 3.0),
+        (60.0,  90.0,  1.0),
+    ]
+    low, high = weighted_median_range(methods)
+    assert low == 100.0
+    assert high == 140.0
+
+
+def test_weighted_median_range_single_method():
+    low, high = weighted_median_range([(50.0, 70.0, 1.0)])
+    assert (low, high) == (50.0, 70.0)
