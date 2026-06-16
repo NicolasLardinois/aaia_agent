@@ -1,5 +1,5 @@
 from agents.stock_deep_dive.index.index_valuation_range_agent import (
-    _method1_score, _method2_score, _combine,
+    _method1_score, _erp_score, _combine, _FUZZY_THRESHOLD,
 )
 from core.domain.models import Signal
 
@@ -28,43 +28,37 @@ def test_m1_midpoint_bullish_side():
     assert abs(score - 0.5) < 0.01
 
 
-# ── Method 2: P/E vs. historischer Durchschnitt ───────────────────────────
+# ── Method 2 (ERP): echt unabhängige Zinsbrücke ───────────────────────────
 
-def test_m2_at_pe_mid_is_neutral():
-    assert _method2_score(18.0, pe_mid=18.0) == 0.0
-
-def test_m2_30pct_below_is_max_bullish():
-    assert _method2_score(18.0 * 0.70, pe_mid=18.0) == 1.0
-
-def test_m2_30pct_above_is_max_bearish():
-    assert _method2_score(18.0 * 1.30, pe_mid=18.0) == -1.0
-
-def test_m2_15pct_below_is_half_bullish():
-    score = _method2_score(18.0 * 0.85, pe_mid=18.0)
-    assert abs(score - 0.5) < 0.01
-
-def test_m2_none_is_neutral():
-    assert _method2_score(None, pe_mid=18.0) == 0.0
+def test_threshold_lowered_to_realistic_value():
+    assert _FUZZY_THRESHOLD <= 0.40
 
 
-# ── _combine: Fuzzy-Aggregation mit Schwelle 0.7 ─────────────────────────
+def test_erp_score_high_erp_is_bullish():
+    # PE 12 -> E/P 0.0833; riskfree 0.02 -> ERP 0.063 -> deutlich positiv -> +Score
+    score = _erp_score(pe_trailing=12.0, riskfree=0.02)
+    assert score > 0.5
+
+
+def test_erp_score_negative_erp_is_bearish():
+    # PE 25 -> E/P 0.04; riskfree 0.045 -> ERP -0.005 -> negativ
+    score = _erp_score(pe_trailing=25.0, riskfree=0.045)
+    assert score < 0.0
+
+
+def test_erp_score_missing_data_is_neutral():
+    assert _erp_score(pe_trailing=None, riskfree=0.03) == 0.0
+    assert _erp_score(pe_trailing=20.0, riskfree=None) == 0.0
+
+
+# ── _combine: Fuzzy-Aggregation mit neuer Schwelle 0.30 ──────────────────
 
 def test_combine_both_max_bullish():
     _, sig = _combine(1.0, 1.0)
     assert sig == Signal.BULLISH
 
 def test_combine_both_at_threshold():
-    _, sig = _combine(0.7, 0.7)
-    assert sig == Signal.BULLISH
-
-def test_combine_one_max_one_neutral_is_neutral():
-    """Eine Methode neutral → Durchschnitt 0.5 → NEUTRAL."""
-    _, sig = _combine(1.0, 0.0)
-    assert sig == Signal.NEUTRAL
-
-def test_combine_both_moderately_bullish():
-    """Beide moderat bullish → avg 0.75 → BULLISH."""
-    _, sig = _combine(0.8, 0.7)
+    _, sig = _combine(_FUZZY_THRESHOLD, _FUZZY_THRESHOLD)
     assert sig == Signal.BULLISH
 
 def test_combine_both_max_bearish():
@@ -74,3 +68,8 @@ def test_combine_both_max_bearish():
 def test_combine_methods_disagree_is_neutral():
     _, sig = _combine(1.0, -1.0)
     assert sig == Signal.NEUTRAL
+
+def test_combine_moderate_signal_now_votes():
+    # avg 0.4 löst jetzt (Schwelle 0.30) BULLISH aus — vorher (0.70) NEUTRAL.
+    _, sig = _combine(0.5, 0.3)
+    assert sig == Signal.BULLISH
