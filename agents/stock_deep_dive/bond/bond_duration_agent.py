@@ -53,23 +53,29 @@ class BondDurationAgent:
         freq = data.get("frequency", 2)
         maturity = data.get("maturity_years")
         crate = _coupon_rate(data)
-        accrued = data.get("accrued_interest", 0.0)
 
         mac = mod = conv = dv = None
         if price and crate is not None and maturity:
-            y = _ytm(price, face, crate, maturity, freq)
-            mac = round(macaulay_duration(price, face, crate, maturity, freq), 4)
-            # Effective Duration bei Optionalität (Call/Put) numerisch, sonst Modified
-            if data.get("is_callable") or data.get("is_putable"):
-                dyc = 0.0025
-                pu = bond_price(y + dyc, face, crate, maturity, freq)
-                pd = bond_price(y - dyc, face, crate, maturity, freq)
-                mod = round(effective_duration(pu, pd, price, dyc), 4)
-            else:
-                mod = round(modified_duration(mac, y, freq), 4)
-            conv = round(convexity(price, face, crate, maturity, freq), 3)
-            dirty = price + (accrued or 0.0)
-            dv = round(dv01(mod, dirty), 4)
+            try:
+                accrued = data.get("accrued_interest", 0.0) or 0.0
+                dirty = price + accrued  # YTM auf Dirty-Preis (Clean = quotiert; Dirty = clean + aufgelaufene Zinsen)
+                y = _ytm(dirty, face, crate, maturity, freq)
+                mac = round(macaulay_duration(dirty, face, crate, maturity, freq), 4)
+                # Effective Duration bei Optionalität (Call/Put) numerisch, sonst Modified.
+                # Numerische Näherung ohne OAS — bei optionsbehafteten Bonds unterschätzt sie den
+                # Optionswert; echte OAS-basierte Effective Duration ist eine offene Aufgabe
+                # (siehe docs/open_todos.md).
+                if data.get("is_callable") or data.get("is_putable"):
+                    dyc = 0.0025
+                    pu = bond_price(y + dyc, face, crate, maturity, freq)
+                    pd_price = bond_price(y - dyc, face, crate, maturity, freq)
+                    mod = round(effective_duration(pu, pd_price, dirty, dyc), 4)
+                else:
+                    mod = round(modified_duration(mac, y, freq), 4)
+                conv = round(convexity(dirty, face, crate, maturity, freq), 3)
+                dv = round(dv01(mod, dirty), 4)
+            except (ValueError, ZeroDivisionError):
+                pass  # mac/mod/conv/dv bleiben None
 
         result = BondDurationSnapshot(
             macaulay_duration=mac, modified_duration=mod, convexity=conv, dv01=dv,

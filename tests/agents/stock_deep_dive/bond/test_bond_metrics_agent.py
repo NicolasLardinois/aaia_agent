@@ -55,3 +55,49 @@ def test_yield_to_worst_for_callable():
     )
     res = asyncio.run(agent.run("X", "corporate"))
     assert res.ytc is not None and res.ytc < res.ytm
+
+
+# --- Fix I-3: YTM auf Dirty-Preis ---
+
+def test_ytm_uses_dirty_price_when_accrued_positive():
+    # accrued > 0 → YTM auf Dirty-Preis; höherer Dirty → niedrigere YTM als Clean-basiert
+    agent, _ = _make(
+        {"current_price": 100.0, "coupon_rate": 0.05, "frequency": 2,
+         "maturity_years": 10, "face": 100.0, "accrued_interest": 2.0},
+        {"inflation": 0.02},
+    )
+    res_dirty = asyncio.run(agent.run("X", "government"))
+    agent_clean, _ = _make(
+        {"current_price": 100.0, "coupon_rate": 0.05, "frequency": 2,
+         "maturity_years": 10, "face": 100.0},  # kein accrued
+        {"inflation": 0.02},
+    )
+    res_clean = asyncio.run(agent_clean.run("X", "government"))
+    assert res_dirty.ytm is not None and res_clean.ytm is not None
+    assert res_dirty.ytm < res_clean.ytm, (
+        f"Dirty-YTM {res_dirty.ytm} soll < Clean-YTM {res_clean.ytm}"
+    )
+
+
+def test_current_yield_stays_on_clean_price():
+    # Current Yield basiert auf Clean-Preis — auch wenn accrued > 0
+    agent, _ = _make(
+        {"current_price": 95.0, "coupon_rate": 0.05, "frequency": 2,
+         "maturity_years": 10, "face": 100.0, "accrued_interest": 2.0},
+        {"inflation": 0.02},
+    )
+    res = asyncio.run(agent.run("X", "corporate"))
+    expected = 0.05 * 100.0 / 95.0 * 100
+    assert math.isclose(res.current_yield, expected, abs_tol=1e-3)
+
+
+# --- Fix M-3: to_real guard bei inflation == -100 % ---
+
+def test_real_yield_none_when_inflation_minus_100():
+    agent, _ = _make(
+        {"current_price": 100.0, "coupon_rate": 0.05, "frequency": 2,
+         "maturity_years": 10, "face": 100.0},
+        {"inflation": -1.0},  # -1.0 Dezimal == -100 % → to_real wirft ValueError
+    )
+    res = asyncio.run(agent.run("X", "government"))
+    assert res.real_yield is None

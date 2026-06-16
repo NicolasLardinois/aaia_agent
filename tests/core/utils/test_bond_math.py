@@ -1,5 +1,6 @@
 import math
-from core.utils.bond_math import bond_price, ytm
+import pytest
+from core.utils.bond_math import bond_price, ytm, _cashflows
 from core.utils.bond_math import (
     macaulay_duration, modified_duration, convexity,
     effective_duration, dv01, price_change_estimate,
@@ -77,3 +78,20 @@ def test_ytw_ignores_none_ytc():
 
 def test_ytw_both_none_returns_none():
     assert yield_to_worst(None, None) is None
+
+
+# --- Fix I-1: freq <= 0 Guard ---
+
+def test_cashflows_raises_on_freq_zero():
+    with pytest.raises(ValueError, match="freq must be positive"):
+        _cashflows(100.0, 0.05, 10, freq=0)
+
+
+def test_cashflows_raises_on_negative_freq():
+    with pytest.raises(ValueError, match="freq must be positive"):
+        _cashflows(100.0, 0.05, 10, freq=-1)
+
+
+def test_ytm_raises_on_freq_zero():
+    with pytest.raises(ValueError):
+        ytm(100.0, 100.0, 0.05, 10, freq=0)

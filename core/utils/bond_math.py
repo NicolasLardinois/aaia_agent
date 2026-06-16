@@ -11,6 +11,8 @@ from __future__ import annotations
 
 
 def _cashflows(face: float, coupon_rate: float, periods: float, freq: int) -> list[float]:
+    if freq <= 0:
+        raise ValueError(f"freq must be positive, got {freq}")
     n = max(1, round(periods * freq))
     cpn = coupon_rate / freq * face
     cf = [cpn] * n

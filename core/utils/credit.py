@@ -6,7 +6,6 @@ from __future__ import annotations
 # Kanonische Skala = S&P/Fitch-Notation (Fitch ist mit S&P notationsgleich).
 # Moody's → S&P-Mapping (Notch-genau).
 _MOODYS_TO_SP: dict[str, str] = {
-    "AAA": "AAA",
     "AA1": "AA+", "AA2": "AA", "AA3": "AA-",
     "A1": "A+", "A2": "A", "A3": "A-",
     "BAA1": "BBB+", "BAA2": "BBB", "BAA3": "BBB-",
@@ -45,8 +44,8 @@ def normalize_rating(raw: str | None) -> str | None:
     if r in _MOODYS_TO_SP:
         return _MOODYS_TO_SP[r]
     # Moody's ohne Notch (z. B. "AA", "BAA", "CAA") grob auf mittleren Notch
-    _MOODYS_CLASS = {"AA": "AA", "A": "A", "BAA": "BBB", "BA": "BB",
-                     "B": "B", "CAA": "CCC"}
+    # "AA", "A", "B" werden bereits via _SP_RATINGS getroffen → hier nur echte Moody's-Klassen
+    _MOODYS_CLASS = {"BAA": "BBB", "BA": "BB", "CAA": "CCC"}
     if r in _MOODYS_CLASS:
         return _MOODYS_CLASS[r]
     return None

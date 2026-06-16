@@ -53,21 +53,27 @@ class BondMetricsAgent:
         maturity = data.get("maturity_years")
         crate = _coupon_rate(data)
 
+        # Preisbasis-Konvention: current_price ist der Clean-Kurs (quotiert).
+        # YTM/YTC werden auf dem Dirty-Preis (clean + accrued_interest) gerechnet.
+        # Current Yield bleibt auf dem Clean-Preis (Marktkonvention).
+        accrued = data.get("accrued_interest", 0.0) or 0.0
+        dirty = price + accrued if price else None
+
         # YTM selbst berechnen (kein Durchreichen mehr)
         ytm_val = None
-        if price and crate is not None and maturity:
+        if dirty and crate is not None and maturity:
             try:
-                ytm_val = round(_ytm(price, face, crate, maturity, freq), 5)
-            except ValueError:
+                ytm_val = round(_ytm(dirty, face, crate, maturity, freq), 5)
+            except (ValueError, ZeroDivisionError):
                 ytm_val = None
 
         # YTC für callable Bonds (Bewertung bis zum Call-Datum/-Preis)
         ytc_val = None
         call_price, ytc_years = data.get("call_price"), data.get("years_to_call")
-        if price and crate is not None and call_price and ytc_years:
+        if dirty and crate is not None and call_price and ytc_years:
             try:
-                ytc_val = round(_ytm(price, call_price, crate, ytc_years, freq), 5)
-            except ValueError:
+                ytc_val = round(_ytm(dirty, call_price, crate, ytc_years, freq), 5)
+            except (ValueError, ZeroDivisionError):
                 ytc_val = None
 
         ytw = yield_to_worst(ytm_val, ytc_val)
@@ -78,8 +84,14 @@ class BondMetricsAgent:
             infl = data.get("breakeven_inflation")
         if infl is None:
             infl = state.get("inflation")
-        # ytw/infl sind Dezimal → in Prozentpunkte umrechnen; to_real liefert Prozentpunkte
-        real_yield = round(to_real(ytw * 100.0, infl * 100.0), 3) if ytw is not None and infl is not None else None
+        # ytw/infl sind Dezimal → in Prozentpunkte umrechnen; to_real liefert Prozentpunkte.
+        # Guard gegen inflation == -100 % (to_real wirft ValueError bei Division durch 0).
+        real_yield = None
+        if ytw is not None and infl is not None:
+            try:
+                real_yield = round(to_real(ytw * 100.0, infl * 100.0), 3)
+            except ValueError:
+                real_yield = None
 
         # Current Yield (Clean-Konvention), in % ausgegeben (Snapshot-Konvention)
         cur_yield = round(crate * face / price * 100, 3) if crate is not None and price else None
