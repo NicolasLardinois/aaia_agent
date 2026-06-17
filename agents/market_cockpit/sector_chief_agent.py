@@ -10,6 +10,15 @@ from core.ports.event_bus import EventBus
 _DEFAULT_ROTATION = SectorRotationSnapshot(recommended=[], avoid=[], alignment="neutral", signal=Signal.NEUTRAL)
 
 
+def _top_sectors(performance, n: int = 3) -> list[str]:
+    """Kombinierte Top-N-Sektoren über USA UND Eurozone (EU war zuvor ignoriert)."""
+    merged: dict[str, float] = {}
+    for region in (performance.usa or {}, performance.eurozone or {}):
+        for name, ret in region.items():
+            merged[name] = max(merged.get(name, float("-inf")), ret)
+    return sorted(merged, key=merged.get, reverse=True)[:n]
+
+
 class SectorChiefAgent:
     def __init__(self, market: MarketDataProvider, bus: EventBus):
         self.bus = bus
@@ -27,7 +36,8 @@ class SectorChiefAgent:
         performance = _safe(performance_result[0], SectorPerformanceAgent.default())
 
         try:
-            rotation = self.sector_rotation_agent.run(regime, performance.leading_usa)
+            top = _top_sectors(performance, n=3)
+            rotation = self.sector_rotation_agent.run(regime, top)
         except Exception:
             rotation = SectorRotationAgent.default()
 

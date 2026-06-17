@@ -15,6 +15,7 @@ USA_SECTORS: dict[str, str] = {
     "Materials":     "XLB",
     "Utilities":     "XLU",
     "RealEstate":    "XLRE",
+    "CommServices":  "XLC",
 }
 
 EU_SECTORS: dict[str, str] = {
@@ -34,6 +35,16 @@ _DEFAULT = SectorPerformanceSnapshot(
     leading_eu="n/a", lagging_eu="n/a",
 )
 
+_USA_BENCHMARK = "SPY"
+_EU_BENCHMARK  = "EXW1.DE"   # iShares STOXX Europe 600
+
+
+def _relative_strength(perf: dict[str, float], benchmark_return: float | None) -> dict[str, float]:
+    """Relative Stärke = Sektor-Return − Benchmark-Return (entfernt das Markt-Beta-Artefakt)."""
+    if benchmark_return is None:
+        return dict(perf)
+    return {name: round(ret - benchmark_return, 2) for name, ret in perf.items()}
+
 
 class SectorPerformanceAgent:
     def __init__(self, provider: MarketDataProvider, bus: EventBus):
@@ -41,7 +52,7 @@ class SectorPerformanceAgent:
         self.bus      = bus
 
     async def run(self) -> SectorPerformanceSnapshot:
-        usa_hists, eu_hists = await asyncio.gather(
+        usa_hists, eu_hists, (spy_hist, eu_bench_hist) = await asyncio.gather(
             asyncio.gather(*[
                 asyncio.to_thread(self.provider.get_price_history, t, "1mo")
                 for t in USA_SECTORS.values()
@@ -50,6 +61,11 @@ class SectorPerformanceAgent:
                 asyncio.to_thread(self.provider.get_price_history, t, "1mo")
                 for t in EU_SECTORS.values()
             ], return_exceptions=True),
+            asyncio.gather(
+                asyncio.to_thread(self.provider.get_price_history, _USA_BENCHMARK, "1mo"),
+                asyncio.to_thread(self.provider.get_price_history, _EU_BENCHMARK, "1mo"),
+                return_exceptions=True,
+            ),
         )
 
         def _pct_return(hist) -> float | None:
@@ -77,13 +93,19 @@ class SectorPerformanceAgent:
         usa_perf = _build(USA_SECTORS.keys(), usa_hists)
         eu_perf  = _build(EU_SECTORS.keys(), eu_hists)
 
-        leading_usa = max(usa_perf, key=usa_perf.get) if usa_perf else "n/a"
-        lagging_usa = min(usa_perf, key=usa_perf.get) if usa_perf else "n/a"
-        leading_eu  = max(eu_perf,  key=eu_perf.get)  if eu_perf  else "n/a"
-        lagging_eu  = min(eu_perf,  key=eu_perf.get)  if eu_perf  else "n/a"
+        spy_return    = _pct_return(spy_hist)
+        eu_bench_return = _pct_return(eu_bench_hist)
+
+        usa_rs = _relative_strength(usa_perf, spy_return)
+        eu_rs  = _relative_strength(eu_perf,  eu_bench_return)
+
+        leading_usa = max(usa_rs, key=usa_rs.get) if usa_rs else "n/a"
+        lagging_usa = min(usa_rs, key=usa_rs.get) if usa_rs else "n/a"
+        leading_eu  = max(eu_rs,  key=eu_rs.get)  if eu_rs  else "n/a"
+        lagging_eu  = min(eu_rs,  key=eu_rs.get)  if eu_rs  else "n/a"
 
         result = SectorPerformanceSnapshot(
-            usa=usa_perf, eurozone=eu_perf,
+            usa=usa_rs, eurozone=eu_rs,
             leading_usa=leading_usa, lagging_usa=lagging_usa,
             leading_eu=leading_eu,   lagging_eu=lagging_eu,
         )

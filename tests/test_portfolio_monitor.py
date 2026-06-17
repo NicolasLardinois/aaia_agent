@@ -50,16 +50,62 @@ def test_loss_alert():
 
 
 def test_health_green_no_alerts():
+    # Asset-Klassen diversifiziert: equity ~36%, bond ~57%, commodity ~7%
+    # keine Klasse > 60% → kein ASSET_CLASS-Klumpenrisiko nach verschärfter Schwelle
     positions = [
         {"ticker": "AAPL", "shares": 5, "buy_price": 150, "sector": "Technology",
          "asset_class": "equity", "country": "USA", "current_price": 160},
         {"ticker": "JNJ",  "shares": 5, "buy_price": 150, "sector": "Healthcare",
-         "asset_class": "equity", "country": "Canada", "current_price": 155},
+         "asset_class": "bond", "country": "Canada", "current_price": 155},
         {"ticker": "GLD",  "shares": 2, "buy_price": 150, "sector": "Commodities",
          "asset_class": "commodity", "country": "USA", "current_price": 155},
-        {"ticker": "BOND", "shares": 3, "buy_price": 100, "sector": "Fixed Income",
+        {"ticker": "BUND", "shares": 3, "buy_price": 100, "sector": "Fixed Income",
          "asset_class": "bond", "country": "Germany", "current_price": 105},
     ]
     agent = PortfolioMonitorAgent(_make_memory(), MagicMock())
     result = agent._evaluate_positions(positions)
     assert result["overall_health"] == "green"
+
+
+def test_fx_conversion_applied_to_total_value():
+    positions = [
+        {"ticker": "NESN.SW", "shares": 10, "buy_price": 100, "sector": "Staples",
+         "asset_class": "equity", "country": "CH", "currency": "CHF", "current_price": 100},
+    ]
+    # 1 CHF = 1.10 USD → total_value_usd = 10*100*1.10 = 1100
+    agent = PortfolioMonitorAgent(
+        _make_memory(), MagicMock(),
+        fx_rate=lambda frm, to: 1.10 if frm == "CHF" else 1.0,
+    )
+    result = agent._evaluate_positions(positions)
+    assert result["total_value_usd"] == 1100.0
+
+
+def test_concentration_herfindahl_field_present():
+    positions = [
+        {"ticker": "AAPL", "shares": 10, "buy_price": 100, "sector": "Technology",
+         "asset_class": "equity", "country": "USA", "current_price": 100},
+        {"ticker": "MSFT", "shares": 10, "buy_price": 100, "sector": "Technology",
+         "asset_class": "equity", "country": "USA", "current_price": 100},
+    ]
+    agent = PortfolioMonitorAgent(_make_memory(), MagicMock())
+    result = agent._evaluate_positions(positions)
+    assert "concentration_hhi" in result
+    # zwei gleich große Positionen → HHI = 0.5
+    assert abs(result["concentration_hhi"] - 0.5) < 1e-9
+
+
+def test_portfolio_volatility_and_maxdd_fields():
+    positions = [
+        {"ticker": "AAPL", "shares": 10, "buy_price": 100, "sector": "Technology",
+         "asset_class": "equity", "country": "USA", "current_price": 110},
+    ]
+    # returns_provider liefert tägliche Returns je Ticker
+    agent = PortfolioMonitorAgent(
+        _make_memory(), MagicMock(),
+        returns_provider=lambda ticker: [0.01, -0.02, 0.015, -0.01, 0.005],
+    )
+    result = agent._evaluate_positions(positions)
+    assert "portfolio_volatility" in result
+    assert "portfolio_max_drawdown" in result
+    assert result["portfolio_max_drawdown"] <= 0.0

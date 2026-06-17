@@ -1,7 +1,7 @@
 import asyncio
 from unittest.mock import MagicMock, patch
 
-from agents.market_cockpit.yield_curve.sovereign_spread_agent import _signal, _STRESS_COUNTRIES
+from agents.market_cockpit.yield_curve.sovereign_spread_agent import _signal, _STRESS_COUNTRIES, _PERIPHERY
 from core.domain.models import Signal
 
 
@@ -44,6 +44,23 @@ def test_sovereign_agent_returns_default_on_ecb_failure():
     agent = SovereignSpreadAgent(ecb, bus)
     result = asyncio.run(agent.run())
     assert result.signal == Signal.NEUTRAL   # Default zurück, kein Crash
+
+
+# ── Task 10: nur Peripherie in systemischer Zählung ──────────────────────
+
+def test_core_countries_not_counted_in_systemic_rule():
+    # 2 Peripherie >200 + 1 Kernland (NL) >200 → NICHT systemisch (nur Peripherie zählt)
+    spreads = {"IT_10y": 210.0, "ES_10y": 220.0, "NL_10y": 205.0, "FR_10y": 60.0}
+    assert _signal(spreads) == Signal.NEUTRAL
+
+
+def test_three_periphery_above_200_is_bearish():
+    spreads = {"IT_10y": 210.0, "ES_10y": 220.0, "PT_10y": 230.0, "NL_10y": 30.0}
+    assert _signal(spreads) == Signal.BEARISH
+
+
+def test_periphery_set_excludes_core():
+    assert "IT" in _PERIPHERY and "NL" not in _PERIPHERY and "FI" not in _PERIPHERY
 
 
 # ── Alle Eurozone-Länder vorhanden ────────────────────────────────────────

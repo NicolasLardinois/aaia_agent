@@ -1,7 +1,9 @@
 import json
 import math
 import os
+from datetime import date
 from statistics import mean
+from typing import Optional
 
 from core.domain.models import MarketRegime
 
@@ -18,13 +20,17 @@ def _score_indicator(key: str, value: float) -> float:
     _yc = lambda v: 1.0 if v > 1 else (0.5 if v > 0 else -1.0)
     rules = {
         "gdp_growth":            lambda v: 1.0 if v > 3 else (0.5 if v > 1 else (-0.5 if v > 0 else -1.0)),
-        "inflation":             lambda v: 0.5 if 1 < v < 3 else (-1.0 if v > 6 else (-0.5 if v > 4 else (-0.25 if v >= 3 else 0.0))),
+        # Glockenförmig um 2%: Deflation (<1%) UND hohe Inflation (>4%) beide negativ.
+        "inflation":             lambda v: (
+            0.5 if 1.5 <= v <= 2.5 else
+            (-0.5 if (1.0 <= v < 1.5 or 2.5 < v <= 4.0) else -1.0)
+        ),
         "unemployment":          lambda v: 1.0 if v < 4 else (0.5 if v < 5 else (-0.5 if v < 7 else -1.0)),
         "fed_rate":              lambda v: 0.5 if v < 2 else (0.0 if v < 4 else (-0.5 if v < 6 else -1.0)),
-        "yield_curve":           _yc,
+        "yield_curve":           _yc,   # Fallback-Key (rückwärtskompatibel)
         "consumer_sentiment":    lambda v: 1.0 if v > 90 else (0.5 if v > 70 else (-0.5 if v > 50 else -1.0)),
         "industrial_production": lambda v: 1.0 if v > 3 else (0.5 if v > 0 else (-0.5 if v > -2 else -1.0)),
-        "yield_curve_3m_usa":    _yc,
+        "yield_curve_10y3m_usa": _yc,
         "yield_curve_10y2y_eu":  _yc,
         "yield_curve_10y3m_eu":  _yc,
         "yield_curve_10y3m_ch":  _yc,
@@ -32,43 +38,56 @@ def _score_indicator(key: str, value: float) -> float:
     return rules.get(key, lambda v: 0.0)(value)
 
 
+# Gewichte normiert auf Summe 1.0 (Verhältnisse aus ursprünglicher Konfiguration beibehalten).
+# yield_curve (10y-2y USA) entfernt — Doppelzählung mit yield_curve_10y3m_usa aufgelöst.
+# Bei fehlenden Keys re-normalisiert detect() über weight_total dynamisch.
 INDICATOR_WEIGHTS = {
-    "gdp_growth":            0.25,
-    "unemployment":          0.20,
-    "inflation":             0.15,
-    "yield_curve":           0.12,  # USA 10y-2y
-    "consumer_sentiment":    0.10,
-    "industrial_production": 0.10,
-    "fed_rate":              0.05,
-    "yield_curve_3m_usa":    0.08,
-    "yield_curve_10y2y_eu":  0.05,
-    "yield_curve_10y3m_eu":  0.04,
-    "yield_curve_10y3m_ch":  0.03,
+    "gdp_growth":            0.2136752137,
+    "unemployment":          0.1709401709,
+    "inflation":             0.1282051282,
+    "consumer_sentiment":    0.0854700855,
+    "industrial_production": 0.0854700855,
+    "fed_rate":              0.0427350427,
+    "yield_curve_10y3m_usa": 0.1709401710,  # 10Y-3M primär (inkl. ehem. yield_curve-Gewicht)
+    "yield_curve_10y2y_eu":  0.0427350427,
+    "yield_curve_10y3m_eu":  0.0341880342,
+    "yield_curve_10y3m_ch":  0.0256410256,
 }
 
 
-def _load_history() -> list[float]:
+def _load_history() -> list[tuple[str, float]]:
+    """Datierte Historie: [(iso_date_str, composite_value), ...] chronologisch."""
     if not os.path.exists(_HISTORY_FILE):
         return []
     try:
         with open(_HISTORY_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+        # Rückwärtskompatibilität: altes Format war list[float]
+        if data and isinstance(data[0], (int, float)):
+            return []
+        return data
     except Exception:
         return []
 
 
-def _save_history(history: list[float], current: float) -> None:
-    updated = (history + [current])[-_MAX_HISTORY:]
+def _save_history(history: list[tuple[str, float]], current: float, today: Optional[date] = None) -> None:
+    """Speichert max. einen Eintrag pro Tag (überschreibt denselben Tag)."""
+    today_str = (today or date.today()).isoformat()
+    # Alle Einträge außer dem heutigen behalten; dann heutigen anhängen
+    filtered = [(d, v) for d, v in history if d != today_str]
+    updated = (filtered + [[today_str, current]])[-_MAX_HISTORY:]
     os.makedirs(os.path.dirname(_HISTORY_FILE), exist_ok=True)
     with open(_HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(updated, f)
 
 
-def _trend(history: list[float], current: float) -> float | None:
-    """Positiv = Composite verbessert sich, Negativ = verschlechtert sich."""
-    if len(history) < 2:
+def _trend(history: list[tuple[str, float]], current: float) -> float | None:
+    """Positiv = Composite verbessert sich, Negativ = verschlechtert sich.
+    Steigung der letzten N datierten Punkte statt current − mean (misst echte Dynamik)."""
+    values = [v for _, v in history]
+    if len(values) < 2:
         return None
-    return current - mean(history)
+    return current - mean(values)
 
 
 def _gauss(x: float, center: float, width: float) -> float:
@@ -120,8 +139,11 @@ def _regime_from(composite: float, trend: float | None) -> MarketRegime:
 
 
 class RegimeDetector:
-    def detect(self, state: dict) -> tuple[MarketRegime, float, dict]:
-        """Returns: (regime, confidence, evidence_per_indicator)"""
+    def detect(self, state: dict, sub_signals: Optional[dict] = None) -> tuple[MarketRegime, float, dict]:
+        """Returns: (regime, confidence, evidence_per_indicator)
+        sub_signals: optionale {key: ±1.0}-Werte (money_supply, credit, labor, buffett)
+        mit kleinen Gewichten; fließen in weighted_sum/weight_total ein.
+        """
         evidence = {}
         weighted_sum = 0.0
         weight_total = 0.0
@@ -132,6 +154,15 @@ class RegimeDetector:
             evidence[key] = round(score, 3)
             weighted_sum += score * w
             weight_total += w
+
+        # Optionale Sub-Signal-Indikatoren (kleines Gewicht 0.03 je Sub-Signal)
+        _SUB_WEIGHT = 0.03
+        if sub_signals:
+            for sub_key, sub_val in sub_signals.items():
+                if sub_val is not None and isinstance(sub_val, (int, float)):
+                    evidence[sub_key] = round(sub_val, 3)
+                    weighted_sum += sub_val * _SUB_WEIGHT
+                    weight_total += _SUB_WEIGHT
 
         composite = weighted_sum / weight_total if weight_total > 0 else 0.0
 

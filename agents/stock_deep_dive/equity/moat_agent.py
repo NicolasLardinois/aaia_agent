@@ -39,20 +39,23 @@ _DEFAULT = MoatSnapshot(
 )
 
 
-def _overall(total: int) -> str:
-    if total >= 7:
+def _overall(scores: list[MoatScore]) -> str:
+    """Maximum-/Schwellen-pro-Kategorie statt linearer Summe.
+    Eine dominante Quelle (Score 2) begründet allein 'wide'; eine 1er-Quelle 'narrow'."""
+    max_score = max((s.score for s in scores), default=0)
+    if max_score >= 2:
         return "wide"
-    if total >= 4:
+    if max_score >= 1:
         return "narrow"
     return "none"
 
 
-def _signal(total: int) -> Signal:
-    if total >= 7:
+def _signal(overall: str) -> Signal:
+    """Moat ist ein Qualitäts-/Prämien-Merkmal, kein Timing-Signal.
+    Wide → BULLISH (rechtfertigt Bewertungsprämie); None/Narrow → NEUTRAL (nicht BEARISH)."""
+    if overall == "wide":
         return Signal.BULLISH
-    if total >= 4:
-        return Signal.NEUTRAL
-    return Signal.BEARISH
+    return Signal.NEUTRAL
 
 
 class MoatAgent:
@@ -79,15 +82,17 @@ class MoatAgent:
         ne = _score("network_effects")
         ca = _score("cost_advantages")
         es = _score("efficient_scale")
+        all_scores = [ia, sc, ne, ca, es]
         total = ia.score + sc.score + ne.score + ca.score + es.score
+        overall = _overall(all_scores)
 
         result = MoatSnapshot(
             intangible_assets=ia, switching_costs=sc, network_effects=ne,
             cost_advantages=ca, efficient_scale=es,
             total_score=total,
-            overall=_overall(total),
+            overall=overall,
             llm_reasoning=data.get("reasoning", ""),
-            signal=_signal(total),
+            signal=_signal(overall),
         )
         self.bus.publish(MoatReady(source="moat_agent", payload={
             "ticker": ticker, "total_score": total, "overall": result.overall,

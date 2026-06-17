@@ -1,5 +1,9 @@
 from core.domain.models import AnomalyReport, Signal
-from core.utils.statistics import Z_THRESHOLD, compute_severity, z_score
+from core.utils.statistics import (
+    ROBUST_Z_THRESHOLD, bonferroni_z_threshold, compute_severity, robust_z_score,
+)
+
+_MIN_N = 20
 
 
 def _yield_region(market: str) -> str:
@@ -80,17 +84,20 @@ class TopDownAnomalyAgent:
             if h.get("indicators_snapshot")
         ]
 
+        n_tests = 4  # VIX, Fear&Greed, Yield-Spread, Inflation
+        threshold = bonferroni_z_threshold(ROBUST_Z_THRESHOLD, n_tests)
+
         def _check(label: str, current, key: str):
-            if current is None or len(snapshots) < 5:
+            if current is None or len(snapshots) < _MIN_N:
                 return
             vals = [s[key] for s in snapshots if key in s and s[key] is not None]
-            if len(vals) < 5:
+            if len(vals) < _MIN_N:
                 return
-            z = z_score(float(current), [float(v) for v in vals])
-            if abs(z) > Z_THRESHOLD:
+            z = robust_z_score(float(current), [float(v) for v in vals], min_n=_MIN_N)
+            if abs(z) > threshold:
                 dir_ = "hoch" if z > 0 else "niedrig"
                 statistical.append(
-                    f"{label}={current:.1f} ist ungewöhnlich {dir_} (Z={z:.1f})"
+                    f"{label}={current:.1f} ist ungewöhnlich {dir_} (robust-Z={z:.1f})"
                 )
 
         region    = _yield_region(market)
@@ -107,7 +114,7 @@ class TopDownAnomalyAgent:
             usa_point = buffett_countries.get("USA")
             if usa_point is not None:
                 buffett_z = usa_point.z_score
-                if buffett_z is not None and abs(buffett_z) > Z_THRESHOLD:
+                if buffett_z is not None and abs(buffett_z) > ROBUST_Z_THRESHOLD:
                     ratio_str = f"{usa_point.ratio_pct:.0f}%" if usa_point.ratio_pct is not None else "?"
                     dir_ = "hoch" if buffett_z > 0 else "niedrig"
                     statistical.append(

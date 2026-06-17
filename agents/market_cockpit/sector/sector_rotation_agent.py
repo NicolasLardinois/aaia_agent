@@ -24,10 +24,21 @@ ROTATION_MAP: dict[MarketRegime, dict[str, list[str]]] = {
         "avoid":       ["Utilities", "ConsumerStap"],
     },
     MarketRegime.DEPRESSION: {
-        "recommended": ["Gold", "ConsumerStap", "Healthcare"],
+        "recommended": ["ConsumerStap", "Healthcare", "Utilities"],
         "avoid":       ["Technology", "Energy", "Financials", "Industrials"],
     },
 }
+
+
+def _alignment(top_sectors: list[str], recommended: list[str], avoid: list[str]) -> tuple[str, Signal]:
+    """Top-N-Alignment: Anzahl Empfehlungen vs. Vermeidungs-Treffer in den Top-Sektoren."""
+    rec_hits   = sum(1 for s in top_sectors if s in recommended)
+    avoid_hits = sum(1 for s in top_sectors if s in avoid)
+    if rec_hits >= 2 and rec_hits >= avoid_hits:
+        return "aligned", Signal.BULLISH
+    if avoid_hits >= 2 and avoid_hits > rec_hits:
+        return "contradicting", Signal.BEARISH
+    return "neutral", Signal.NEUTRAL
 
 _DEFAULT = SectorRotationSnapshot(recommended=[], avoid=[], alignment="neutral", signal=Signal.NEUTRAL)
 
@@ -36,20 +47,12 @@ class SectorRotationAgent:
     def __init__(self, bus: EventBus):
         self.bus = bus
 
-    def run(self, regime: MarketRegime, leading_sector: str) -> SectorRotationSnapshot:
-        rotation = ROTATION_MAP.get(regime, {"recommended": [], "avoid": []})
+    def run(self, regime: MarketRegime, top_sectors: list[str]) -> SectorRotationSnapshot:
+        rotation    = ROTATION_MAP.get(regime, {"recommended": [], "avoid": []})
         recommended = rotation["recommended"]
         avoid       = rotation["avoid"]
 
-        if leading_sector in recommended:
-            alignment = "aligned"
-            signal    = Signal.BULLISH
-        elif leading_sector in avoid:
-            alignment = "contradicting"
-            signal    = Signal.BEARISH
-        else:
-            alignment = "neutral"
-            signal    = Signal.NEUTRAL
+        alignment, signal = _alignment(top_sectors, recommended, avoid)
 
         result = SectorRotationSnapshot(
             recommended=recommended, avoid=avoid,

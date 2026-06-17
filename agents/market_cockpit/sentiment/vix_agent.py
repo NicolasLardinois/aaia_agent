@@ -8,13 +8,18 @@ _DEFAULT = VIXSnapshot(vix=None, vstoxx=None, signal=Signal.NEUTRAL)
 
 
 def _signal(vix: float | None, vstoxx: float | None) -> Signal:
-    ref = vix or vstoxx
+    """
+    Contrarian (konsistent mit Fear&Greed/Put-Call): VIX-Spike (>30) = Panik
+    = Kaufgelegenheit → BULLISH; sehr niedriger VIX (<15) = Sorglosigkeit → BEARISH.
+    `is None`-Check statt Falsiness (vix=0.0 ist gültig).
+    """
+    ref = vix if vix is not None else vstoxx
     if ref is None:
         return Signal.NEUTRAL
     if ref > 30:
-        return Signal.BEARISH
-    if ref < 15:
         return Signal.BULLISH
+    if ref < 15:
+        return Signal.BEARISH
     return Signal.NEUTRAL
 
 

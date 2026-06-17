@@ -81,8 +81,26 @@ _MARKET_COUNTRY: dict[str, str] = {
     "CAN": "CAN",
 }
 
-_BUFFETT_BEARISH = 135.0
-_BUFFETT_BULLISH = 75.0
+# Länderspezifische Buffett-Fallback-Korridore (bullish_unter, bearish_über) in %
+_BUFFETT_CORRIDORS: dict[str, tuple[float, float]] = {
+    "USA": (75.0, 135.0),
+    "CHE": (150.0, 260.0),    # CH strukturell hoch (SMI-Schwergewichte)
+    "DEU": (40.0, 70.0),      # DE strukturell niedrig
+    "FRA": (60.0, 110.0),
+    "ITA": (20.0, 50.0),
+}
+_BUFFETT_DEFAULT_CORRIDOR = (75.0, 135.0)
+
+
+def _buffett_fallback_note(code: str, ratio: float) -> list[str]:
+    """Länderspezifischer Fallback-Korridor statt globaler 75/135%-Schwelle."""
+    low, high = _BUFFETT_CORRIDORS.get(code, _BUFFETT_DEFAULT_CORRIDOR)
+    label = f"Buffett-Indikator {code}"
+    if ratio > high:
+        return [f"{label} {ratio:.0f}% — Markt teuer (>{high:.0f}% für {code})"]
+    if ratio < low:
+        return [f"{label} {ratio:.0f}% — Markt günstig (<{low:.0f}% für {code})"]
+    return []
 
 
 # Asset-Klassen für die der Buffett-Indikator relevant ist (Marktkapitalisierung / BIP)
@@ -94,7 +112,7 @@ def _buffett_notes(countries: dict, market: str, asset_class: str) -> list[str]:
     Buffett-Kontexthinweis für das analysierte Land.
     Nur relevant für Aktien, ETFs und Indizes — nicht für Anleihen, Rohstoffe, Edelmetalle.
     Verwendet Z-Score gegen die eigene 10J-Geschichte (falls vorhanden),
-    sonst Fallback auf absolute Schwellenwerte.
+    sonst länderspezifischer Fallback-Korridor (kein globaler 75/135%-Fix).
     """
     if asset_class.lower() not in _BUFFETT_RELEVANT_ASSETS:
         return []
@@ -116,12 +134,8 @@ def _buffett_notes(countries: dict, market: str, asset_class: str) -> list[str]:
         if z <= -1.5:
             return [f"{label} {r:.0f}% — historisch niedrig (Z={z:.1f})"]
         return []
-    # Fallback auf absolute Schwellen wenn keine Länder-Historie verfügbar
-    if r > _BUFFETT_BEARISH:
-        return [f"{label} {r:.0f}% — Markt teuer (>135%)"]
-    if r < _BUFFETT_BULLISH:
-        return [f"{label} {r:.0f}% — Markt günstig (<75%)"]
-    return []
+    # Fallback auf länderspezifischen Korridor (kein globaler 75/135%-Fix)
+    return _buffett_fallback_note(code, r)
 
 
 _EUROZONE_ISO2 = {

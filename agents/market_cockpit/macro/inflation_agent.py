@@ -8,16 +8,52 @@ _NEUTRAL = InflationDataPoint(cpi=None, core_cpi=None, pce=None, ppi=None, real_
 _DEFAULT = InflationSnapshot(usa=_NEUTRAL, eurozone=_NEUTRAL, switzerland=_NEUTRAL)
 
 
-def _signal(cpi: float | None, trend: str = "stable") -> Signal:
+_USA_EU = {"low": 1.0, "high": 3.0, "bearish": 4.0}
+_CH     = {"low": 0.5, "high": 2.0, "bearish": 3.0}
+
+
+def _signal(
+    cpi: float | None,
+    core_cpi: float | None = None,
+    ppi: float | None = None,
+    region: str = "usa",
+    trend: str = "stable",          # "rising" | "falling" | "stable"
+    real_rate_10y: float | None = None,
+) -> Signal:
     if cpi is None:
         return Signal.NEUTRAL
-    if 1.0 <= cpi <= 3.0:
-        return Signal.BULLISH
-    if cpi > 4.0:
-        return Signal.BEARISH
+
+    thr = _CH if region == "ch" else _USA_EU
+
+    # Lückenlose Bänder: jeder Wert fällt in genau eine Klasse.
     if cpi < 0.0:
-        return Signal.BEARISH
-    return Signal.NEUTRAL
+        sig = Signal.BEARISH                         # Deflation
+    elif cpi < thr["low"]:
+        sig = Signal.NEUTRAL                         # unter Ziel, keine Deflation
+    elif cpi <= thr["high"]:
+        sig = Signal.BULLISH                         # Zielzone
+    elif cpi < thr["bearish"]:
+        sig = Signal.BEARISH                         # erhöht (3–4%) — vormals blinde Lücke
+    else:
+        sig = Signal.BEARISH                         # klar über Ziel
+
+    # Core-Abschwächung (transiente Inflation)
+    if sig == Signal.BEARISH and core_cpi is not None and core_cpi <= thr["high"]:
+        sig = Signal.NEUTRAL
+
+    # Trend-Modifikator: über Ziel + fallend → entschärfen
+    if sig == Signal.BEARISH and cpi > thr["high"] and trend == "falling":
+        sig = Signal.NEUTRAL
+
+    # PPI Pipeline-Inflation verstärkt NEUTRAL → BEARISH
+    if sig == Signal.NEUTRAL and ppi is not None and ppi >= thr["bearish"]:
+        sig = Signal.BEARISH
+
+    # Realzins-Gegenwind: hoher Realzins drückt Bewertungen
+    if real_rate_10y is not None and real_rate_10y > 2.0 and sig != Signal.BEARISH:
+        sig = Signal.BEARISH
+
+    return sig
 
 
 class InflationAgent:
@@ -48,23 +84,25 @@ class InflationAgent:
         snb_cpi  = _safe(snb_cpi)
         snb_core = _safe(snb_core)
 
+        usa_cpi = state.get("inflation")
+        usa_ppi = ext.get("ppi")
         usa = InflationDataPoint(
-            cpi=state.get("inflation"),
+            cpi=usa_cpi,
             core_cpi=None,           # TODO: FRED CPILFESL via extended_state
             pce=None,                # TODO: FRED PCEPI via extended_state
-            ppi=ext.get("ppi"),
+            ppi=usa_ppi,
             real_rate_10y=ext.get("real_rate_10y"),
-            signal=_signal(state.get("inflation")),
+            signal=_signal(usa_cpi, ppi=usa_ppi, region="usa", real_rate_10y=ext.get("real_rate_10y")),
         )
         eu = InflationDataPoint(
             cpi=ecb_cpi, core_cpi=ecb_core, pce=None,
             ppi=ecb_ppi, real_rate_10y=None,
-            signal=_signal(ecb_cpi),
+            signal=_signal(ecb_cpi, core_cpi=ecb_core, ppi=ecb_ppi, region="eu"),
         )
         ch = InflationDataPoint(
             cpi=snb_cpi, core_cpi=snb_core, pce=None,
             ppi=None, real_rate_10y=None,
-            signal=_signal(snb_cpi),
+            signal=_signal(snb_cpi, core_cpi=snb_core, region="ch"),
         )
         result = InflationSnapshot(usa=usa, eurozone=eu, switzerland=ch)
         self.bus.publish(InflationDataReady(source="inflation_agent", payload={

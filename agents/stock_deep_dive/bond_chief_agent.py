@@ -5,9 +5,30 @@ from agents.stock_deep_dive.bond.bond_duration_agent import BondDurationAgent
 from agents.stock_deep_dive.bond.bond_credit_agent import BondCreditAgent
 from agents.stock_deep_dive.bond.bond_spread_agent import BondSpreadAgent
 from core.domain.events import BondChiefReady
-from core.domain.models import BondResult
+from core.domain.models import BondResult, Signal
 from core.ports.data_provider import FundamentalsProvider, MacroDataProvider
 from core.ports.event_bus import EventBus
+
+
+def _overall_signal(metrics: Signal, duration: Signal, credit: Signal, spread: Signal) -> Signal:
+    """Konsolidiertes Gesamtsignal: Mehrheits-Voting mit Credit-Downgrade als Veto.
+
+    Konflikt (bull == bear) → NEUTRAL (überschreibt auch das Credit-Veto).
+    Credit-Downgrade wirkt als Veto wenn kein Gleichstand: bear > bull oder
+    credit==BEARISH und kein gegenteiliger Mehrheitsentscheid.
+    """
+    votes = [metrics, duration, credit, spread]
+    bull = votes.count(Signal.BULLISH)
+    bear = votes.count(Signal.BEARISH)
+    # Gleichstand (Konflikt) → immer NEUTRAL, kein Veto
+    if bull == bear:
+        return Signal.NEUTRAL
+    # Credit-Downgrade wirkt als Risiko-Veto (nur wenn kein Gleichstand)
+    if credit == Signal.BEARISH:
+        return Signal.BEARISH
+    if bull > bear:
+        return Signal.BULLISH
+    return Signal.BEARISH
 
 
 class BondChiefAgent:
@@ -39,7 +60,12 @@ class BondChiefAgent:
         credit   = _safe(results[2], BondCreditAgent.default())
         spread   = _safe(results[3], BondSpreadAgent.default())
 
-        self.bus.publish(BondChiefReady(source="bond_chief_agent", payload={"ticker": ticker}))
+        overall = _overall_signal(metrics.signal, duration.signal, credit.signal, spread.signal)
+        self.bus.publish(BondChiefReady(source="bond_chief_agent", payload={
+            "ticker": ticker, "overall_signal": overall.value,
+            "duration": duration.modified_duration,
+            "default_probability": credit.default_probability,
+        }))
 
         return BondResult(ticker=ticker, bond_type=bond_type, metrics=metrics, duration=duration, credit=credit, spread=spread)
 

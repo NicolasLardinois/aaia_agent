@@ -37,3 +37,10 @@ def test_severity_medium_two_statistical():
 
 def test_severity_high_both():
     assert compute_severity(["A"], ["B"]) == "high"
+
+
+def test_z_score_uses_sample_variance():
+    # history=[1,3,5]: mean=3, sum_sq=8
+    # N=3 (population): std=sqrt(8/3)≈1.633 → z≈1.225  (falsch)
+    # N-1=2 (sample):   std=sqrt(8/2)=2.0   → z=1.0     (korrekt)
+    assert abs(z_score(5.0, [1.0, 3.0, 5.0]) - 1.0) < 0.001

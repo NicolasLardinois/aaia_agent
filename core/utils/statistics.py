@@ -1,4 +1,5 @@
 import math
+from statistics import median, NormalDist
 
 
 Z_THRESHOLD = 2.5
@@ -8,7 +9,7 @@ def z_score(current: float, history: list[float]) -> float:
     if len(history) < 3:
         return 0.0
     mean = sum(history) / len(history)
-    variance = sum((v - mean) ** 2 for v in history) / len(history)
+    variance = sum((v - mean) ** 2 for v in history) / (len(history) - 1)
     std = math.sqrt(variance) if variance > 0 else 0.0
     if std == 0.0:
         return 0.0
@@ -25,3 +26,39 @@ def compute_severity(statistical: list[str], contradictions: list[str]) -> str:
     if has_stat or has_contra:
         return "low"
     return "none"
+
+
+ROBUST_Z_THRESHOLD = 3.5
+MIN_SAMPLE_N = 20
+
+
+def robust_z_score(current: float, history: list[float], min_n: int = MIN_SAMPLE_N) -> float:
+    """Median/MAD-basiert (Iglewicz-Hoaglin): 0.6745*(current-median)/MAD.
+    0.0 falls len(history)<min_n oder MAD==0."""
+    if len(history) < min_n:
+        return 0.0
+    med = median(history)
+    mad = median([abs(v - med) for v in history])
+    if mad == 0.0:
+        return 0.0
+    return 0.6745 * (current - med) / mad
+
+
+def bonferroni_z_threshold(base_threshold: float, n_tests: int) -> float:
+    """Zweiseitige Bonferroni-Korrektur der Z-Schwelle:
+    alpha = 2*(1-Phi(base)); alpha_adj = alpha/n; return Phi^-1(1-alpha_adj/2).
+    Bei extrem strenger Ausgangsschwelle (alpha==0) oder Unterflow wird die
+    unkorrigierte base_threshold zurueckgegeben (keine sinnvolle Korrektur moeglich)."""
+    if n_tests < 1:
+        return base_threshold
+    nd = NormalDist()
+    alpha = 2.0 * (1.0 - nd.cdf(base_threshold))
+    if alpha == 0.0:
+        return base_threshold
+    alpha_adj = alpha / n_tests
+    if alpha_adj == 0.0:
+        return base_threshold
+    p = 1.0 - alpha_adj / 2.0
+    if p >= 1.0:
+        return base_threshold
+    return nd.inv_cdf(p)

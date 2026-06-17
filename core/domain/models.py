@@ -18,6 +18,11 @@ class Signal(str, Enum):
     NEUTRAL = "neutral"
 
 
+class SignalStatus(str, Enum):
+    AVAILABLE   = "available"
+    UNAVAILABLE = "unavailable"
+
+
 class Recommendation(str, Enum):
     BUY   = "BUY"
     HOLD  = "HOLD"
@@ -205,6 +210,7 @@ class CommodityChiefResult:
     industrial_metals: IndustrialMetalsSnapshot
     precious_metals: PreciousMetalsMacroSnapshot
     agricultural: AgriculturalSnapshot
+    signal: Signal = Signal.NEUTRAL
 
 
 # ─────────────────────────────────────────────
@@ -223,6 +229,7 @@ class FearGreedSnapshot:
     value: Optional[float]        # 0–100
     label: str                    # "Extreme Fear" | "Fear" | "Neutral" | "Greed" | "Extreme Greed"
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -236,6 +243,7 @@ class SentimentChiefResult:
     vix: VIXSnapshot
     fear_greed: FearGreedSnapshot
     put_call: PutCallSnapshot
+    signal: Signal = Signal.NEUTRAL
 
 
 # ─────────────────────────────────────────────
@@ -271,6 +279,7 @@ class SovereignSpreadSnapshot:
 class YieldCurveChiefResult:
     yield_spreads: YieldSpreadSnapshot
     sovereign_spreads: SovereignSpreadSnapshot
+    signal: Signal = Signal.NEUTRAL
 
 
 # ─────────────────────────────────────────────
@@ -439,6 +448,7 @@ class PreciousMetalSnapshot:
     stock_to_flow: Optional[float]
     real_yield_correlation: Optional[float]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -446,6 +456,7 @@ class CrossMetalSnapshot:
     gold_silver_ratio: Optional[float]
     gold_platinum_ratio: Optional[float]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -535,6 +546,7 @@ class IndexPriceSnapshot:
     high_52w: Optional[float]
     low_52w: Optional[float]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -554,6 +566,7 @@ class IndexEarningsSnapshot:
     operating_margin: Optional[float]
     estimate_revision: str            # "up" | "stable" | "down"
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -564,6 +577,7 @@ class IndexBreadthSnapshot:
     new_highs: Optional[int]
     new_lows: Optional[int]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -584,6 +598,7 @@ class SectorCompositionSnapshot:
     top_holding_weight: Optional[float]
     top_10_concentration: Optional[float]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -624,6 +639,7 @@ class SupplyDemandSnapshot:
     stock_to_flow: Optional[float]        # Gesamtbestand / Jahresproduktion
     stock_to_flow_signal: Optional[str]   # "scarce" | "normal" | "abundant"
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -632,6 +648,7 @@ class SeasonalitySnapshot:
     avg_return_this_month: Optional[float]
     positive_years_pct: Optional[float]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -639,6 +656,7 @@ class COTSnapshot:
     net_speculative_long: Optional[float]
     net_speculative_pct_oi: Optional[float]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -652,6 +670,7 @@ class CommodityValuationRangeSnapshot:
     production_cost_high: Optional[float]
     position: str                     # "cheap" | "fair" | "expensive"
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass

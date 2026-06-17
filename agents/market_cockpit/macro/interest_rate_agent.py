@@ -1,8 +1,12 @@
 import asyncio
+from datetime import date
+from typing import Optional
 from core.domain.events import InterestRateDataReady
 from core.domain.models import InterestRateSnapshot, InterestRateDataPoint, Signal
 from core.ports.data_provider import MacroDataProvider, EcbDataProvider, SnbDataProvider
 from core.ports.event_bus import EventBus
+from core.ports.dated_history import DatedHistoryPort
+from core.utils.real_nominal import to_real
 
 _NEUTRAL = InterestRateDataPoint(
     policy_rate=None, rate_direction="stable",
@@ -10,15 +14,30 @@ _NEUTRAL = InterestRateDataPoint(
 )
 _DEFAULT = InterestRateSnapshot(usa=_NEUTRAL, eurozone=_NEUTRAL, switzerland=_NEUTRAL)
 
-_RATE_HISTORY: dict[str, list[float]] = {"usa": [], "eu": [], "ch": []}
+
+def _months_back(d: date, months: int) -> date:
+    """Datum `months` Monate zurück (ohne externe Abhängigkeit wie dateutil)."""
+    m = d.month - 1 - months
+    year = d.year + m // 12
+    month = m % 12 + 1
+    leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+    days_in_month = [31, 29 if leap else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]
+    return date(year, month, min(d.day, days_in_month))
 
 
-def _direction(rate: float | None, history: list[float]) -> str:
-    if rate is None or len(history) < 2:
+def _direction(current: Optional[float], history: Optional[DatedHistoryPort], series: str,
+               months_back: int = 3, today: Optional[date] = None) -> str:
+    """Richtung aus DATIERTER Historie: aktueller Wert vs. Wert vor `months_back` Monaten.
+    `today` injizierbar für deterministische Tests; nutzt die Multi-Serie-Port-API."""
+    if current is None or history is None:
         return "stable"
-    if rate > history[-2]:
+    ref_date = _months_back(today or date.today(), months_back)
+    prev = history.value_on_or_before(series, ref_date)
+    if prev is None:
+        return "stable"
+    if current > prev:
         return "rising"
-    if rate < history[-2]:
+    if current < prev:
         return "falling"
     return "stable"
 
@@ -59,18 +78,24 @@ class InterestRateAgent:
 
         fed_rate = state.get("fed_rate")
         usa_cpi  = state.get("inflation")
-        usa_real = round(fed_rate - usa_cpi, 3) if fed_rate is not None and usa_cpi is not None else None
+        # Realzinsen für alle Regionen: to_real(nominal, cpi)
+        def _safe_real(rate, cpi):
+            if rate is None or cpi is None:
+                return None
+            try:
+                return round(to_real(rate, cpi), 3)
+            except Exception:
+                return None
 
-        if fed_rate is not None:
-            _RATE_HISTORY["usa"].append(fed_rate)
-        if ecb_rate is not None:
-            _RATE_HISTORY["eu"].append(ecb_rate)
-        if snb_rate is not None:
-            _RATE_HISTORY["ch"].append(snb_rate)
+        usa_real = _safe_real(fed_rate, usa_cpi)
+        # EU/CH: Realzinsen aus ECB/SNB CPI (keine Historien-Abhängigkeit für Richtung)
+        eu_real  = _safe_real(ecb_rate, state.get("eu_cpi"))   # TODO: ECB CPI via ext
+        ch_real  = _safe_real(snb_rate, state.get("ch_cpi"))   # TODO: SNB CPI via ext
 
-        usa_dir = _direction(fed_rate, _RATE_HISTORY["usa"])
-        eu_dir  = _direction(ecb_rate, _RATE_HISTORY["eu"])
-        ch_dir  = _direction(snb_rate, _RATE_HISTORY["ch"])
+        # Richtung: ohne datierte Zinsreihe → "stable" (kein prozess-globaler Zustand)
+        usa_dir = _direction(fed_rate, history=None, series="fed_rate")
+        eu_dir  = _direction(ecb_rate, history=None, series="ecb_rate")
+        ch_dir  = _direction(snb_rate, history=None, series="snb_rate")
 
         usa = InterestRateDataPoint(
             policy_rate=fed_rate, rate_direction=usa_dir,
@@ -80,12 +105,12 @@ class InterestRateAgent:
         eu = InterestRateDataPoint(
             policy_rate=ecb_rate, rate_direction=eu_dir,
             balance_sheet_growth=ecb_bs,
-            real_rate=None, signal=_signal(ecb_rate, eu_dir, None),
+            real_rate=eu_real, signal=_signal(ecb_rate, eu_dir, eu_real),
         )
         ch = InterestRateDataPoint(
             policy_rate=snb_rate, rate_direction=ch_dir,
             balance_sheet_growth=snb_bs,
-            real_rate=None, signal=_signal(snb_rate, ch_dir, None),
+            real_rate=ch_real, signal=_signal(snb_rate, ch_dir, ch_real),
         )
         result = InterestRateSnapshot(usa=usa, eurozone=eu, switzerland=ch)
         self.bus.publish(InterestRateDataReady(source="interest_rate_agent", payload={

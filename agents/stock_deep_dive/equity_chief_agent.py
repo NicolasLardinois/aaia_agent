@@ -8,10 +8,43 @@ from agents.stock_deep_dive.equity.earnings_trend_agent import EarningsTrendAgen
 from agents.stock_deep_dive.equity.moat_agent import MoatAgent
 from agents.stock_deep_dive.equity.valuation_range_agent import ValuationRangeAgent
 from core.domain.events import EquityChiefReady
-from core.domain.models import EquityChiefResult
+from core.domain.models import EquityChiefResult, Signal, SignalStatus
 from core.ports.data_provider import FundamentalsProvider, MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
+from core.utils.aggregation import weighted_signal
+
+# Gewichte: Bewertung = Langfrist-Anker, Qualität/Moat = Prämien-Rechtfertigung,
+# Earnings/Insider/Short = Timing/Bestätigung.
+_W_VALUATION = 0.25
+_W_FUNDAMENTALS = 0.20
+_W_QUALITY = 0.20
+_W_MOAT = 0.15
+_W_EARNINGS = 0.10
+_W_INSIDER = 0.05
+_W_SHORT = 0.05
+
+
+def _status(sig: Signal) -> SignalStatus:
+    """NEUTRAL gilt als verfügbar (eine bewusste neutrale Aussage), aber neutrale
+    Default-Snapshots tragen ohnehin Gewicht 0-Wirkung im Voting. Hier: alle
+    vorhandenen Sub-Signale sind AVAILABLE; UNAVAILABLE bleibt späteren Stubs
+    vorbehalten (Plan 0 P1.4)."""
+    return SignalStatus.AVAILABLE
+
+
+def _aggregate_signal(fundamentals_sig, quality_sig, valuation_sig, moat_sig,
+                      earnings_sig, insider_sig, short_sig) -> tuple[Signal, float]:
+    items = [
+        (valuation_sig,    _W_VALUATION,    _status(valuation_sig)),
+        (fundamentals_sig, _W_FUNDAMENTALS, _status(fundamentals_sig)),
+        (quality_sig,      _W_QUALITY,      _status(quality_sig)),
+        (moat_sig,         _W_MOAT,         _status(moat_sig)),
+        (earnings_sig,     _W_EARNINGS,     _status(earnings_sig)),
+        (insider_sig,      _W_INSIDER,      _status(insider_sig)),
+        (short_sig,        _W_SHORT,        _status(short_sig)),
+    ]
+    return weighted_signal(items)
 
 
 class EquityChiefAgent:
@@ -33,8 +66,8 @@ class EquityChiefAgent:
 
     async def run(self, ticker: str, sector: str = "default") -> EquityChiefResult:
         results = await asyncio.gather(
-            self.fundamentals_agent.run(ticker),
-            self.quality_agent.run(ticker),
+            self.fundamentals_agent.run(ticker, sector=sector),
+            self.quality_agent.run(ticker, sector=sector),
             self.short_agent.run(ticker),
             self.insider_agent.run(ticker),
             self.earnings_agent.run(ticker),
@@ -53,7 +86,19 @@ class EquityChiefAgent:
         moat            = _safe(results[5], MoatAgent.default())
         valuation_range = _safe(results[6], ValuationRangeAgent.default())
 
-        self.bus.publish(EquityChiefReady(source="equity_chief_agent", payload={"ticker": ticker}))
+        overall_signal, confidence = _aggregate_signal(
+            fundamentals_sig=fundamentals.signal,
+            quality_sig=quality.signal,
+            valuation_sig=valuation_range.signal,
+            moat_sig=moat.signal,
+            earnings_sig=earnings_trend.signal,
+            insider_sig=insider.signal,
+            short_sig=short_interest.signal,
+        )
+
+        self.bus.publish(EquityChiefReady(source="equity_chief_agent", payload={
+            "ticker": ticker, "signal": overall_signal.value, "confidence": round(confidence, 3),
+        }))
 
         return EquityChiefResult(
             fundamentals=fundamentals,

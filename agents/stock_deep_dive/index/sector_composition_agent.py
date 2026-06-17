@@ -1,61 +1,56 @@
 import asyncio
+from collections import defaultdict
 
 from core.domain.events import SectorCompositionReady
-from core.domain.models import SectorCompositionSnapshot, Signal
+from core.domain.models import SectorCompositionSnapshot, Signal, SignalStatus
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 
 _DEFAULT = SectorCompositionSnapshot(
-    top_sector=None, top_sector_weight=None,
-    top_holding=None, top_holding_weight=None,
-    top_10_concentration=None, signal=Signal.NEUTRAL,
+    top_sector=None, top_sector_weight=None, top_holding=None, top_holding_weight=None,
+    top_10_concentration=None, signal=Signal.NEUTRAL, status=SignalStatus.UNAVAILABLE,
 )
 
-# Hardcoded top sector per major index (approx. 2025)
-_TOP_SECTOR: dict[str, tuple[str, float]] = {
-    "^GSPC":     ("Technology",        31.0),
-    "^NDX":      ("Technology",        60.0),
-    "^DJI":      ("Technology",        22.0),
-    "^RUT":      ("Financials",        17.0),
-    "^STOXX50E": ("Financials",        18.0),
-    "^GDAXI":    ("Industrials",       18.0),
-    "^FCHI":     ("Luxury/Consumer",   20.0),
-    "^SSMI":     ("Healthcare",        40.0),
-    "^N225":     ("Technology",        22.0),
-    "^HSI":      ("Financials",        35.0),
-    "URTH":      ("Technology",        23.0),
-    "EEM":       ("Technology",        22.0),
-}
+_HHI_HIGH = 2000.0   # > 2000 → konzentriert (US-DOJ-Schwelle für "highly concentrated")
 
-# Hardcoded top holding per major index
-_TOP_HOLDING: dict[str, tuple[str, float]] = {
-    "^GSPC":     ("Apple (AAPL)",   7.0),
-    "^NDX":      ("Apple (AAPL)",  12.0),
-    "^DJI":      ("Goldman Sachs", 9.0),
-    "^STOXX50E": ("ASML",          8.0),
-    "^GDAXI":    ("SAP",          14.0),
-    "^SSMI":     ("Nestlé",       22.0),
-}
 
-# TODO: Echte Holdings über ETF-Anbieter APIs (iShares, SPDR) abrufen
+def _hhi(holdings: list[dict]) -> float:
+    return round(sum(float(h["weight_pct"]) ** 2 for h in holdings), 1)
+
+
+def _concentration_signal(hhi: float) -> Signal:
+    # hohe Konzentration = höheres idiosynkratisches Risiko → vorsichtiger (bearish-Tilt)
+    if hhi > _HHI_HIGH:
+        return Signal.BEARISH
+    return Signal.NEUTRAL
 
 
 class SectorCompositionAgent:
     def __init__(self, market: MarketDataProvider, bus: EventBus):
         self.market = market
-        self.bus    = bus
+        self.bus = bus
 
     async def run(self, ticker: str) -> SectorCompositionSnapshot:
-        sector_data  = _TOP_SECTOR.get(ticker)
-        holding_data = _TOP_HOLDING.get(ticker)
+        holdings = await asyncio.to_thread(self.market.get_index_holdings, ticker)
+        if not holdings:
+            self.bus.publish(SectorCompositionReady(source="sector_composition_agent", payload={"ticker": ticker}))
+            return _DEFAULT
+
+        by_sector: dict[str, float] = defaultdict(float)
+        for h in holdings:
+            by_sector[h.get("sector") or "Unknown"] += float(h["weight_pct"])
+        top_sector, top_sector_w = max(by_sector.items(), key=lambda kv: kv[1])
+
+        holdings_sorted = sorted(holdings, key=lambda h: float(h["weight_pct"]), reverse=True)
+        top = holdings_sorted[0]
+        top10 = round(sum(float(h["weight_pct"]) for h in holdings_sorted[:10]), 1)
+        hhi = _hhi(holdings)
 
         result = SectorCompositionSnapshot(
-            top_sector=sector_data[0] if sector_data else None,
-            top_sector_weight=sector_data[1] if sector_data else None,
-            top_holding=holding_data[0] if holding_data else None,
-            top_holding_weight=holding_data[1] if holding_data else None,
-            top_10_concentration=None,   # TODO: ETF holdings API
-            signal=Signal.NEUTRAL,
+            top_sector=top_sector, top_sector_weight=round(top_sector_w, 1),
+            top_holding=top.get("name"), top_holding_weight=round(float(top["weight_pct"]), 1),
+            top_10_concentration=top10,
+            signal=_concentration_signal(hhi), status=SignalStatus.AVAILABLE,
         )
         self.bus.publish(SectorCompositionReady(source="sector_composition_agent", payload={"ticker": ticker}))
         return result

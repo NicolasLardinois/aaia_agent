@@ -1,5 +1,9 @@
 from core.domain.models import AnomalyReport, Signal
-from core.utils.statistics import Z_THRESHOLD, compute_severity, z_score
+from core.utils.statistics import (
+    ROBUST_Z_THRESHOLD, bonferroni_z_threshold, compute_severity, robust_z_score,
+)
+
+_MIN_N = 20
 
 
 def _contradicts(a: Signal, b: Signal) -> bool:
@@ -30,21 +34,25 @@ class BottomUpAnomalyAgent:
             for h in history
             if h.get("indicators_snapshot")
         ]
-        enough_history = len(snapshots) >= 5
+        enough_history = len(snapshots) >= _MIN_N
 
         # Z-Score Checks (nur Equity, nur bei genug History)
         if is_equity and enough_history:
+            # Anzahl potenzieller Z-Checks für Multiple-Testing-Korrektur
+            n_tests = 3  # KGV + Short-Float + Insider
+            threshold = bonferroni_z_threshold(ROBUST_Z_THRESHOLD, n_tests)
+
             def _check(label: str, current, key: str):
                 if current is None:
                     return
                 vals = [s[key] for s in snapshots if key in s and s[key] is not None]
-                if len(vals) < 5:
+                if len(vals) < _MIN_N:
                     return
-                z = z_score(float(current), [float(v) for v in vals])
-                if abs(z) > Z_THRESHOLD:
+                z = robust_z_score(float(current), [float(v) for v in vals], min_n=_MIN_N)
+                if abs(z) > threshold:
                     dir_ = "hoch" if z > 0 else "niedrig"
                     statistical.append(
-                        f"{label}={current:.1f} ist ungewöhnlich {dir_} (Z={z:.1f})"
+                        f"{label}={current:.1f} ist ungewöhnlich {dir_} (robust-Z={z:.1f})"
                     )
 
             fu  = bottom_up.fundamentals
@@ -55,10 +63,28 @@ class BottomUpAnomalyAgent:
                 _check("KGV", fu.pe_ratio, "pe_ratio")
             if si:
                 _check("Short-Float", si.short_float_pct, "short_float_pct")
-            if ins and ins.recent_transactions is not None and ins.recent_transactions > 10:
-                statistical.append(
-                    f"Ungewöhnlich hohe Insider-Aktivität: {ins.recent_transactions} Transaktionen"
-                )
+
+            # Insider: richtungs- und frequenznormiert statt absoluter ">10"-Schwelle
+            if ins and ins.recent_transactions is not None:
+                tx_vals = [s["insider_transactions"] for s in snapshots
+                           if s.get("insider_transactions") is not None]
+                if len(tx_vals) >= _MIN_N:
+                    current_tx = float(ins.recent_transactions)
+                    z_tx = robust_z_score(current_tx, [float(v) for v in tx_vals], min_n=_MIN_N)
+                    # Fallback wenn MAD=0 (konstante History): relatives Vielfaches als Schwelle
+                    med_tx = sorted([float(v) for v in tx_vals])[len(tx_vals) // 2]
+                    is_anomalous = (z_tx > threshold) or (
+                        z_tx == 0.0 and med_tx > 0 and current_tx / med_tx >= 5.0
+                    )
+                    if is_anomalous:
+                        direction = getattr(ins, "net_direction", "") or ""
+                        kind = "Kauf-Cluster" if "buy" in direction.lower() else \
+                               ("Verkaufs-Cluster" if "sell" in direction.lower() else "Aktivität")
+                        statistical.append(
+                            f"Ungewöhnlich hohe Insider-{kind}: "
+                            f"{ins.recent_transactions} Transaktionen (robust-Z={z_tx:.1f}, "
+                            f"Richtung={direction or 'n/v'})"
+                        )
 
         # Widerspruchs-Checks (nur Equity)
         if is_equity:

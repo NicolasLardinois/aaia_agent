@@ -5,9 +5,17 @@ from agents.market_cockpit.commodity.industrial_metals_agent import IndustrialMe
 from agents.market_cockpit.commodity.precious_metals_macro_agent import PreciousMetalsMacroAgent
 from agents.market_cockpit.commodity.agricultural_agent import AgriculturalAgent
 from core.domain.events import CommodityChiefReady
-from core.domain.models import CommodityChiefResult
+from core.domain.models import CommodityChiefResult, Signal, SignalStatus
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
+from core.utils.aggregation import weighted_signal
+
+# Makro-Relevanz-Gewichte (GSCI/BCOM-nah: Energie dominiert)
+_WEIGHTS = {"energy": 0.50, "industrial": 0.20, "precious": 0.15, "agricultural": 0.15}
+
+
+def _aggregate(items):
+    return weighted_signal(items)
 
 
 class CommodityChiefAgentMakro:
@@ -34,6 +42,42 @@ class CommodityChiefAgentMakro:
         precious_metals   = _safe(results[2], PreciousMetalsMacroAgent.default())
         agricultural      = _safe(results[3], AgriculturalAgent.default())
 
+        # Status je Sub-Agent aus dem Vorhandensein der Rohdaten
+        status_energy     = (
+            SignalStatus.UNAVAILABLE
+            if energy.wti_usd is None and energy.brent_usd is None and energy.natural_gas_usd is None
+            else SignalStatus.AVAILABLE
+        )
+        status_industrial = (
+            SignalStatus.UNAVAILABLE
+            if industrial_metals.copper_usd is None and industrial_metals.aluminium_usd is None
+            else SignalStatus.AVAILABLE
+        )
+        status_precious   = (
+            SignalStatus.UNAVAILABLE
+            if precious_metals.gold_usd is None and precious_metals.silver_usd is None
+            else SignalStatus.AVAILABLE
+        )
+        status_agri       = (
+            SignalStatus.UNAVAILABLE
+            if all(
+                v is None for v in [
+                    agricultural.wheat_usd, agricultural.corn_usd, agricultural.soy_usd,
+                    agricultural.coffee_usd, agricultural.sugar_usd,
+                    agricultural.cotton_usd, agricultural.orange_juice_usd,
+                ]
+            )
+            else SignalStatus.AVAILABLE
+        )
+
+        items = [
+            (energy.signal,           _WEIGHTS["energy"],       status_energy),
+            (industrial_metals.signal, _WEIGHTS["industrial"], status_industrial),
+            (precious_metals.signal,  _WEIGHTS["precious"],    status_precious),
+            (agricultural.signal,     _WEIGHTS["agricultural"], status_agri),
+        ]
+        overall, _conf = _aggregate(items)
+
         self.bus.publish(CommodityChiefReady(source="commodity_chief_agent", payload={}))
 
         return CommodityChiefResult(
@@ -41,6 +85,7 @@ class CommodityChiefAgentMakro:
             industrial_metals=industrial_metals,
             precious_metals=precious_metals,
             agricultural=agricultural,
+            signal=overall,
         )
 
     @staticmethod
@@ -50,4 +95,5 @@ class CommodityChiefAgentMakro:
             industrial_metals=IndustrialMetalsAgent.default(),
             precious_metals=PreciousMetalsMacroAgent.default(),
             agricultural=AgriculturalAgent.default(),
+            signal=Signal.NEUTRAL,
         )

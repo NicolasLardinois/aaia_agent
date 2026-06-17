@@ -21,6 +21,12 @@ class MacroDataProvider(ABC):
         """USA 10y-2y und 10y-3m Treasury Spreads. Keys: '10y2y', '10y3m'."""
         ...
 
+    def get_real_rate_history(self, years: int = 5) -> list[dict]:
+        """Datierte 10J-Realzins-Reihe (TIPS), älteste zuerst.
+        Rückgabe: [{"date": "YYYY-MM-DD", "real_rate_10y": float}, ...]; leer = nicht verfügbar.
+        Default-Implementierung: leer. Echte Daten liefert der FRED-Adapter (überschreibt diese Methode)."""
+        return []
+
 
 class EcbDataProvider(ABC):
     @abstractmethod
@@ -111,6 +117,33 @@ class MarketDataProvider(ABC):
     @abstractmethod
     def get_info(self, ticker: str) -> dict: ...
 
+    def get_index_constituents(self, index_ticker: str) -> list[str]:
+        """Konstituenten-Ticker des Index; leer = unbekannt."""
+        return []
+
+    def get_constituent_histories(self, index_ticker: str, period: str = "2y") -> dict:
+        """{ticker: Close-pandas.Series} der Konstituenten; leer = unbekannt."""
+        return {}
+
+    def get_index_fundamentals(self, index_ticker: str) -> dict:
+        """Aggregierte (bottom-up) Index-Fundamentaldaten:
+        {"eps_ttm","eps_fwd","eps_growth_1y","revenue_growth_1y","operating_margin",
+         "estimate_revision": "up"|"stable"|"down"}; leeres dict = nicht verfügbar.
+        Default-Implementierung: leer. Echte Daten liefert ein spezialisierter Adapter."""
+        return {}
+
+    def get_total_return_history(self, ticker: str, period: str = "5y") -> object:
+        """Total-Return-Historie (Dividenden reinvestiert) als DataFrame mit 'Close';
+        None falls nur Price-Return verfügbar (Aufrufer fällt auf get_price_history zurück).
+        Default-Implementierung: None."""
+        return None
+
+    def get_index_holdings(self, index_ticker: str) -> list:
+        """[{"name": str, "weight_pct": float, "sector": str}], absteigend nach Gewicht;
+        leer = nicht verfügbar.
+        Default-Implementierung: leer. Echte Daten liefert ein spezialisierter Adapter."""
+        return []
+
 
 class FundamentalsProvider(ABC):
     @abstractmethod
@@ -129,6 +162,27 @@ class FundamentalsProvider(ABC):
     def get_bond_data(self, ticker: str) -> dict: ...
 
 
-class LLMProvider(ABC):
+class CommoditySupplyProvider(ABC):
     @abstractmethod
-    def complete(self, prompt: str, system: str = "") -> str: ...
+    def get_inventory_history(self, commodity: str, years: int = 5) -> list[dict]:
+        """[{"date": "YYYY-MM-DD", "inventory": float}], älteste zuerst; leer = nicht verfügbar."""
+        ...
+
+    @abstractmethod
+    def get_production_cost_curve(self, commodity: str) -> dict:
+        """{"cost_p25","cost_p50","cost_p75","cost_p90"} in Preiseinheit des Tickers; leer = nicht verfügbar."""
+        ...
+
+
+class COTProvider(ABC):
+    @abstractmethod
+    def get_cot_history(self, commodity: str, years: int = 3) -> list[dict]:
+        """[{"date","managed_money_net","open_interest"}], älteste zuerst; leer = nicht verfügbar."""
+        ...
+
+
+class SentimentDataProvider(ABC):
+    @abstractmethod
+    def get_fear_greed(self) -> Optional[float]:
+        """Aktueller CNN-Fear&Greed-Wert 0–100; None = nicht verfügbar."""
+        ...

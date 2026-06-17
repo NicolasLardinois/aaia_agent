@@ -4,14 +4,32 @@ from core.domain.events import PreciousMetalsValuationReady
 from core.domain.models import ValuationRangeSnapshot, ValuationMethod, Signal
 from core.ports.data_provider import MacroDataProvider, MarketDataProvider
 from core.ports.event_bus import EventBus
+from core.utils.valuation_math import real_rate_anchor, weighted_median_range
 
 _DEFAULT = ValuationRangeSnapshot(
     methods=[], combined_low=0.0, combined_high=0.0,
     current_price=None, position="unknown", signal=Signal.NEUTRAL,
 )
 
-# Historische inflationsbereinigte Goldpreise (Basis 2024 USD)
-GOLD_INFLATION_ADJ_AVG = 1_200.0   # konservativer historischer Durchschnitt
+# Preis-UNABHÄNGIGE Realzins-Regression je Metall (injizierte, empirisch kalibrierte
+# Konstanten — KEINE Ableitung aus dem aktuellen Preis). real_rate in Prozent (z. B. 1.5).
+#   fair = intercept + slope * real_rate   (slope < 0: inverse Realzins-Beziehung)
+# Datenannahme: ersetzbar durch echte Provider-Regression ohne Signaturänderung.
+_REAL_RATE_MODEL: dict[str, dict[str, float]] = {
+    "gold":   {"intercept": 2400.0, "slope": -250.0, "band_pct": 0.12},
+    "silver": {"intercept":   28.0, "slope":   -4.0, "band_pct": 0.18},
+}
+
+# Aktuelle AISC-Produktionskosten-Bänder (2024/25), nur Gold (USD/oz).
+_AISC_FLOOR: dict[str, tuple[float, float]] = {
+    "gold": (1250.0, 1450.0),
+}
+
+# Methoden-Gewichte für die Kombination (Realzins ist der dominante Gold-Treiber).
+_METHOD_WEIGHTS: dict[str, float] = {
+    "Realzins-Modell": 2.0,
+    "AISC-Produktionskosten-Boden": 1.0,
+}
 
 
 def _position(price: float, low: float, high: float) -> tuple[str, Signal]:
@@ -29,15 +47,15 @@ class PreciousMetalsValuationAgent:
         self.bus = bus
 
     async def run(self, metal: str = "gold") -> ValuationRangeSnapshot:
+        metal = metal.lower()
         ticker_map = {"gold": "GC=F", "silver": "SI=F", "platinum": "PL=F", "palladium": "PA=F"}
-        ticker = ticker_map.get(metal.lower(), "GC=F")
+        ticker = ticker_map.get(metal, "GC=F")
 
         current_price, macro_data = await asyncio.gather(
             asyncio.to_thread(self.market.get_current_price, ticker),
             asyncio.to_thread(self.macro.get_extended_state),
             return_exceptions=True,
         )
-
         if isinstance(current_price, Exception):
             current_price = None
         if isinstance(macro_data, Exception):
@@ -45,43 +63,34 @@ class PreciousMetalsValuationAgent:
 
         methods: list[ValuationMethod] = []
 
-        # Methode 1: Realzins-Modell (nur Gold/Silber)
+        # Methode 1: preis-UNABHÄNGIGER Realzins-Anker (Gold/Silber)
         real_rate = macro_data.get("real_rate_10y")
-        if real_rate is not None and metal.lower() in ("gold", "silver"):
-            # Inverse Beziehung: je tiefer Realzins, desto höher Gold-Fairer-Wert
-            base = current_price or 2000
-            adjustment = (0 - real_rate) * 150   # grobe Daumenregel
-            adj_low  = base + adjustment * (0.7 if adjustment >= 0 else 1.3)
-            adj_high = base + adjustment * (1.3 if adjustment >= 0 else 0.7)
+        model = _REAL_RATE_MODEL.get(metal)
+        if real_rate is not None and model is not None:
+            low, high = real_rate_anchor(
+                real_rate=real_rate,
+                intercept=model["intercept"],
+                slope=model["slope"],
+                band_pct=model["band_pct"],
+            )
             methods.append(ValuationMethod(
-                name="Realzins-Modell",
-                low=round(min(adj_low, adj_high), 0),
-                high=round(max(adj_low, adj_high), 0),
+                name="Realzins-Modell", low=round(low, 0), high=round(high, 0),
             ))
 
-        # Methode 2: Inflationsbereinigt (Gold)
-        if metal.lower() == "gold":
+        # Methode 2: AISC-Produktionskosten-Boden (aktuelle Daten)
+        floor = _AISC_FLOOR.get(metal)
+        if floor is not None:
             methods.append(ValuationMethod(
-                name="Inflationsbereinigt (historisch)",
-                low=round(GOLD_INFLATION_ADJ_AVG * 0.85, 0),
-                high=round(GOLD_INFLATION_ADJ_AVG * 1.40, 0),
-            ))
-
-        # Methode 3: Stock-to-Flow Kontext
-        # S2F gibt kein direktes Kursziel — dient als Knappheits-Anker
-        # Wenn S2F hoch und stabil → untere Bandbreite stützt sich auf Produktionskosten
-        if metal.lower() == "gold":
-            methods.append(ValuationMethod(
-                name="S2F Produktionskosten-Boden",
-                low=1_050.0,   # All-in Sustaining Cost (AISC) günstigster Produzent
-                high=1_800.0,  # AISC teuerster Produzent — Angebotsgrenze
+                name="AISC-Produktionskosten-Boden", low=floor[0], high=floor[1],
             ))
 
         if not methods or current_price is None:
             return _DEFAULT
 
-        combined_low  = min(m.low  for m in methods)
-        combined_high = max(m.high for m in methods)
+        weighted = [
+            (m.low, m.high, _METHOD_WEIGHTS.get(m.name, 1.0)) for m in methods
+        ]
+        combined_low, combined_high = weighted_median_range(weighted)
         position, signal = _position(current_price, combined_low, combined_high)
 
         result = ValuationRangeSnapshot(
@@ -92,9 +101,9 @@ class PreciousMetalsValuationAgent:
             position=position,
             signal=signal,
         )
-        self.bus.publish(PreciousMetalsValuationReady(source="precious_metals_valuation_agent", payload={
-            "metal": metal, "position": position,
-        }))
+        self.bus.publish(PreciousMetalsValuationReady(
+            source="precious_metals_valuation_agent", payload={"metal": metal, "position": position},
+        ))
         return result
 
     @staticmethod

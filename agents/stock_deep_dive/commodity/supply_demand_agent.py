@@ -1,81 +1,79 @@
 import asyncio
 
 from core.domain.events import SupplyDemandReady
-from core.domain.models import SupplyDemandSnapshot, Signal
+from core.domain.models import SupplyDemandSnapshot, Signal, SignalStatus
+from core.ports.data_provider import CommoditySupplyProvider
 from core.ports.event_bus import EventBus
 
 _DEFAULT = SupplyDemandSnapshot(
-    inventory_current=None, inventory_avg_5y=None,
-    inventory_pct_vs_avg=None, production_change_yoy=None,
-    stock_to_flow=None, stock_to_flow_signal=None,
-    signal=Signal.NEUTRAL,
+    inventory_current=None, inventory_avg_5y=None, inventory_pct_vs_avg=None,
+    production_change_yoy=None, stock_to_flow=None, stock_to_flow_signal=None,
+    signal=Signal.NEUTRAL, status=SignalStatus.UNAVAILABLE,
 )
 
-# Stock-to-Flow: Gesamtbestand / Jahresproduktion (in Jahren)
-# Je höher, desto knapper relativ zur Produktion → selteneres Gut
+# Einheitliche S2F-Definition: oberirdische Bestände / Jahresproduktion (Jahre).
+# Nur dort gesetzt, wo diese Definition belastbar ist (Edelmetalle). Industrie-/Energie-
+# Rohstoffe: kein vergleichbarer S2F → None (Lagerreichweite ist dort das relevante Maß).
 _STOCK_TO_FLOW: dict[str, float] = {
-    # Energie — sehr niedrig (wird sofort verbraucht)
-    "CL=F":   0.1,   # WTI Öl
-    "BZ=F":   0.1,   # Brent
-    "NG=F":   0.1,   # Erdgas
-    # Industriemetalle
-    "HG=F":   0.5,   # Kupfer
-    "ALI=F":  0.4,   # Aluminium
-    "ZNC=F":  0.4,   # Zink
-    "NI=F":   0.5,   # Nickel
-    # Agrar (saisonale Lagerbestände, ~3-6 Monate)
-    "ZW=F":   0.3,   # Weizen
-    "ZC=F":   0.3,   # Mais
-    "ZS=F":   0.3,   # Soja
-    "KC=F":   0.8,   # Kaffee
-    "SB=F":   0.4,   # Zucker
-    "CT=F":   0.5,   # Baumwolle
-    "OJ=F":   0.3,   # Orangensaft
+    "GC=F": 62.0, "SI=F": 22.0,   # Gold/Silber (konsistent mit precious_metal_price)
 }
 
-# Interpretation: ab welchem S/F-Wert gilt ein Rohstoff als "scarce"
-_SCARCE_THRESHOLD  = 10.0   # > 10 Jahre Bestand → sehr selten (Gold, Silber)
-_ABUNDANT_THRESHOLD = 0.5   # < 0.5 Jahre → schnell verbraucht
+_SCARCE_THRESHOLD = 10.0
 
 
 def _stf_label(stf: float | None) -> str | None:
     if stf is None:
         return None
-    if stf >= _SCARCE_THRESHOLD:
-        return "scarce"
-    if stf <= _ABUNDANT_THRESHOLD:
-        return "abundant"
-    return "normal"
+    return "scarce" if stf >= _SCARCE_THRESHOLD else "normal"
+
+
+def _inventory_stats(history: list[dict]) -> tuple[float | None, float | None, float | None]:
+    if not history:
+        return None, None, None
+    vals = [float(h["inventory"]) for h in history if h.get("inventory") is not None]
+    if len(vals) < 12:
+        return None, None, None
+    current = vals[-1]
+    avg5 = sum(vals) / len(vals)
+    pct = round((current - avg5) / avg5 * 100, 1) if avg5 else None
+    return round(current, 1), round(avg5, 1), pct
 
 
 def _signal(pct_vs_avg: float | None) -> Signal:
     if pct_vs_avg is None:
         return Signal.NEUTRAL
     if pct_vs_avg < -10:
-        return Signal.BULLISH   # tiefe Lager → Preisdruck nach oben
+        return Signal.BULLISH
     if pct_vs_avg > 20:
-        return Signal.BEARISH   # hohe Lager → Preisdruck nach unten
+        return Signal.BEARISH
     return Signal.NEUTRAL
 
 
-# TODO: EIA (Öl/Gas), USDA (Agrar), LME (Metalle) APIs implementieren.
-
-
 class SupplyDemandAgent:
-    def __init__(self, bus: EventBus):
+    def __init__(self, supply: CommoditySupplyProvider | None, bus: EventBus):
+        self.supply = supply
         self.bus = bus
 
     async def run(self, ticker: str) -> SupplyDemandSnapshot:
+        if self.supply is None:
+            self.bus.publish(SupplyDemandReady(source="supply_demand_agent", payload={"ticker": ticker}))
+            return _DEFAULT
+        history = await asyncio.to_thread(self.supply.get_inventory_history, ticker, 5)
+        current, avg5, pct = _inventory_stats(history)
         stf = _STOCK_TO_FLOW.get(ticker)
-        result = SupplyDemandSnapshot(
-            inventory_current=None,
-            inventory_avg_5y=None,
-            inventory_pct_vs_avg=None,
-            production_change_yoy=None,
-            stock_to_flow=stf,
-            stock_to_flow_signal=_stf_label(stf),
-            signal=Signal.NEUTRAL,
-        )
+
+        if pct is None:
+            result = SupplyDemandSnapshot(
+                inventory_current=None, inventory_avg_5y=None, inventory_pct_vs_avg=None,
+                production_change_yoy=None, stock_to_flow=stf, stock_to_flow_signal=_stf_label(stf),
+                signal=Signal.NEUTRAL, status=SignalStatus.UNAVAILABLE,
+            )
+        else:
+            result = SupplyDemandSnapshot(
+                inventory_current=current, inventory_avg_5y=avg5, inventory_pct_vs_avg=pct,
+                production_change_yoy=None, stock_to_flow=stf, stock_to_flow_signal=_stf_label(stf),
+                signal=_signal(pct), status=SignalStatus.AVAILABLE,
+            )
         self.bus.publish(SupplyDemandReady(source="supply_demand_agent", payload={"ticker": ticker}))
         return result
 

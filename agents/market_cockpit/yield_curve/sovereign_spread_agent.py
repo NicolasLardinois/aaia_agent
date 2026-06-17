@@ -14,16 +14,23 @@ _STRESS_COUNTRIES = {
     "NL", "HR", "SK", "SI", "LU", "FI",
 }
 
+# Peripherie für die systemische "3+ Länder >200bp"-Zählung (Kernländer ausgenommen)
+_PERIPHERY = {"IT", "ES", "PT", "GR", "IE", "SI", "SK", "HR"}
+
 
 def _signal(spreads: dict[str, float | None]) -> Signal:
-    """BEARISH wenn max Spread > 300bp (Krise) oder 3+ Länder > 200bp (systemisch)."""
-    values = [v for k, v in spreads.items()
-              if v is not None and k.split("_")[0] in _STRESS_COUNTRIES]
-    if not values:
+    """BEARISH wenn max Stress-Spread > 300bp (Krise) ODER 3+ PERIPHERIE-Länder > 200bp."""
+    stress_values = [v for k, v in spreads.items()
+                     if v is not None and k.split("_")[0] in _STRESS_COUNTRIES]
+    if not stress_values:
         return Signal.NEUTRAL
-    if max(values) > 300:
+    if max(stress_values) > 300:
         return Signal.BEARISH
-    if sum(1 for v in values if v > 200) >= 3:
+    periphery_high = sum(
+        1 for k, v in spreads.items()
+        if v is not None and k.split("_")[0] in _PERIPHERY and v > 200
+    )
+    if periphery_high >= 3:
         return Signal.BEARISH
     return Signal.NEUTRAL
 

@@ -4,6 +4,7 @@ from core.domain.events import IndexValuationRangeReady
 from core.domain.models import IndexValuationRangeSnapshot, Signal
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
+from core.utils.valuation_math import earnings_yield, equity_risk_premium
 
 _DEFAULT = IndexValuationRangeSnapshot(
     eps_estimate=None, pe_historical_low=None, pe_historical_high=None,
@@ -26,31 +27,46 @@ _PE_RANGES: dict[str, tuple[float, float, float]] = {
 }
 _DEFAULT_PE_RANGE = (15.0, 18.0, 25.0)
 
-def _method1_position(current: float, price_low: float, price_high: float) -> tuple[str, int]:
-    """Method 1: EPS × historische KGV-Bandbreite."""
-    if current < price_low * 0.95:
-        return "undervalued", 1
-    if current > price_high * 1.05:
-        return "overvalued", -1
-    return "fair", 0
+
+def _method1_score(current: float, price_low: float, price_mid: float, price_high: float) -> float:
+    """Kontinuierlicher Score [-1, +1]: +1 bei price_low, 0 bei price_mid, -1 bei price_high.
+
+    Guards gegen Division durch 0: price_mid==price_low → kein Raum unterhalb des Mittelpunkts
+    (max bullish = 1.0); price_mid==price_high → kein Raum oberhalb (max bearish = -1.0).
+    """
+    if price_mid == price_low:
+        return 1.0
+    if price_mid == price_high:
+        return -1.0
+    if current <= price_mid:
+        raw = (price_mid - current) / (price_mid - price_low)
+    else:
+        raw = -(current - price_mid) / (price_high - price_mid)
+    return max(-1.0, min(1.0, raw))
 
 
-def _method2_signal(pe_trailing: float | None, pe_mid: float) -> int:
-    """Method 2: Aktuelles KGV vs. historischem Durchschnitt."""
-    if pe_trailing is None:
-        return 0
-    if pe_trailing < pe_mid * 0.85:
-        return 1    # deutlich günstiger als historischer Schnitt
-    if pe_trailing > pe_mid * 1.20:
-        return -1   # deutlich teurer als historischer Schnitt
-    return 0
+# ERP-Skalierung: ERP von 0 (neutral) bis _ERP_FULL (max bullish/bearish) auf [-1,+1].
+_ERP_FULL = 0.05
 
 
-def _combine(m1_pts: int, m2_pts: int) -> tuple[str, Signal]:
-    total = m1_pts + m2_pts
-    if total >= 1:
+def _erp_score(pe_trailing: float | None, riskfree: float | None) -> float:
+    """Echt unabhängige 2. Methode: ERP (E/P - lokaler 10J-Yield), skaliert auf [-1,+1].
+    Positiver ERP = Aktien attraktiv vs. Anleihen (bullish)."""
+    erp = equity_risk_premium(earnings_yield(pe_trailing), riskfree)
+    if erp is None:
+        return 0.0
+    return max(-1.0, min(1.0, erp / _ERP_FULL))
+
+
+# Empirisch realistische Schwelle (vorher 0.70 -> fast immer NEUTRAL).
+_FUZZY_THRESHOLD = 0.30
+
+
+def _combine(m1_score: float, m2_score: float) -> tuple[str, Signal]:
+    avg = (m1_score + m2_score) / 2
+    if avg >= _FUZZY_THRESHOLD:
         return "undervalued", Signal.BULLISH
-    if total <= -1:
+    if avg <= -_FUZZY_THRESHOLD:
         return "overvalued", Signal.BEARISH
     return "fair", Signal.NEUTRAL
 
@@ -68,11 +84,12 @@ class IndexValuationRangeAgent:
 
             pe_low, pe_mid, pe_high = _PE_RANGES.get(ticker, _DEFAULT_PE_RANGE)
 
-            eps        = info.get("trailingEps") or info.get("forwardEps")
-            current    = info.get("regularMarketPrice") or info.get("currentPrice")
+            # EPS/PE-Konsistenz: Trailing-EPS mit Trailing-PE-Bändern (kein Forward×Trailing-Mix).
+            eps         = info.get("trailingEps")
+            current     = info.get("regularMarketPrice") or info.get("currentPrice")
             pe_trailing = info.get("trailingPE")
+            riskfree    = info.get("riskFreeRate")
 
-            # Method 1: EPS × historische KGV-Bandbreite
             if eps is not None and eps > 0:
                 price_low  = round(eps * pe_low, 2)
                 price_mid  = round(eps * pe_mid, 2)
@@ -80,14 +97,14 @@ class IndexValuationRangeAgent:
             else:
                 price_low = price_mid = price_high = None
 
-            m1_pts = 0
+            m1 = 0.0
             if current is not None and price_low is not None and price_high is not None:
-                _, m1_pts = _method1_position(current, price_low, price_high)
+                m1 = _method1_score(current, price_low, price_mid, price_high)
 
-            # Method 2: Aktuelles KGV vs. historischem Durchschnitt
-            m2_pts = _method2_signal(pe_trailing, pe_mid)
+            # Method 2: echt unabhängige ERP-Brücke (statt PE-vs-Mid-Reskalierung).
+            m2 = _erp_score(pe_trailing, riskfree)
 
-            pos, sig = _combine(m1_pts, m2_pts)
+            pos, sig = _combine(m1, m2)
 
             result = IndexValuationRangeSnapshot(
                 eps_estimate=round(eps, 2) if eps else None,

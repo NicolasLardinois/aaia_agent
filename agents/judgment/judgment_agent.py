@@ -23,15 +23,30 @@ Struktur (alle 5 Punkte ausführen):
 Kein Fachjargon. Direkt, klar und für einen informierten Anleger verständlich."""
 
 
+# Gewichte nach prädiktiver Kraft (Index-aligned zu all_signals in run()):
+# [Fundamentals, ShortInterest, Insider, Earnings, Moat, Valuation]
+_ALIGNMENT_WEIGHTS = [1.0, 0.5, 0.5, 1.0, 0.75, 1.5]
+_ALIGNMENT_THRESHOLD = 0.60
+
+
 def _derive_alignment(signals: list[Signal]) -> str:
-    valid   = [s for s in signals if s is not None]
-    bullish = valid.count(Signal.BULLISH)
-    bearish = valid.count(Signal.BEARISH)
-    if bullish >= 3 and bearish == 0:
+    weights = _ALIGNMENT_WEIGHTS[:len(signals)]
+    if len(weights) < len(signals):
+        weights = weights + [1.0] * (len(signals) - len(weights))
+
+    bull_w = sum(w for s, w in zip(signals, weights)
+                 if s is not None and s == Signal.BULLISH)
+    bear_w = sum(w for s, w in zip(signals, weights)
+                 if s is not None and s == Signal.BEARISH)
+    directional = bull_w + bear_w
+    if directional == 0:
+        return "mixed"
+
+    if bull_w / directional > _ALIGNMENT_THRESHOLD:
         return "aligned_bullish"
-    if bearish >= 3 and bullish == 0:
+    if bear_w / directional > _ALIGNMENT_THRESHOLD:
         return "aligned_bearish"
-    if bullish > 0 and bearish > 0:
+    if bull_w > 0 and bear_w > 0:
         return "contradicting"
     return "mixed"
 
@@ -52,9 +67,15 @@ def _dominant_signal(signals: list[Signal]) -> Signal:
 def _backtester_summary(context: dict) -> str:
     if not context:
         return "Noch kein Backtesting-Report verfügbar (System läuft erst seit Kurzem)."
-    acc = context.get("accuracy_30d")
-    if acc is not None:
-        return f"System-Treffsicherheit (30 Tage): {acc:.0%}"
+    hr = context.get("hit_rate")
+    n = context.get("sample_size")
+    lo = context.get("hit_rate_ci_low")
+    hi = context.get("hit_rate_ci_high")
+    if hr is not None and lo is not None and hi is not None and n:
+        return (f"System-Treffsicherheit (fixes Forward-Window, marktbereinigt): "
+                f"{hr:.0%} [{lo:.0%}–{hi:.0%}] aus N={n}")
+    if hr is not None:
+        return f"System-Treffsicherheit (marktbereinigt): {hr:.0%}"
     notes = context.get("notes", "")
     return notes or "Backtesting-Daten vorhanden."
 
@@ -138,6 +159,7 @@ Kombiniere Top-Down und Bottom-Up zu einem klaren Urteil. Gibt es Widersprüche?
             regime_confidence=regime_conf,
             td_anomaly=top_down_anomaly,
             bu_anomaly=bottom_up_anomaly,
+            calibration=backtester_context.get("calibration") if backtester_context else None,
         )
 
         # Empfehlung ableiten

@@ -70,12 +70,27 @@ class MacroChiefAgent:
             if isinstance(val, (int, float)):
                 state[key] = val
 
-        _add("yield_curve_3m_usa",   usa_spreads.get("10y3m"))
-        _add("yield_curve_10y2y_eu", eu_spreads.get("10y2y"))
-        _add("yield_curve_10y3m_eu", eu_spreads.get("10y3m"))
-        _add("yield_curve_10y3m_ch", ch_spreads.get("10y3m"))
+        _add("yield_curve_10y3m_usa", usa_spreads.get("10y3m"))
+        _add("yield_curve_10y2y_eu",  eu_spreads.get("10y2y"))
+        _add("yield_curve_10y3m_eu",  eu_spreads.get("10y3m"))
+        _add("yield_curve_10y3m_ch",  ch_spreads.get("10y3m"))
 
-        regime, confidence, _ = self._detector.detect(state)
+        # Sub-Signale der Macro-Agenten ins Regime einspeisen (Signal → ±1.0-Score)
+        from core.domain.models import Signal as _Sig
+        def _sig_score(sig) -> float | None:
+            if sig == _Sig.BULLISH:  return  1.0
+            if sig == _Sig.BEARISH:  return -1.0
+            if sig == _Sig.NEUTRAL:  return  0.0
+            return None
+
+        sub_signals = {
+            "money_supply": _sig_score(money_supply.usa.signal),
+            "credit":       _sig_score(credit.usa.signal),
+            "labor":        _sig_score(labor_income.usa.signal),
+            "buffett":      _sig_score(buffett_indicator.signal),
+        }
+
+        regime, confidence, _ = self._detector.detect(state, sub_signals=sub_signals)
 
         self.bus.publish(MacroChiefReady(source="macro_chief_agent", payload={
             "regime": regime.value, "confidence": confidence,
