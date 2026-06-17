@@ -12,7 +12,7 @@ _DEFAULT = COTSnapshot(
 
 _HIGH = 80.0
 _LOW  = 20.0
-_MIN_HISTORY = 2  # mind. 2 Einträge (aktuell + 1 hist.) für sinnvollen Perzentil
+_MIN_HISTORY = 26  # mind. 26 Einträge (≈ halbes Jahr Wochendaten) für aussagekräftigen Perzentil
 
 
 def _cot_signal(cot_index: float) -> Signal:

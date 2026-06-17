@@ -25,7 +25,9 @@ def _hist(nets):
 def test_run_computes_index_and_available():
     provider = MagicMock()
     # aktuelle Netto-Long am Maximum → COT-Index ~100 → bearish
-    provider.get_cot_history.return_value = _hist([10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 200])
+    # ≥26 Einträge damit _MIN_HISTORY=26 erfüllt ist
+    nets = list(range(10, 10 + 25)) + [200]  # 26 Einträge, letzter ist Maximum
+    provider.get_cot_history.return_value = _hist(nets)
     agent = COTAgent(provider, MagicMock())
     result = asyncio.run(agent.run("gold"))
     assert result.status == SignalStatus.AVAILABLE
@@ -39,3 +41,12 @@ def test_run_unavailable_when_no_data():
     result = asyncio.run(agent.run("gold"))
     assert result.status == SignalStatus.UNAVAILABLE
     assert result.signal == Signal.NEUTRAL
+
+
+def test_run_unavailable_when_history_shorter_than_26():
+    """Weniger als 26 Wochen-Einträge → Perzentil wertlos → UNAVAILABLE."""
+    provider = MagicMock()
+    provider.get_cot_history.return_value = _hist([10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 200])
+    agent = COTAgent(provider, MagicMock())
+    result = asyncio.run(agent.run("gold"))
+    assert result.status == SignalStatus.UNAVAILABLE
