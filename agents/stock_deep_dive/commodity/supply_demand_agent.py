@@ -50,11 +50,14 @@ def _signal(pct_vs_avg: float | None) -> Signal:
 
 
 class SupplyDemandAgent:
-    def __init__(self, supply: CommoditySupplyProvider, bus: EventBus):
+    def __init__(self, supply: CommoditySupplyProvider | None, bus: EventBus):
         self.supply = supply
         self.bus = bus
 
     async def run(self, ticker: str) -> SupplyDemandSnapshot:
+        if self.supply is None:
+            self.bus.publish(SupplyDemandReady(source="supply_demand_agent", payload={"ticker": ticker}))
+            return _DEFAULT
         history = await asyncio.to_thread(self.supply.get_inventory_history, ticker, 5)
         current, avg5, pct = _inventory_stats(history)
         stf = _STOCK_TO_FLOW.get(ticker)

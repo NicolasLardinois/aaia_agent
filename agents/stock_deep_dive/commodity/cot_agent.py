@@ -25,11 +25,14 @@ def _cot_signal(cot_index: float) -> Signal:
 
 
 class COTAgent:
-    def __init__(self, provider: COTProvider, bus: EventBus):
+    def __init__(self, provider: COTProvider | None, bus: EventBus):
         self.provider = provider
         self.bus = bus
 
     async def run(self, commodity: str) -> COTSnapshot:
+        if self.provider is None:
+            self.bus.publish(COTReady(source="cot_agent", payload={"commodity": commodity}))
+            return _DEFAULT
         history = await asyncio.to_thread(self.provider.get_cot_history, commodity, 3)
         if not history or len(history) < _MIN_HISTORY:
             self.bus.publish(COTReady(source="cot_agent", payload={"commodity": commodity}))

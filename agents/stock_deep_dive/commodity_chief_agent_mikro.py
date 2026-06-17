@@ -13,9 +13,11 @@ from core.ports.event_bus import EventBus
 class CommodityChiefAgentMikro:
     def __init__(self, market: MarketDataProvider, bus: EventBus):
         self.bus = bus
-        self.supply_demand_agent             = SupplyDemandAgent(bus)
+        # supply/cot provider ist None bis ein echter Adapter injiziert wird;
+        # die Agenten liefern dann SignalStatus.UNAVAILABLE (nicht-brechend).
+        self.supply_demand_agent             = SupplyDemandAgent(None, bus)
         self.seasonality_agent               = SeasonalityAgent(market, bus)
-        self.cot_agent                       = COTAgent(bus)
+        self.cot_agent                       = COTAgent(None, bus)
         self.commodity_valuation_range_agent = CommodityValuationRangeAgent(market, bus)
 
     async def run(self, ticker: str) -> CommodityBottomUpResult:

@@ -21,11 +21,11 @@ class MacroDataProvider(ABC):
         """USA 10y-2y und 10y-3m Treasury Spreads. Keys: '10y2y', '10y3m'."""
         ...
 
-    @abstractmethod
     def get_real_rate_history(self, years: int = 5) -> list[dict]:
         """Datierte 10J-Realzins-Reihe (TIPS), älteste zuerst.
-        Rückgabe: [{"date": "YYYY-MM-DD", "real_rate_10y": float}, ...]; leer = nicht verfügbar."""
-        ...
+        Rückgabe: [{"date": "YYYY-MM-DD", "real_rate_10y": float}, ...]; leer = nicht verfügbar.
+        Default-Implementierung: leer. Echte Daten liefert der FRED-Adapter (überschreibt diese Methode)."""
+        return []
 
 
 class EcbDataProvider(ABC):
