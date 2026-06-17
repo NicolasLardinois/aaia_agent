@@ -17,7 +17,7 @@ class PreciousMetalsChiefAgent:
         bus: EventBus,
     ):
         self.bus = bus
-        self.pm_price_agent     = PreciousMetalPriceAgent(market, bus)
+        self.pm_price_agent     = PreciousMetalPriceAgent(market, bus, macro=macro)
         self.pm_cross_agent     = CrossMetalAgent(market, bus)
         self.pm_valuation_agent = PreciousMetalsValuationAgent(macro, market, bus)
 

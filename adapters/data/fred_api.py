@@ -94,6 +94,20 @@ class FredDataProvider(MacroDataProvider):
         except Exception:
             return []
 
+    def get_real_rate_history(self, years: int = 5) -> list[dict]:
+        """DFII10 (10J US-TIPS-Realzins) der letzten `years` Jahre.
+        Rueckgabe: [{"date": "YYYY-MM-DD", "real_rate_10y": float}, ...] (aeltester zuerst).
+        Bei Fehler/leerer Serie: []."""
+        try:
+            start = f"{datetime.utcnow().year - years}-01-01"
+            series = self.fred.get_series("DFII10", observation_start=start).dropna()
+            return [
+                {"date": ts.strftime("%Y-%m-%d"), "real_rate_10y": round(float(v), 3)}
+                for ts, v in series.items()
+            ]
+        except Exception:
+            return []
+
     def get_yield_spreads(self) -> dict:
         """10Y-2Y und 10Y-3M Treasury Spreads für den USA-Markt."""
         result = {"10y2y": None, "10y3m": None}
