@@ -56,3 +56,24 @@ def test_no_history_is_unavailable():
     agent = CommodityValuationRangeAgent(provider, MagicMock(), supply=MagicMock())
     result = asyncio.run(agent.run("CL=F"))
     assert result.status == SignalStatus.UNAVAILABLE
+
+
+def test_one_bar_history_returns_unavailable_no_crash():
+    """1-Bar-Reihe: _percentile_of hätte nur 0 hist-Werte → Guard muss UNAVAILABLE liefern."""
+    hist = pd.DataFrame({"Close": pd.Series([50.0])})
+    provider = MagicMock()
+    provider.get_price_history.return_value = hist
+    agent = CommodityValuationRangeAgent(provider, MagicMock())
+    result = asyncio.run(agent.run("CL=F"))
+    assert result.status == SignalStatus.UNAVAILABLE
+
+
+def test_all_nan_close_returns_unavailable_no_crash():
+    """Komplett NaN-Reihe: close5.empty → kein iloc-Zugriff, kein Crash."""
+    import numpy as np
+    hist = pd.DataFrame({"Close": pd.Series([np.nan, np.nan, np.nan])})
+    provider = MagicMock()
+    provider.get_price_history.return_value = hist
+    agent = CommodityValuationRangeAgent(provider, MagicMock())
+    result = asyncio.run(agent.run("CL=F"))
+    assert result.status == SignalStatus.UNAVAILABLE

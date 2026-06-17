@@ -46,6 +46,9 @@ class CommodityValuationRangeAgent:
             return _DEFAULT
 
         close5 = hist5y["Close"].dropna()
+        if len(close5) < 2:
+            return _DEFAULT
+
         # Nominale Preise. Reale CPI-Deflation ist als Folge-Task ausgelagert (benötigt eine an die
         # Preisdaten ausgerichtete CPI-Index-Serie). Der P4.3-Kernfix ist das echte Rang-Perzentil unten.
         current, pct5y, low5y, high5y = _percentile_of(close5)
@@ -53,7 +56,8 @@ class CommodityValuationRangeAgent:
         pct10y = None
         if not isinstance(hist10y, Exception) and hist10y is not None and "Close" in getattr(hist10y, "columns", []):
             close10 = hist10y["Close"].dropna()  # nominal; reale Deflation = Folge-Task
-            _, pct10y, _, _ = _percentile_of(close10)
+            if len(close10) >= 2:
+                _, pct10y, _, _ = _percentile_of(close10)
 
         cost_low = cost_high = None
         if self.supply is not None:
