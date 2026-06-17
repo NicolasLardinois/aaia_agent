@@ -574,6 +574,7 @@ class IndexBreadthSnapshot:
     new_highs: Optional[int]
     new_lows: Optional[int]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass

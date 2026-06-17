@@ -117,6 +117,14 @@ class MarketDataProvider(ABC):
     @abstractmethod
     def get_info(self, ticker: str) -> dict: ...
 
+    def get_index_constituents(self, index_ticker: str) -> list[str]:
+        """Konstituenten-Ticker des Index; leer = unbekannt."""
+        return []
+
+    def get_constituent_histories(self, index_ticker: str, period: str = "2y") -> dict:
+        """{ticker: Close-pandas.Series} der Konstituenten; leer = unbekannt."""
+        return {}
+
 
 class FundamentalsProvider(ABC):
     @abstractmethod
