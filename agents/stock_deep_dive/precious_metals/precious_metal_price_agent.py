@@ -56,7 +56,8 @@ def _price_signal(price: float | None, ma200: float | None, rsi: float | None) -
 
 
 def _real_yield_correlation(close: "object", rr_history: list[dict]) -> float | None:
-    """Pearson-Korrelation von Gold-Preis-Level und 10J-Realzins-Level (gleichgerichtete Tage).
+    """Pearson-Korrelation von täglichen Goldpreis-Returns (pct_change) und Realzins-Änderungen
+    (diff) — return-basiert statt Level-basiert, um spurious Trend-Korrelation zu vermeiden.
     Gold und Realzins tendieren invers — negative Werte stützen das Edelmetall-Argument."""
     import pandas as pd
     if not rr_history or len(rr_history) < 30:
@@ -69,7 +70,12 @@ def _real_yield_correlation(close: "object", rr_history: list[dict]) -> float | 
     joined = pd.concat([px.rename("px"), rr.rename("rr")], axis=1).dropna()
     if len(joined) < 30:
         return None
-    corr = joined["px"].corr(joined["rr"])
+    px_ret = joined["px"].pct_change()
+    rr_diff = joined["rr"].diff()
+    aligned = pd.concat([px_ret, rr_diff], axis=1).dropna()
+    if len(aligned) < 30:
+        return None
+    corr = aligned.iloc[:, 0].corr(aligned.iloc[:, 1])
     return None if corr != corr else round(float(corr), 3)
 
 
@@ -99,6 +105,12 @@ class PreciousMetalPriceAgent:
             )
 
         close = hist["Close"].dropna()
+        if close.empty:
+            return PreciousMetalSnapshot(
+                metal=metal, price_usd=price, performance={}, rsi=None, ma50=None, ma200=None,
+                stock_to_flow=STOCK_TO_FLOW.get(metal.lower()),
+                real_yield_correlation=None, signal=Signal.NEUTRAL, status=SignalStatus.UNAVAILABLE,
+            )
         rsi   = _wilder_rsi(close)
         ma50  = round(float(close.rolling(50).mean().iloc[-1]), 2) if len(close) >= 50 else None
         ma200 = round(float(close.rolling(200).mean().iloc[-1]), 2) if len(close) >= 200 else None

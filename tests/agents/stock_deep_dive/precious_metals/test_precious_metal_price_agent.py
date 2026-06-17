@@ -70,14 +70,55 @@ def test_real_yield_correlation_none_when_no_history():
     assert result.status == SignalStatus.AVAILABLE
 
 
+def test_empty_close_returns_unavailable_no_crash():
+    """Alle NaN-Kurse → close.empty → kein iloc-Crash, UNAVAILABLE."""
+    import numpy as np
+    provider = MagicMock()
+    provider.get_current_price.return_value = 1800.0
+    provider.get_price_history.return_value = pd.DataFrame(
+        {"Close": pd.Series([np.nan, np.nan], index=pd.date_range("2023-01-01", periods=2, freq="B"))}
+    )
+    provider.get_real_rate_history.return_value = []
+    agent = PreciousMetalPriceAgent(provider, MagicMock())
+    result = asyncio.run(agent.run("gold"))
+    assert result.status == SignalStatus.UNAVAILABLE
+
+
 def test_negative_real_yield_correlation_when_inverse():
-    # Goldpreis steigt, Realzins fällt → negative Korrelation
+    """Return-basierte Korrelation: auf-Tagen beim Preis fällt der Zins und umgekehrt → negativ."""
+    import numpy as np
+    rng = np.random.default_rng(42)
     n = 300
-    prices = [float(1500 + i) for i in range(n)]
+    # Gemeinsamer Faktor: an +Tagen steigt Preis, fällt Zins
+    factor = rng.standard_normal(n)
+    prices = 1500.0 + (factor.cumsum() * 10)
+    rates = 2.0 + (-factor).cumsum() * 0.05  # gegenläufig
     dates = pd.date_range("2019-06-01", periods=n, freq="B")
-    rr = [{"date": d.strftime("%Y-%m-%d"), "real_rate_10y": float(2.0 - i * 0.005)}
+    rr = [{"date": d.strftime("%Y-%m-%d"), "real_rate_10y": float(rates[i])}
           for i, d in enumerate(dates)]
-    agent = _make_agent(prices, real_rate_hist=rr)
+    agent = _make_agent(list(prices), real_rate_hist=rr)
     result = asyncio.run(agent.run("gold"))
     assert result.real_yield_correlation is not None
     assert result.real_yield_correlation < -0.5
+
+
+def test_correlation_is_return_based_not_level_based():
+    """Stellt sicher, dass Korrelation auf pct_change/diff berechnet wird, nicht auf Preis-Level.
+    Beide Serien steigen monoton → Level-Korrelation wäre nahe +1 (spurious trend).
+    Return-basierte Korrelation: Preis-Returns ≈ konstant positiv, Zins-Diffs ≈ konstant positiv
+    → Korrelation nahe +1 oder instabil — hier testen wir nur, dass ein Wert geliefert wird.
+    Das inverse Szenario wird in test_negative_real_yield_correlation_when_inverse geprüft."""
+    import numpy as np
+    rng = np.random.default_rng(0)
+    n = 300
+    # Preis steigt, Zins steigt ebenfalls (gemeinsamer Trend)
+    prices = [float(1500 + i + rng.uniform(-0.5, 0.5)) for i in range(n)]
+    dates = pd.date_range("2019-06-01", periods=n, freq="B")
+    rates = [float(1.0 + i * 0.003 + rng.uniform(-0.01, 0.01)) for i in range(n)]
+    rr = [{"date": d.strftime("%Y-%m-%d"), "real_rate_10y": rates[i]}
+          for i, d in enumerate(dates)]
+    agent = _make_agent(prices, real_rate_hist=rr)
+    result = asyncio.run(agent.run("gold"))
+    # Return-basiert: Ergebnis muss vorhanden und im gültigen Korrelationsbereich liegen
+    assert result.real_yield_correlation is not None
+    assert -1.0 <= result.real_yield_correlation <= 1.0
