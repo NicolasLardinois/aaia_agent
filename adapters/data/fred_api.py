@@ -108,6 +108,19 @@ class FredDataProvider(MacroDataProvider):
         except Exception:
             return []
 
+    def get_policy_rate_history(self, years: int = 2) -> list[dict]:
+        """FEDFUNDS der letzten `years` Jahre.
+        Rueckgabe: [{"date":"YYYY-MM-DD","rate":float}, ...] (aeltester zuerst). Fehler/leer → []."""
+        try:
+            start = f"{datetime.utcnow().year - years}-01-01"
+            series = self.fred.get_series("FEDFUNDS", observation_start=start).dropna()
+            return [
+                {"date": ts.strftime("%Y-%m-%d"), "rate": round(float(v), 3)}
+                for ts, v in series.items()
+            ]
+        except Exception:
+            return []
+
     def get_yield_spreads(self) -> dict:
         """10Y-2Y und 10Y-3M Treasury Spreads für den USA-Markt."""
         result = {"10y2y": None, "10y3m": None}

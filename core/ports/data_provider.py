@@ -27,6 +27,10 @@ class MacroDataProvider(ABC):
         Default-Implementierung: leer. Echte Daten liefert der FRED-Adapter (überschreibt diese Methode)."""
         return []
 
+    def get_policy_rate_history(self, years: int = 2) -> list[dict]:
+        """Datierte Leitzins-Historie [{"date","rate"}, ...]. Default: leer."""
+        return []
+
 
 class EcbDataProvider(ABC):
     @abstractmethod
