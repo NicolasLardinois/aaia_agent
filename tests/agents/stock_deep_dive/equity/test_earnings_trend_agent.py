@@ -49,13 +49,29 @@ def test_negative_surprise_und_down_revision_ist_bearish():
 # ── End-to-End: SUE wird aus history berechnet ────────────────────────────
 
 def test_run_berechnet_sue_aus_history():
+    """Älteste-zuerst: jüngstes Quartal (index -1) hat große Surprise → SUE treibt BULLISH."""
     history = _quarters(
-        actuals=[1.0, 0.95, 1.05, 1.40],
+        actuals=[1.0, 0.95, 1.05, 1.40],      # älteste→jüngste; jüngstes: +0.40 Surprise
         estimates=[1.0, 1.0, 1.0, 1.0],
-        revisions=[0, 0, 1, 1],     # jüngste zwei Up-Revisions
+        revisions=[0, 0, 1, 1],                # jüngste zwei Up-Revisions
     )
     result = asyncio.run(_make_agent(history).run("X"))
     assert result.signal == Signal.BULLISH
+
+
+def test_sue_allein_treibt_signal_bei_neutralen_revisionen():
+    """Diskriminierender E2E-Test: Revisionen neutral (flat), aber große jüngste Surprise.
+    Älteste-zuerst: surprises[0..2] ≈ 0, surprises[-1] groß → SUE > _SUE_STRONG → BULLISH.
+    Mit dem alten Bug (surprises[0]) wäre SUE ≈ 0 → NEUTRAL."""
+    history = _quarters(
+        actuals=[1.00, 1.01, 0.99, 2.00],     # älteste→jüngste; jüngstes: +1.0 Surprise
+        estimates=[1.0, 1.0, 1.0, 1.0],
+        revisions=[0, 0, 0, 0],               # alle Revisionen 0 → revision_label="flat"
+    )
+    result = asyncio.run(_make_agent(history).run("X"))
+    assert result.signal == Signal.BULLISH, (
+        f"SUE aus großer jüngster Surprise allein soll BULLISH liefern, war aber {result.signal}"
+    )
 
 
 def test_leere_history_neutral():

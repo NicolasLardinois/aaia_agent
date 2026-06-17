@@ -45,7 +45,7 @@ def piotroski_f_score(data: dict) -> int | None:
 
 def standardized_unexpected_earnings(quarters: list[dict]) -> float | None:
     """SUE = jüngste Earnings-Surprise / Std(historische Surprises).
-    quarters: neueste zuerst (Index 0 = jüngstes Quartal), je {'actual', 'estimate'}.
+    quarters: chronologisch, älteste zuerst (Index -1 = jüngstes Quartal), je {'actual', 'estimate'}.
     None bei <4 Quartalen oder Std==0. Misst die Magnitude statt nur Beat/Miss.
     """
     surprises = [
@@ -58,7 +58,7 @@ def standardized_unexpected_earnings(quarters: list[dict]) -> float | None:
     std = statistics.stdev(surprises)
     if std == 0.0:
         return None
-    return surprises[0] / std  # index 0 = jüngstes Quartal
+    return surprises[-1] / std  # index -1 = jüngstes Quartal (älteste-zuerst-Konvention)
 
 
 def sector_relative_signal(value: float, sector_history: list[float],

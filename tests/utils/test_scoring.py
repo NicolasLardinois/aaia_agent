@@ -62,16 +62,34 @@ def test_piotroski_fehlende_felder_ist_none():
 # ── SUE (Standardized Unexpected Earnings) ────────────────────────────────
 
 def test_sue_positive_surprise():
-    """actual 1.20, estimate 1.00, std 0.10 → (1.20-1.00)/0.10 = 2.0."""
+    """Älteste-zuerst-Reihenfolge: letztes Quartal (jüngste Surprise 0.20) bestimmt SUE.
+    surprises (älteste→jüngste): 0.05, -0.05, 0.10, 0.20; std (n-1) ≈ 0.10408
+    SUE = 0.20 / 0.10408 ≈ 1.92."""
     quarters = [
-        {"actual": 1.20, "estimate": 1.00},
-        {"actual": 1.05, "estimate": 1.00},
+        {"actual": 1.05, "estimate": 1.00},   # ältestes Quartal
         {"actual": 0.95, "estimate": 1.00},
         {"actual": 1.10, "estimate": 1.00},
+        {"actual": 1.20, "estimate": 1.00},   # jüngstes Quartal — große Surprise
     ]
     sue = standardized_unexpected_earnings(quarters)
-    # surprises: 0.20, 0.05, -0.05, 0.10; std (n-1) ≈ 0.10408; jüngste Surprise 0.20
+    # surprises älteste→jüngste: 0.05, -0.05, 0.10, 0.20; std ≈ 0.10408
     assert abs(sue - 0.20 / 0.10408) < 1e-2
+
+
+def test_sue_juengste_surprise_bestimmt_signal():
+    """Diskriminierender Test: älteste Quartale ~0 Surprise, jüngstes Quartal große Surprise.
+    Älteste-zuerst-Reihenfolge → surprises[-1] (jüngste) ist groß.
+    Mit surprises[0] (altem Bug) wäre SUE ≈ 0; korrekt ist SUE >> 0."""
+    quarters = [
+        {"actual": 1.00, "estimate": 1.00},   # ältestes: Surprise 0.0
+        {"actual": 1.01, "estimate": 1.00},   # Surprise +0.01
+        {"actual": 0.99, "estimate": 1.00},   # Surprise -0.01
+        {"actual": 2.00, "estimate": 1.00},   # jüngstes: Surprise +1.0 (groß)
+    ]
+    sue = standardized_unexpected_earnings(quarters)
+    # surprises: [0.0, 0.01, -0.01, 1.0]; std ≈ 0.5; SUE ≈ 1.0/0.5 = 2.0
+    assert sue is not None
+    assert sue > 1.5, f"SUE sollte die große jüngste Surprise widerspiegeln, war aber {sue}"
 
 
 def test_sue_zu_wenig_quartale_ist_none():
