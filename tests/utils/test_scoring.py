@@ -166,3 +166,42 @@ def test_wilder_rsi_unterscheidet_sich_von_sma_rsi():
 
 def test_wilder_rsi_zu_kurze_serie_ist_none():
     assert wilder_rsi(pd.Series([1.0, 2.0, 3.0]), period=14) is None
+
+
+def test_wilder_rsi_flache_preise_ist_50():
+    """Komplett flache Preisserie (gain=0 UND loss=0) → RSI 50 (neutral), nicht 100. (Fix M1)"""
+    prices = pd.Series([100.0] * 30)
+    rsi = wilder_rsi(prices, period=14)
+    assert rsi == 50.0, f"Flache Preise sollten RSI=50 ergeben, war aber {rsi}"
+
+
+# ── Piotroski ΔROA-Diskriminierung (Fix C1) ───────────────────────────────
+
+def _base_piotroski_data() -> dict:
+    """Basis-Datensatz mit allen 9 Kriterien erfüllt (F=9)."""
+    return {
+        "net_income": 100.0, "roa": 8.0, "operating_cash_flow": 150.0,
+        "roa_prev": 5.0,
+        "long_term_debt": 50.0, "long_term_debt_prev": 80.0,
+        "current_ratio": 2.0, "current_ratio_prev": 1.5,
+        "shares_outstanding": 100.0, "shares_outstanding_prev": 100.0,
+        "gross_margin": 40.0, "gross_margin_prev": 35.0,
+        "asset_turnover": 1.2, "asset_turnover_prev": 1.0,
+    }
+
+
+def test_piotroski_delta_roa_diskriminiert():
+    """Fix C1: Steigendes ROA (+) vs fallendes ROA (-) → unterschiedliche Scores (Differenz 1).
+    VOR dem Fix sind beide Scores gleich (redundantes net_income>0 statt ΔROA).
+    """
+    rising_roa  = {**_base_piotroski_data(), "roa": 8.0, "roa_prev": 5.0}   # roa > roa_prev
+    falling_roa = {**_base_piotroski_data(), "roa": 8.0, "roa_prev": 10.0}  # roa < roa_prev
+
+    score_rising  = piotroski_f_score(rising_roa)
+    score_falling = piotroski_f_score(falling_roa)
+
+    assert score_rising is not None and score_falling is not None
+    assert score_rising - score_falling == 1, (
+        f"Steigendes ROA sollte genau 1 Punkt mehr ergeben als fallendes ROA, "
+        f"war: steigend={score_rising}, fallend={score_falling}"
+    )
