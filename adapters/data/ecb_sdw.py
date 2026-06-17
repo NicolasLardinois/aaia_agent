@@ -3,6 +3,7 @@ ECB Statistical Data Warehouse (SDW) adapter.
 Fetcht Euro-Area AAA Yield Curve Daten für Spread-Berechnungen.
 Alle anderen EcbDataProvider-Methoden bleiben gestubbt bis Eurostat/ECB-SDW vollständig angebunden ist.
 """
+import csv
 import requests
 from typing import Optional
 
@@ -12,6 +13,11 @@ _BASE = (
     "https://data-api.ecb.europa.eu/service/data/YC/"
     "B.U2.EUR.4F.G_N_A.SV_C_YM.{mat}"
     "?format=jsondata&lastNObservations=1"
+)
+
+_KEYRATE_BASE = (
+    "https://data-api.ecb.europa.eu/service/data/FM/"
+    "B.U2.EUR.4F.KR.MRR_FR.LEV?format=csvdata"
 )
 
 # Maastricht-Kriterium: 10J Staatsanleihen-Renditen nach Land (IRS-Dataset)
@@ -53,8 +59,38 @@ class EcbSdwProvider(EcbDataProvider):
         except Exception:
             return None
 
+    def get_interest_rate(self) -> Optional[float]:
+        rows = self._fetch_keyrate_rows(self._KEYRATE_URL("&lastNObservations=1"))
+        return rows[-1][1] if rows else None
+
+    def get_interest_rate_history(self, years: int = 2) -> list[dict]:
+        from datetime import date
+        start = f"{date.today().year - years}-01-01"
+        rows = self._fetch_keyrate_rows(self._KEYRATE_URL(f"&startPeriod={start}"))
+        return [{"date": d, "rate": r} for d, r in rows]
+
+    @staticmethod
+    def _KEYRATE_URL(suffix: str) -> str:
+        return _KEYRATE_BASE + suffix
+
+    def _fetch_keyrate_rows(self, url: str) -> list:
+        """[(date_str, rate_float), ...] (aeltester zuerst) aus ECB-csvdata. Fehler → []."""
+        try:
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            reader = csv.DictReader(resp.text.splitlines())
+            out = []
+            for row in reader:
+                d = row.get("TIME_PERIOD")
+                v = row.get("OBS_VALUE")
+                if d and v not in (None, ""):
+                    out.append((d, round(float(v), 3)))
+            out.sort(key=lambda x: x[0])
+            return out
+        except Exception:
+            return []
+
     # ── Stubs ────────────────────────────────────────────────────────────────
-    def get_interest_rate(self) -> Optional[float]:         return None
     def get_m3_growth(self) -> Optional[float]:             return None
     def get_balance_sheet_growth(self) -> Optional[float]:  return None
     def get_cpi(self) -> Optional[float]:                   return None

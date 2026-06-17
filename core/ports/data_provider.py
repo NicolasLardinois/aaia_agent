@@ -73,6 +73,10 @@ class EcbDataProvider(ABC):
         """Eurozone AAA 10y-2y und 10y-3m Spreads. Keys: '10y2y', '10y3m'."""
         ...
 
+    def get_interest_rate_history(self, years: int = 2) -> list[dict]:
+        """Datierte EZB-Leitzins-Historie [{"date","rate"}, ...]. Default: leer."""
+        return []
+
 
 class SnbDataProvider(ABC):
     @abstractmethod
