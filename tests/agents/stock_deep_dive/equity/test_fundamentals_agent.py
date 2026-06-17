@@ -93,3 +93,46 @@ def test_aggregation_symmetrisch():
                   op_margin=None, debt_equity=None, sector="default")
     assert bull == Signal.BULLISH
     assert bear == Signal.BEARISH
+
+
+# ── Fix I2: negativer forward_pe darf kein +1 erzeugen ────────────────────
+
+def test_negativer_forward_pe_kein_bullish_credit():
+    """Fix I2: forward_pe=-5 bei pe=8 und ev_ebitda=6 bedeutet erwarteten Verlust → KEIN +1-Credit.
+    VOR dem Fix: -5 < 8 ist True → fälschliches +1, das den Score von 2 auf 3 hebt → BULLISH.
+    NACH dem Fix: forward_pe > 0 nötig → kein Extra-Punkt → Score bleibt 2 → NEUTRAL.
+    """
+    # pe=8 in default-Sektor (günstig → +1), ev_ebitda=6 in default-Sektor (günstig → +1)
+    # fpe=-5 < pe=8 → fälschliches +1 → Gesamt=3 → BULLISH (BUG)
+    # Ohne den Bug: Gesamt=2 → NEUTRAL
+    sig_neg_fpe = _score(pe=8.0, forward_pe=-5.0, peg=None, ev_ebitda=6.0,
+                         price_fcf=None, price_book=None, revenue_cagr=None,
+                         op_margin=None, debt_equity=None, sector="default")
+    sig_none_fpe = _score(pe=8.0, forward_pe=None, peg=None, ev_ebitda=6.0,
+                          price_fcf=None, price_book=None, revenue_cagr=None,
+                          op_margin=None, debt_equity=None, sector="default")
+    # Nach dem Fix sollen beide NEUTRAL sein (kein falsches BULLISH durch negativen forward_pe)
+    assert sig_neg_fpe != Signal.BULLISH, (
+        f"Negativer forward_pe=-5 darf keinen BULLISH-Credit erzeugen, war {sig_neg_fpe}"
+    )
+    assert sig_neg_fpe == sig_none_fpe, (
+        f"Negativer forward_pe darf keinen Unterschied machen (war {sig_neg_fpe} vs. None={sig_none_fpe})"
+    )
+
+
+# ── Fix M2: Exception-Guard in run() ──────────────────────────────────────
+
+def test_run_exception_guard_liefert_valid_snapshot():
+    """Fix M2: run() muss Exception-Guard haben wie QualityAgent.
+    Wenn provider.get_fundamentals() eine Exception wirft, soll kein Crash kommen.
+    """
+    from agents.stock_deep_dive.equity.fundamentals_agent import FundamentalsAgent
+    from core.domain.models import FundamentalsSnapshot
+    provider = MagicMock()
+    provider.get_fundamentals.side_effect = ValueError("API down")
+    agent = FundamentalsAgent(provider, MagicMock())
+    # Soll nicht werfen → soll einen validen Snapshot zurückgeben
+    result = asyncio.run(agent.run("FAIL"))
+    assert isinstance(result, FundamentalsSnapshot), (
+        f"run() soll bei Exception einen FundamentalsSnapshot zurückgeben, war {type(result)}"
+    )

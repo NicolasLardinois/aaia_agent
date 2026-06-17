@@ -49,8 +49,9 @@ def _score(pe, forward_pe, peg, ev_ebitda, price_fcf, price_book,
         score += _SCORE[sector_relative_signal(pe, _SECTOR_PE.get(sector, _SECTOR_PE["default"]),
                                                 lower_is_better=True)]
 
-    # Forward < Trailing = erwartetes EPS-Wachstum (nur bei positivem Trailing-P/E)
-    if forward_pe is not None and pe is not None and pe > 0:
+    # Forward < Trailing = erwartetes EPS-Wachstum (nur bei positivem Trailing- UND Forward-P/E)
+    # Negativer forward_pe bedeutet erwarteten Verlust → kein Bullish-Credit
+    if forward_pe is not None and forward_pe > 0 and pe is not None and pe > 0:
         score += 1 if forward_pe < pe else 0
 
     # EV/EBITDA — sektor-relativ
@@ -88,7 +89,12 @@ class FundamentalsAgent:
         self.bus = bus
 
     async def run(self, ticker: str, sector: str = "default") -> FundamentalsSnapshot:
-        data = await asyncio.to_thread(self.provider.get_fundamentals, ticker)
+        try:
+            data = await asyncio.to_thread(self.provider.get_fundamentals, ticker)
+        except Exception:
+            data = {}
+        if isinstance(data, Exception):
+            data = {}
         pe          = data.get("pe_ratio")
         forward_pe  = data.get("forward_pe")
         shiller     = data.get("shiller_cape")   # nur durchgereicht, NICHT im Signal
