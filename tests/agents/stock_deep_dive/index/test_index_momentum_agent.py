@@ -75,3 +75,42 @@ def test_detect_no_cross_stable_below():
     ma50  = _make_series([95, 95, 95, 95, 95, 95])
     ma200 = _make_series([100, 100, 100, 100, 100, 100])
     assert _detect_crossover(ma50, ma200) is None
+
+
+# ── Fix I1: kurze Historie → MA200 NaN → Signal NEUTRAL (nicht BEARISH) ──
+
+import asyncio
+from unittest.mock import MagicMock
+
+
+def _make_momentum_agent(prices: pd.Series):
+    """Erzeugt einen IndexMomentumAgent mit einer Fake-Preishistorie."""
+    from agents.stock_deep_dive.index.index_momentum_agent import IndexMomentumAgent
+    hist_df = pd.DataFrame({"Close": prices})
+    market = MagicMock()
+    market.get_price_history.return_value = hist_df
+    bus = MagicMock()
+    return IndexMomentumAgent(market, bus)
+
+
+def test_kurze_preishistorie_nan_ma200_ergibt_neutral_nicht_bearish():
+    """Fix I1: Bei < 200 Bars → MA200 = NaN → _signal soll NEUTRAL zurückgeben, nicht BEARISH.
+    VOR dem Fix ergibt NaN > NaN = False → run() liefert BEARISH.
+    """
+    # 30 Bars: genug für RSI, aber MA50=NaN und MA200=NaN
+    prices = pd.Series([100.0 + i * 0.5 for i in range(30)])
+    agent = _make_momentum_agent(prices)
+    result = asyncio.run(agent.run("TEST"))
+    assert result.signal == Signal.NEUTRAL, (
+        f"Kurze Geschichte (<50 Bars) sollte NEUTRAL ergeben, war {result.signal}"
+    )
+
+
+def test_signal_mit_nan_ma_direkt():
+    """Fix I1: _signal direkt mit NaN-Werten (wie sie aus rolling().mean().iloc[-1] kommen)."""
+    import math
+    nan_val = float("nan")
+    sig = _signal(ma50=nan_val, ma200=nan_val, rsi=50.0)
+    assert sig == Signal.NEUTRAL, (
+        f"NaN-MAs sollten NEUTRAL ergeben (kein BEARISH), war {sig}"
+    )

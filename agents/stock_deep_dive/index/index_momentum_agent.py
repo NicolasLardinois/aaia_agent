@@ -1,4 +1,5 @@
 import asyncio
+import math
 
 from core.domain.events import IndexMomentumReady
 from core.domain.models import IndexMomentumSnapshot, Signal
@@ -46,8 +47,12 @@ def _signal(ma50: float | None, ma200: float | None, rsi: float | None) -> Signa
     - Aufwärtstrend (ma50 > ma200) + RSI nicht überkauft → BULLISH.
     - Abwärtstrend (ma50 < ma200) + RSI nicht überverkauft → BEARISH.
     - Extreme dämpfen (überkauft im Up / überverkauft im Down) → NEUTRAL.
+    - None oder NaN (< 50/200 Bars) → NEUTRAL.
     """
     if ma50 is None or ma200 is None:
+        return Signal.NEUTRAL
+    # NaN-Guard: rolling().mean().iloc[-1] liefert NaN bei zu wenig Bars
+    if math.isnan(ma50) or math.isnan(ma200):
         return Signal.NEUTRAL
     uptrend = ma50 > ma200
     if uptrend:
@@ -78,8 +83,11 @@ class IndexMomentumAgent:
             close    = hist["Close"]
             ma50_s   = close.rolling(50).mean()
             ma200_s  = close.rolling(200).mean()
-            ma50     = round(float(ma50_s.iloc[-1]), 2)
-            ma200    = round(float(ma200_s.iloc[-1]), 2)
+            _ma50_raw  = float(ma50_s.iloc[-1])
+            _ma200_raw = float(ma200_s.iloc[-1])
+            # NaN (zu wenig Bars) → None, damit _signal korrekt NEUTRAL liefert
+            ma50   = None if math.isnan(_ma50_raw)  else round(_ma50_raw,  2)
+            ma200  = None if math.isnan(_ma200_raw) else round(_ma200_raw, 2)
             rsi      = _compute_rsi(close)
             golden   = _detect_crossover(ma50_s, ma200_s)
 
