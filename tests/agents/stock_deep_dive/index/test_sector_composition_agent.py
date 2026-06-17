@@ -48,3 +48,32 @@ def test_run_available_computes_top10_and_top_sector():
     assert result.top_sector == "Technology"
     assert result.top_holding == "Apple"
     assert result.top_10_concentration is not None
+
+
+def test_top10_concentration_correct_when_unsorted_input():
+    """Unsortierte Eingabe: top_10_concentration muss Summe der 10 grössten Gewichte sein."""
+    # Erstelle 15 Holdings in zufälliger Reihenfolge (nicht nach Gewicht sortiert)
+    # Die 10 größten haben Gewicht 10..19 (Summe = 145), die 5 kleinsten 1..5 (Summe = 15)
+    holdings_unsorted = [
+        {"name": "Small3", "weight_pct": 3.0, "sector": "X"},
+        {"name": "Big10", "weight_pct": 10.0, "sector": "A"},
+        {"name": "Small1", "weight_pct": 1.0, "sector": "X"},
+        {"name": "Big19", "weight_pct": 19.0, "sector": "A"},
+        {"name": "Big11", "weight_pct": 11.0, "sector": "A"},
+        {"name": "Small5", "weight_pct": 5.0, "sector": "X"},
+        {"name": "Big18", "weight_pct": 18.0, "sector": "A"},
+        {"name": "Big12", "weight_pct": 12.0, "sector": "A"},
+        {"name": "Small2", "weight_pct": 2.0, "sector": "X"},
+        {"name": "Big17", "weight_pct": 17.0, "sector": "A"},
+        {"name": "Big13", "weight_pct": 13.0, "sector": "A"},
+        {"name": "Small4", "weight_pct": 4.0, "sector": "X"},
+        {"name": "Big16", "weight_pct": 16.0, "sector": "A"},
+        {"name": "Big14", "weight_pct": 14.0, "sector": "A"},
+        {"name": "Big15", "weight_pct": 15.0, "sector": "A"},
+    ]
+    expected_top10 = round(10 + 11 + 12 + 13 + 14 + 15 + 16 + 17 + 18 + 19, 1)  # 145.0
+    provider = MagicMock()
+    provider.get_index_holdings.return_value = holdings_unsorted
+    agent = SectorCompositionAgent(provider, MagicMock())
+    result = asyncio.run(agent.run("^GSPC"))
+    assert result.top_10_concentration == expected_top10

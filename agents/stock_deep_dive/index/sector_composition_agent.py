@@ -41,8 +41,9 @@ class SectorCompositionAgent:
             by_sector[h.get("sector") or "Unknown"] += float(h["weight_pct"])
         top_sector, top_sector_w = max(by_sector.items(), key=lambda kv: kv[1])
 
-        top = max(holdings, key=lambda h: float(h["weight_pct"]))
-        top10 = round(sum(float(h["weight_pct"]) for h in holdings[:10]), 1)
+        holdings_sorted = sorted(holdings, key=lambda h: float(h["weight_pct"]), reverse=True)
+        top = holdings_sorted[0]
+        top10 = round(sum(float(h["weight_pct"]) for h in holdings_sorted[:10]), 1)
         hhi = _hhi(holdings)
 
         result = SectorCompositionSnapshot(
