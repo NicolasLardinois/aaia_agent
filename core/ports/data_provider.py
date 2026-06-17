@@ -114,6 +114,10 @@ class SnbDataProvider(ABC):
         """CH 10y-3m Spread (kein 2y verfügbar). Key: '10y3m'."""
         ...
 
+    def get_interest_rate_history(self, years: int = 2) -> list[dict]:
+        """Datierte SNB-Leitzins-Historie [{"date","rate"}, ...]. Default: leer."""
+        return []
+
 
 class MarketDataProvider(ABC):
     @abstractmethod
