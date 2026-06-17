@@ -447,6 +447,7 @@ class PreciousMetalSnapshot:
     stock_to_flow: Optional[float]
     real_yield_correlation: Optional[float]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -454,6 +455,7 @@ class CrossMetalSnapshot:
     gold_silver_ratio: Optional[float]
     gold_platinum_ratio: Optional[float]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -632,6 +634,7 @@ class SupplyDemandSnapshot:
     stock_to_flow: Optional[float]        # Gesamtbestand / Jahresproduktion
     stock_to_flow_signal: Optional[str]   # "scarce" | "normal" | "abundant"
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -640,6 +643,7 @@ class SeasonalitySnapshot:
     avg_return_this_month: Optional[float]
     positive_years_pct: Optional[float]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -647,6 +651,7 @@ class COTSnapshot:
     net_speculative_long: Optional[float]
     net_speculative_pct_oi: Optional[float]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -660,6 +665,7 @@ class CommodityValuationRangeSnapshot:
     production_cost_high: Optional[float]
     position: str                     # "cheap" | "fair" | "expensive"
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
