@@ -229,6 +229,7 @@ class FearGreedSnapshot:
     value: Optional[float]        # 0–100
     label: str                    # "Extreme Fear" | "Fear" | "Neutral" | "Greed" | "Extreme Greed"
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -545,6 +546,7 @@ class IndexPriceSnapshot:
     high_52w: Optional[float]
     low_52w: Optional[float]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -596,6 +598,7 @@ class SectorCompositionSnapshot:
     top_holding_weight: Optional[float]
     top_10_concentration: Optional[float]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass

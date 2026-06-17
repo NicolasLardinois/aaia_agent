@@ -132,6 +132,18 @@ class MarketDataProvider(ABC):
         Default-Implementierung: leer. Echte Daten liefert ein spezialisierter Adapter."""
         return {}
 
+    def get_total_return_history(self, ticker: str, period: str = "5y") -> object:
+        """Total-Return-Historie (Dividenden reinvestiert) als DataFrame mit 'Close';
+        None falls nur Price-Return verfügbar (Aufrufer fällt auf get_price_history zurück).
+        Default-Implementierung: None."""
+        return None
+
+    def get_index_holdings(self, index_ticker: str) -> list:
+        """[{"name": str, "weight_pct": float, "sector": str}], absteigend nach Gewicht;
+        leer = nicht verfügbar.
+        Default-Implementierung: leer. Echte Daten liefert ein spezialisierter Adapter."""
+        return []
+
 
 class FundamentalsProvider(ABC):
     @abstractmethod
@@ -166,4 +178,11 @@ class COTProvider(ABC):
     @abstractmethod
     def get_cot_history(self, commodity: str, years: int = 3) -> list[dict]:
         """[{"date","managed_money_net","open_interest"}], älteste zuerst; leer = nicht verfügbar."""
+        ...
+
+
+class SentimentDataProvider(ABC):
+    @abstractmethod
+    def get_fear_greed(self) -> Optional[float]:
+        """Aktueller CNN-Fear&Greed-Wert 0–100; None = nicht verfügbar."""
         ...
