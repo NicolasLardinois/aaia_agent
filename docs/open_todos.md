@@ -296,6 +296,12 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   **Ansatz:** dieselben länderspezifischen Korridore auch im Agenten-Fallback verwenden (statt global 75/135).
 - [ ] **Doppelte Testdatei** `tests/domain/test_top_down_context.py` vs. `tests/test_top_down_context.py` *(Minor, Aufräumen)* — auf einen Pfad konsolidieren.
 
+### Aus Plan D2 (Review 2026-06-17 — Logik korrekt, Daten fehlt)
+
+- [ ] **SUE in Produktion aktivieren: `get_earnings_history` um `actual`/`estimate` erweitern** (`adapters/data/finnhub.py`).
+  Die SUE-Logik (`core/utils/scoring.py` `standardized_unexpected_earnings`) ist korrekt + getestet, aber der Adapter liefert pro Quartal nur `beat`/`revision`, **kein `actual`/`estimate`** → SUE gibt produktiv immer `None` zurück; `earnings_trend_agent` läuft dann nur über die Revisionen (die Magnitude-Komponente fehlt).
+  **Ansatz:** im Adapter pro Quartal `actual` (EPS-Ist) und `estimate` (EPS-Schätzung) befüllen — yfinance liefert diese via `Ticker.get_earnings_dates()` als `epsActual`/`epsEstimate`. Reihenfolge **älteste-zuerst** beibehalten (die SUE-Funktion nutzt das letzte = jüngste Quartal). Gehört zur Plan-E-Daten-Integration.
+
 ---
 
 ## 8. DESIGN-ENTSCHEIDUNGEN (Frontend — docs/frontend_notes.md)
