@@ -7,6 +7,7 @@ from core.ports.data_provider import MacroDataProvider, EcbDataProvider, SnbData
 from core.ports.event_bus import EventBus
 from core.ports.dated_history import DatedHistoryPort
 from core.utils.real_nominal import to_real
+from adapters.persistence.in_memory_dated_history import InMemoryDatedHistory
 
 _NEUTRAL = InterestRateDataPoint(
     policy_rate=None, rate_direction="stable",
@@ -92,10 +93,33 @@ class InterestRateAgent:
         eu_real  = _safe_real(ecb_rate, state.get("eu_cpi"))   # TODO: ECB CPI via ext
         ch_real  = _safe_real(snb_rate, state.get("ch_cpi"))   # TODO: SNB CPI via ext
 
-        # Richtung: ohne datierte Zinsreihe → "stable" (kein prozess-globaler Zustand)
-        usa_dir = _direction(fed_rate, history=None, series="fed_rate")
-        eu_dir  = _direction(ecb_rate, history=None, series="ecb_rate")
-        ch_dir  = _direction(snb_rate, history=None, series="snb_rate")
+        usa_hist, eu_hist, ch_hist = await asyncio.gather(
+            asyncio.to_thread(self.macro.get_policy_rate_history, 2),
+            asyncio.to_thread(self.ecb.get_interest_rate_history, 2),
+            asyncio.to_thread(self.snb.get_interest_rate_history, 2),
+            return_exceptions=True,
+        )
+        def _safe_hist(h): return [] if isinstance(h, Exception) or not h else h
+
+        def _to_pairs(hist):
+            pairs = []
+            for r in hist:
+                try:
+                    pairs.append((date.fromisoformat(r["date"]), float(r["rate"])))
+                except Exception:
+                    continue
+            return pairs
+
+        history = InMemoryDatedHistory({
+            "fed_rate": _to_pairs(_safe_hist(usa_hist)),
+            "ecb_rate": _to_pairs(_safe_hist(eu_hist)),
+            "snb_rate": _to_pairs(_safe_hist(ch_hist)),
+        })
+        _today = date.today()
+
+        usa_dir = _direction(fed_rate, history=history, series="fed_rate", today=_today)
+        eu_dir  = _direction(ecb_rate, history=history, series="ecb_rate", today=_today)
+        ch_dir  = _direction(snb_rate, history=history, series="snb_rate", today=_today)
 
         usa = InterestRateDataPoint(
             policy_rate=fed_rate, rate_direction=usa_dir,
