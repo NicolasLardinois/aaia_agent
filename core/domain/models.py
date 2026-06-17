@@ -564,6 +564,7 @@ class IndexEarningsSnapshot:
     operating_margin: Optional[float]
     estimate_revision: str            # "up" | "stable" | "down"
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass

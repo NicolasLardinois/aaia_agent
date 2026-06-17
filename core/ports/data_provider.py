@@ -125,6 +125,13 @@ class MarketDataProvider(ABC):
         """{ticker: Close-pandas.Series} der Konstituenten; leer = unbekannt."""
         return {}
 
+    def get_index_fundamentals(self, index_ticker: str) -> dict:
+        """Aggregierte (bottom-up) Index-Fundamentaldaten:
+        {"eps_ttm","eps_fwd","eps_growth_1y","revenue_growth_1y","operating_margin",
+         "estimate_revision": "up"|"stable"|"down"}; leeres dict = nicht verfügbar.
+        Default-Implementierung: leer. Echte Daten liefert ein spezialisierter Adapter."""
+        return {}
+
 
 class FundamentalsProvider(ABC):
     @abstractmethod
