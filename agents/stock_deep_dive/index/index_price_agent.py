@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pandas as pd
 
@@ -52,6 +52,9 @@ class IndexPriceAgent:
             return _DEFAULT
 
         close = hist["Close"].dropna()
+        if close.empty:
+            self.bus.publish(IndexPriceReady(source="index_price_agent", payload={"ticker": ticker}))
+            return _DEFAULT
         now = float(close.iloc[-1])
 
         def _ago(days):
@@ -62,7 +65,7 @@ class IndexPriceAgent:
         dist_high = _pct(now, high_52w)
         p3m, p1y = _pct(now, _ago(90)), _pct(now, _ago(365))
 
-        ytd_idx = close.index.searchsorted(f"{datetime.utcnow().year}-01-01")
+        ytd_idx = close.index.searchsorted(f"{datetime.now(timezone.utc).year}-01-01")
         ytd_price = float(close.iloc[ytd_idx]) if ytd_idx < len(close) else None
 
         result = IndexPriceSnapshot(

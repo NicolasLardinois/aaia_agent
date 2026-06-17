@@ -1,6 +1,6 @@
 import asyncio
 import statistics as _stats
-from datetime import datetime
+from datetime import datetime, timezone
 
 from core.domain.events import SeasonalityReady
 from core.domain.models import SeasonalitySnapshot, Signal, SignalStatus
@@ -71,7 +71,7 @@ class SeasonalityAgent:
             self.bus.publish(SeasonalityReady(source="seasonality_agent", payload={"ticker": ticker}))
             return _DEFAULT
         monthly_returns = monthly.pct_change().dropna() * 100
-        current_month = datetime.utcnow().month
+        current_month = datetime.now(timezone.utc).month
         same_month = monthly_returns[monthly_returns.index.month == current_month]
         returns = [float(x) for x in same_month]
 

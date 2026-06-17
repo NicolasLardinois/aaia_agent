@@ -56,3 +56,32 @@ def test_unavailable_without_any_history():
     agent = IndexPriceAgent(provider, MagicMock())
     result = asyncio.run(agent.run("^GSPC"))
     assert result.status == SignalStatus.UNAVAILABLE
+
+
+def test_all_nan_close_returns_unavailable_no_crash():
+    """Komplett NaN Close-Reihe → close.empty → kein iloc-Crash, UNAVAILABLE."""
+    import numpy as np
+    provider = MagicMock()
+    nan_hist = pd.DataFrame(
+        {"Close": pd.Series([np.nan, np.nan], index=pd.date_range("2023-01-01", periods=2, freq="B"))}
+    )
+    provider.get_total_return_history.return_value = nan_hist
+    provider.get_price_history.return_value = nan_hist
+    agent = IndexPriceAgent(provider, MagicMock())
+    result = asyncio.run(agent.run("^GSPC"))
+    assert result.status == SignalStatus.UNAVAILABLE
+
+
+def test_ytd_uses_timezone_aware_now():
+    """Stellt sicher, dass der Agent mit tz-aware Index keinen TypeError wirft (m1-Guard)."""
+    import pandas as pd
+    provider = MagicMock()
+    # Erzeuge tz-aware Index (UTC) — searchsorted mit String-Jahr muss trotzdem funktionieren
+    idx = pd.date_range("2020-01-02", periods=300, freq="B", tz="UTC")
+    provider.get_total_return_history.return_value = pd.DataFrame(
+        {"Close": pd.Series([float(100 + i) for i in range(300)], index=idx)}
+    )
+    agent = IndexPriceAgent(provider, MagicMock())
+    # Kein TypeError, kein Crash — Ergebnis ist AVAILABLE oder UNAVAILABLE, nie Exception
+    result = asyncio.run(agent.run("^GSPC"))
+    assert result.status in (SignalStatus.AVAILABLE, SignalStatus.UNAVAILABLE)
