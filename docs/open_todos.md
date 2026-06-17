@@ -326,3 +326,41 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - [ ] Mobile-first oder Desktop-first
 - [ ] Framework-Wahl: React / Vue / Svelte (noch nicht entschieden)
 - [ ] Echtzeit-Refresh: WebSocket oder Polling für Dashboard-Updates
+
+---
+
+## 9. SHORTS AUSBAUEN (Feature-Richtung, Stand 2026-06-18)
+
+**Leitprinzip — zwei getrennte Tracks (nicht vermischen):**
+- **Track A — Aggressiver Einzelaktien-Short** (Gewinn-Motiv): „diese Aktie ist schlecht → Gewinn bei Fall". Input = Einzelaktien-Tiefenanalyse. Heimat = **Stock Deep Dive / Judgment**.
+- **Track B — Defensiver Hedge** (Schutz-Motiv): „mein Buch ist zu exponiert → absichern". Input = **Portfolio-Aggregat** (Netto-Long, Beta, Klumpen) + **Makro-Regime** (Cockpit). Instrument = breiter Index/ETF. Heimat = **Portfolio-Manager + Cockpit**.
+- Beide haben andere Inputs/Logik/Instrumente/Risiken. **Block #3** ist der Punkt, der entscheidet, welcher Track gilt.
+
+**Vereinbarte Reihenfolge:** #1 + #2 zuerst (als **Track A**, Einzelaktien), dann #3 (Regeln + Track-B-Hedge), dann #4 (Backtest).
+
+### Block #1 — Short-Kandidaten finden („das Was")
+- **Ziel:** Eine **eigene Short-These** statt des heutigen „bearish → SHORT"-Kippschalters. Bewertet gezielt **Short-Würdigkeit** mit short-spezifischen Kriterien — NICHT das Spiegelbild der Kauf-Kriterien.
+- **Kriterien (Beispiele):** extreme Überbewertung, **fallende/negative Gewinne** + negative Earnings-Revisions, **negatives Momentum/Death-Cross**, **Bilanz-/Quality-Warnsignale** (hoher Leverage, niedriger Altman-Z, schwacher Piotroski, negativer FCF), ggf. hoher Short-Interest als Bestätigung *und* Squeeze-Warnung.
+- **Umfang (pragmatisch):** (1) **on-demand Short-Urteil pro Ticker** (nutzt den bestehenden Deep-Dive-Fluss) + (2) optional **begrenzter Screen** über ein handhabbares Universum (Index-Konstituenten oder die eigenen Portfolio-Longs). **Kein** Voll-Markt-Screener, **keine** Watchlist-Infrastruktur (vorerst).
+- **Output:** Short-Score + begründete These je Titel.
+- **Heute vorhanden:** nur `derive_recommendation` (bearish → SHORT) + `short_interest_agent`. Es fehlt die eigene Short-These-Logik.
+
+### Block #2 — Short-Risiko & Positionsgröße („das Wie viel")
+- **Ziel:** Das Spezifische am Shorten sauber modellieren — setzt **nach** einer vorhandenen Idee an (findet keine Ideen).
+- **Inhalte:** **Borrow-Kosten** (Leihgebühr p. a.), **Squeeze-Risiko** (days-to-cover/Short-Float → Warnung + Deckelung), **asymmetrisches Verlustprofil** (Verlust nach oben theoretisch unbegrenzt → konservativere Größe), **Positionsgröße + Stop-Logik** (vol-/konfidenz-skaliert).
+- **Output:** empfohlene Positionsgröße (% NAV), Stop, Squeeze-/Borrow-Flags.
+- **Heute vorhanden (Plan A):** `derive_recommendation` hat bereits `_position_size_pct`, `days_to_cover`/`short_float_pct`-Parameter + Squeeze-Warnung ab DTC≥5 — als Basis ausbaubar.
+
+### Block #3 — Anlagephilosophie / Regeln („das Ob")
+- **Ziel:** Übergeordnete Leitplanke + **die Track-Weiche**: *darf* man gerade short, und in welcher Form?
+- **Inhalte:** defensiver Hedge (Index/ETF) vs. aggressiv (Einzeltitel); **regime-abhängig** (aggressive Shorts nur in bearishen Makro-Phasen); Cash-vs-Short; **Track B konkret**: regime-getriebene Hedge-Vorschläge im **Portfolio-Manager**, dimensioniert auf das **Netto-Long-Exposure** des Portfolios.
+- **Heute vorhanden:** `_short_type` (defensiv/aggressiv) + SHORT_WARNINGS; Portfolio-Manager überwacht Cash/Klumpen — aber keine regime-getriebene Hedge-Logik.
+
+### Block #4 — Shorts im Backtest / Bewertung („Hat's funktioniert")
+- **Ziel:** Ehrlich messen, ob alte Short-Calls **wirklich** Geld gebracht hätten — getrennt von Long-Calls.
+- **Inhalte:** **gespiegelte Returns** (Short verdient bei Fall), **Borrow-Kosten** im Backtest, **asymmetrisches Risiko**/MaxDrawdown der Short-Seite, Hit-Rate **vs. Payoff** (eine hohe Trefferquote kann durch seltene Squeeze-Großverluste negativ werden).
+- **Heute vorhanden (Plan A):** Backtester spiegelt SHORT/SELL-Returns bereits vorzeichen-korrekt; Borrow-Kosten + getrennte Short-Auswertung fehlen.
+
+### Offene Design-Fragen (vor Umsetzung klären)
+- #1: nur on-demand Short-Urteil, oder gleich + begrenzter Screen (welches Universum: Index-Konstituenten vs. Portfolio-Longs)?
+- Sollen aggressive Einzel-Shorts an das Makro-Regime gekoppelt sein (Block-#3-Gate) schon ab Block #1, oder erst später?
