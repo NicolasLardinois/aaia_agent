@@ -43,10 +43,9 @@ class IndexPriceAgent:
         self.bus = bus
 
     async def run(self, ticker: str) -> IndexPriceSnapshot:
-        tr = await asyncio.to_thread(self.market.get_total_return_history, ticker, "5y")
-        hist = tr
-        if hist is None or "Close" not in getattr(hist, "columns", []):
-            hist = await asyncio.to_thread(self.market.get_price_history, ticker, "5y")
+        # Kursrendite (Price Return, ohne Dividenden) — bewusste Wahl: annahmefrei und
+        # passend zur Schweizer Sicht (steuerfreier Kapitalgewinn; Dividenden separat steuerpflichtig).
+        hist = await asyncio.to_thread(self.market.get_price_history, ticker, "5y")
         if hist is None or "Close" not in getattr(hist, "columns", []):
             self.bus.publish(IndexPriceReady(source="index_price_agent", payload={"ticker": ticker}))
             return _DEFAULT

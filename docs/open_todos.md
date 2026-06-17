@@ -309,8 +309,10 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   - **COT** (`COTProvider`): CFTC Commitments of Traders (wöchentlich, CSV) → `adapters/data/cftc_cot.py`.
   - **Commodity Supply** (`CommoditySupplyProvider`): EIA (Öl/Gas), USDA (Agrar), LME (Metalle) → Lagerbalancen + Produktionskosten-Kurve.
   - **Fear&Greed** (`SentimentDataProvider`): CNN Fear&Greed API → `adapters/data/cnn_fear_greed.py` (URL im `sentiment_stub.py` dokumentiert).
-  - **Index-Daten** (`MarketDataProvider.get_index_constituents` / `get_constituent_histories` / `get_index_fundamentals` / `get_index_holdings` / `get_total_return_history`) + **Realzins-Historie** (`MacroDataProvider.get_real_rate_history`, z. B. FRED `DFII10`) — aktuell Default-Stubs (leer/None).
+  - **Index-Daten** (`MarketDataProvider.get_index_constituents` / `get_constituent_histories` / `get_index_fundamentals` / `get_index_holdings`) — aktuell Default-Stubs (leer).
   **Ansatz:** je Quelle einen Adapter implementieren, der die jeweilige Port-Methode befüllt; die Agenten schalten dann automatisch von `UNAVAILABLE` auf echte Signale (keine Agenten-Änderung nötig).
+  *(`get_real_rate_history` (FRED DFII10) ist erledigt — siehe gemergte Realzins-/Zins-Adapter.)*
+- **Total-Return-Historie: bewusst NICHT umgesetzt** (2026-06-18). Für die Schweizer Sicht ist Price Return (steuerfreier Kapitalgewinn) der passende Default; TR unterstellt steuerfreie Dividenden-Reinvestition (idealisierte Brutto-Benchmark, ignoriert Steuern). Der tote Haken (`get_total_return_history` im Port + TR-Vorzugslogik im `index_price_agent`) wurde entfernt.
 - [ ] `core/domain/events.py` (+ `adapters/cache/result_cache.py`, `adapters/data/fred_api.py`): `datetime.utcnow()` → `datetime.now(timezone.utc)` (DeprecationWarning unter Python 3.12). *(Minor, Aufräumen.)*
 - [ ] I3-Test trennscharf machen (`tests/agents/stock_deep_dive/precious_metals/test_precious_metal_price_agent.py::test_negative_real_yield_correlation_when_inverse`): monoton gegenläufige Daten nutzen, sodass Level-Korr ≈ −1, Return-Korr ≈ 0 — damit eine Regression auf Level-Korrelation den Test bricht. *(Minor, Testqualität.)*
 

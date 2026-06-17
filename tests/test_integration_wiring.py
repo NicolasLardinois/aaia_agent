@@ -48,7 +48,6 @@ def test_index_chief_runs_with_empty_providers():
     """IndexChiefAgent: alle neuen Port-Methoden mit Default-Implementations
     → kein Absturz, UNAVAILABLE für fehlende Daten."""
     market = MagicMock()
-    market.get_total_return_history.return_value = None
     market.get_price_history.return_value = None
     market.get_info.return_value = {}
     market.get_constituent_histories.return_value = {}

@@ -27,9 +27,9 @@ def test_52w_from_history():
     assert low == min(values[-252:])
 
 
-def test_uses_total_return_when_available():
+def test_uses_price_history_and_52w_from_history():
     provider = MagicMock()
-    provider.get_total_return_history.return_value = _hist([float(100 + i) for i in range(300)])
+    provider.get_price_history.return_value = _hist([float(100 + i) for i in range(300)])
     provider.get_info.return_value = {}
     agent = IndexPriceAgent(provider, MagicMock())
     result = asyncio.run(agent.run("^GSPC"))
@@ -37,9 +37,8 @@ def test_uses_total_return_when_available():
     assert result.high_52w is not None  # aus Historie, nicht info
 
 
-def test_falls_back_to_price_return():
+def test_price_return_path():
     provider = MagicMock()
-    provider.get_total_return_history.return_value = None
     provider.get_price_history.return_value = _hist([float(100 + i) for i in range(300)])
     provider.get_info.return_value = {}
     agent = IndexPriceAgent(provider, MagicMock())
@@ -50,7 +49,6 @@ def test_falls_back_to_price_return():
 
 def test_unavailable_without_any_history():
     provider = MagicMock()
-    provider.get_total_return_history.return_value = None
     provider.get_price_history.return_value = None
     provider.get_info.return_value = {}
     agent = IndexPriceAgent(provider, MagicMock())
@@ -65,7 +63,6 @@ def test_all_nan_close_returns_unavailable_no_crash():
     nan_hist = pd.DataFrame(
         {"Close": pd.Series([np.nan, np.nan], index=pd.date_range("2023-01-01", periods=2, freq="B"))}
     )
-    provider.get_total_return_history.return_value = nan_hist
     provider.get_price_history.return_value = nan_hist
     agent = IndexPriceAgent(provider, MagicMock())
     result = asyncio.run(agent.run("^GSPC"))
@@ -78,7 +75,7 @@ def test_ytd_uses_timezone_aware_now():
     provider = MagicMock()
     # Erzeuge tz-aware Index (UTC) — searchsorted mit String-Jahr muss trotzdem funktionieren
     idx = pd.date_range("2020-01-02", periods=300, freq="B", tz="UTC")
-    provider.get_total_return_history.return_value = pd.DataFrame(
+    provider.get_price_history.return_value = pd.DataFrame(
         {"Close": pd.Series([float(100 + i) for i in range(300)], index=idx)}
     )
     agent = IndexPriceAgent(provider, MagicMock())

@@ -144,12 +144,6 @@ class MarketDataProvider(ABC):
         Default-Implementierung: leer. Echte Daten liefert ein spezialisierter Adapter."""
         return {}
 
-    def get_total_return_history(self, ticker: str, period: str = "5y") -> object:
-        """Total-Return-Historie (Dividenden reinvestiert) als DataFrame mit 'Close';
-        None falls nur Price-Return verfügbar (Aufrufer fällt auf get_price_history zurück).
-        Default-Implementierung: None."""
-        return None
-
     def get_index_holdings(self, index_ticker: str) -> list:
         """[{"name": str, "weight_pct": float, "sector": str}], absteigend nach Gewicht;
         leer = nicht verfügbar.
