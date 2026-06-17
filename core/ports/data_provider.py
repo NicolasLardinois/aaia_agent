@@ -133,3 +133,22 @@ class FundamentalsProvider(ABC):
 
     @abstractmethod
     def get_bond_data(self, ticker: str) -> dict: ...
+
+
+class CommoditySupplyProvider(ABC):
+    @abstractmethod
+    def get_inventory_history(self, commodity: str, years: int = 5) -> list[dict]:
+        """[{"date": "YYYY-MM-DD", "inventory": float}], älteste zuerst; leer = nicht verfügbar."""
+        ...
+
+    @abstractmethod
+    def get_production_cost_curve(self, commodity: str) -> dict:
+        """{"cost_p25","cost_p50","cost_p75","cost_p90"} in Preiseinheit des Tickers; leer = nicht verfügbar."""
+        ...
+
+
+class COTProvider(ABC):
+    @abstractmethod
+    def get_cot_history(self, commodity: str, years: int = 3) -> list[dict]:
+        """[{"date","managed_money_net","open_interest"}], älteste zuerst; leer = nicht verfügbar."""
+        ...
