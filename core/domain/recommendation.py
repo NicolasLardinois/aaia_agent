@@ -57,6 +57,18 @@ def _position_size_pct(confidence: float) -> float:
     return round(max(2.0, min(10.0, raw)), 1)
 
 
+def _anomaly_deduction(alignment: str, report: AnomalyReport) -> float:
+    """Bestätigt die Anomalie-Richtung die These (bearish↔aligned_bearish, bullish↔aligned_bullish)?
+    Dann kein Abzug. Sonst (widersprechend/neutral/nicht-aligned) Severity-Abzug wie bisher."""
+    confirms = (
+        (alignment == "aligned_bearish" and report.direction == "bearish") or
+        (alignment == "aligned_bullish" and report.direction == "bullish")
+    )
+    if confirms:
+        return 0.0
+    return _SEVERITY_DEDUCTION.get(report.severity, 0.0)
+
+
 def compute_confidence(
     alignment: str,
     regime_confidence: float,
@@ -87,8 +99,8 @@ def compute_confidence(
     elif alignment == "mixed":
         score -= 0.05
 
-    score += _SEVERITY_DEDUCTION.get(td_anomaly.severity, 0.0)
-    score += _SEVERITY_DEDUCTION.get(bu_anomaly.severity, 0.0)
+    score += _anomaly_deduction(alignment, td_anomaly)
+    score += _anomaly_deduction(alignment, bu_anomaly)
 
     if regime_confidence < 0.4:
         score -= 0.10
