@@ -1,4 +1,4 @@
-from core.domain.models import AnomalyReport, Signal
+from core.domain.models import AnomalyReport, PositionState, Signal
 from core.domain.recommendation import compute_confidence, derive_recommendation, Recommendation
 
 
@@ -55,13 +55,13 @@ def test_cash_bias_below_0_50():
         alignment="mixed",
         signal=Signal.BULLISH,
         asset_class="equity",
-        in_portfolio=False,
+        current_position=PositionState.NONE,
         market="USA",
         cockpit=None,
         top_down_available=False,
         confidence=0.45,
     )
-    assert rec.action == Recommendation.HOLD
+    assert rec.action == Recommendation.NONE
     assert "widersprüchlich" in rec.reasoning
 
 
@@ -70,13 +70,13 @@ def test_cash_bias_below_0_35():
         alignment="mixed",
         signal=Signal.BULLISH,
         asset_class="equity",
-        in_portfolio=False,
+        current_position=PositionState.NONE,
         market="USA",
         cockpit=None,
         top_down_available=False,
         confidence=0.30,
     )
-    assert rec.action == Recommendation.HOLD
+    assert rec.action == Recommendation.NONE
     assert "Cash" in rec.reasoning
 
 
@@ -85,7 +85,7 @@ def test_normal_buy_high_confidence():
         alignment="aligned_bullish",
         signal=Signal.BULLISH,
         asset_class="equity",
-        in_portfolio=False,
+        current_position=PositionState.NONE,
         market="USA",
         cockpit=None,
         top_down_available=False,
@@ -153,12 +153,12 @@ def test_confidence_backward_compatible_without_calibration():
 def test_position_size_scales_with_confidence():
     rec_hi = derive_recommendation(
         alignment="aligned_bullish", signal=Signal.BULLISH, asset_class="equity",
-        in_portfolio=False, market="USA", cockpit=None,
+        current_position=PositionState.NONE, market="USA", cockpit=None,
         top_down_available=False, confidence=0.90,
     )
     rec_lo = derive_recommendation(
         alignment="aligned_bullish", signal=Signal.BULLISH, asset_class="equity",
-        in_portfolio=False, market="USA", cockpit=None,
+        current_position=PositionState.NONE, market="USA", cockpit=None,
         top_down_available=False, confidence=0.55,
     )
     assert rec_hi.action == Recommendation.BUY
@@ -170,12 +170,12 @@ def test_position_size_scales_with_confidence():
     assert hi > lo
 
 
-def test_short_includes_borrow_warning_on_high_dtc():
+def test_bearish_not_held_emits_none_not_short():
+    # SHORT entfernt aus Long-Matrix; bearish ohne Position → NONE
     rec = derive_recommendation(
         alignment="aligned_bearish", signal=Signal.BEARISH, asset_class="equity",
-        in_portfolio=False, market="USA", cockpit=None,
+        current_position=PositionState.NONE, market="USA", cockpit=None,
         top_down_available=True, confidence=0.80,
-        days_to_cover=9.0, short_float_pct=22.0,
     )
-    assert rec.action == Recommendation.SHORT
-    assert "Squeeze" in rec.reasoning or "Borrow" in rec.reasoning
+    assert rec.action == Recommendation.NONE
+    assert rec.action != Recommendation.SHORT
