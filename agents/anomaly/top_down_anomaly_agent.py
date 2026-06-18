@@ -151,6 +151,11 @@ class TopDownAnomalyAgent:
                     f"{a}={area_signals[a].value} widerspricht {b}={area_signals[b].value}"
                 )
 
+        _areas = [macro_sig, sentiment_sig, yield_sig, commodity_sig]
+        _b = _areas.count(Signal.BEARISH)
+        _u = _areas.count(Signal.BULLISH)
+        direction = "bearish" if _b > _u else "bullish" if _u > _b else "neutral"
+
         severity = compute_severity(statistical, contradictions)
         summary  = _build_summary(statistical, contradictions, severity)
 
@@ -160,4 +165,5 @@ class TopDownAnomalyAgent:
             contradictions=contradictions,
             severity=severity,
             summary=summary,
+            direction=direction,
         )
