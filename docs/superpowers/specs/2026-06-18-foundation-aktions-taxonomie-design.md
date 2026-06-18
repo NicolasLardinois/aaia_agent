@@ -111,9 +111,14 @@ Kleine reine Funktion (in `core/domain/recommendation.py` oder `core/domain/shor
 ```python
 def derive_short_action_placeholder(current_position: PositionState) -> ShortAction:
     """Platzhalter bis zur Short-Thesis-Engine (Block 1).
-    Nur positionsbasiert: short gehalten → HOLD; sonst → NONE."""
+    Nur positionsbasiert: short gehalten → HOLD; sonst → NONE.
+    Symmetrie zur Long-Linse: bei current_position == LONG deferiert die Short-Linse
+    (→ NONE) — man shortet nicht, was man besitzt. Block 1 MUSS dieses Defer-on-LONG
+    beibehalten (echte Engine gibt bei LONG niemals SHORT/SHORT+, sondern NONE)."""
     return ShortAction.HOLD if current_position == PositionState.SHORT else ShortAction.NONE
 ```
+
+**Defer-Symmetrie (verbindlich für beide Linsen):** Genau die Linse der *gehaltenen* Seite ist aktiv; die Gegen-Linse gibt NONE. Bei `NONE` (flach) sind beide Linsen aktiv (BUY *oder* SHORT). `LONG` → Short deferiert; `SHORT` → Long deferiert.
 
 ### 4. `core/domain/models.py` — `DeepDiveResult`
 Neues Feld `short_action: ShortAction` (Default `ShortAction.NONE`). Auch in `JudgmentChiefAgent.default(...)` gesetzt.
