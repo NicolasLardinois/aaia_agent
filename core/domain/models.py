@@ -730,6 +730,7 @@ class AnomalyReport:
     contradictions: list[str]
     severity: str   # "none" | "low" | "medium" | "high"
     summary: str
+    direction: str = "neutral"   # "bearish" | "bullish" | "neutral"
 
     @staticmethod
     def empty() -> "AnomalyReport":
@@ -739,6 +740,7 @@ class AnomalyReport:
             contradictions=[],
             severity="none",
             summary="Keine Anomalien erkannt.",
+            direction="neutral",
         )
 
 
