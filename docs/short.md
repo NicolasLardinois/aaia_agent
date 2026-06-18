@@ -107,7 +107,7 @@ Typen: `distress` (aktiv ← Bilanz-Distress) · `broken_growth` (aktiv ← Earn
 - **Katalysator:** aktiver Katalysator (Earnings-Revision/Guidance-Cut, `earnings_trend.estimate_revision` = „Markt preist gerade ab") hebt die Obergrenze (volle Konfidenz möglich, broken_growth/Earnings-Fälle); **reine Distress-Lage** (Altman-Z rot) ohne aktive Verschlechterung → Konfidenz **gedeckelt** (Distress kann jahrelang krebsen). Harte Katalysatoren (Fälligkeits-Wall/Covenant) dormant.
 - **Regime (Modifikator, KEIN Block):** bullisch/risk-on → **Gegenwind** (Konfidenz deutlich gedämpft, aber eine sehr starke Einzelthese kommt durch); neutral → kein Effekt; bearisch → Rückenwind.
 - **Crowding:** hard-to-borrow + extremes DTC → Konfidenz runter (überfüllt/teuer = schlechter Trade).
-- **Anomalien (geteilt mit Long, `AnomalyChiefAgent`):** statistisch abnormale bearishe Werte (Insider-Verkaufs-Cluster, Short-Interest-Spike, Bewertungs-z-Score-Extrem) **erhöhen die Konfidenz** — als **Modifikator, NICHT** als zusätzliches Flag (sonst Doppelzählung desselben Fakts).
+- **Anomalien (geteilt mit Long, `AnomalyChiefAgent`):** statistisch abnormale bearishe Werte (Insider-Verkaufs-Cluster, Short-Interest-Spike, Bewertungs-z-Score-Extrem) **erhöhen die Konfidenz** — als **Modifikator, NICHT** als zusätzliches Flag (sonst Doppelzählung desselben Fakts). Erkannte Anomalien werden zudem im **finalen Nutzer-Output (LLM/XAI-Text)** ausgewiesen (Long-XAI enthält die `*_anomaly.summary` bereits; Short/B ebenso).
 - **„Wird schlechter" vor „ist schlecht":** Verschlechterung (Trend) > statisches Niveau — heute fast nur dormant (Historie nötig; vorhanden bei `estimate_revision`).
 
 **Aktion (aus Konfidenz + Position, analog Long):** nicht gehalten + Konfidenz ≥ Schwelle → **SHORT**, sonst **NONE**; short gehalten + ≥ Schwelle → **HOLD**, sonst **COVER**. **SHORT+ erst mit PM/Block #3** (braucht Einstand/P&L für „nie in Verlust nachlegen"). Long gehalten → Aktion **NONE**, aber **`conflict`** wenn Short-Konfidenz ≥ Schwelle (bidirektional, siehe §18).
@@ -169,7 +169,8 @@ Spec: `docs/superpowers/specs/2026-06-18-foundation-aktions-taxonomie-design.md`
 
 ## 16. Build-Reihenfolge
 1. ~~Foundation-Block~~ ✅ **gemergt (PR #3)** — Aktions-Taxonomie (long + short).
-2. **Block 1** — Equity-Short-Thesis-Engine (`derive_short_assessment`, **Aktion + Konfidenz**, Archetyp/Flags/Risiko, Flag-Registry) + **Konflikt-Erkennung** (`conflict`-Flag im Judgment-Layer, bidirektional).
+2. **Block 1** — Equity-Short-Thesis-Engine (`derive_short_assessment`, **Aktion + Konfidenz**, Archetyp(en)/Flags/Risiko, Flag-Registry) + **Konflikt-Erkennung** (`conflict`-Flag im Judgment-Layer, bidirektional).
+   - **Voraussetzung (shared, berührt Long):** `AnomalyReport` um `direction` (bearish/bullish/neutral) erweitern + `compute_confidence` gerichtet nutzen → bearishe Anomalie hebt Short-Konfidenz, bestätigt/penalisiert Long je nach These. Eigener abgegrenzter Schritt (Regressionsrisiko Long-Konfidenz).
 3. **Konflikt-Agent (Folge-Block)** — spezialisierte Thesis-Reversal-Abwägung bei `conflict` (siehe §18). Nutzt Short-Assessment + PM-Positionsdaten.
 4. **Block #3** — Regeln/Regime-Weiche + Track-B-Hedge + Portfolio-Manager-Ausbau (Richtung/Einstand/P&L/Reconciliation).
 5. **Block #4** — Short-Backtest (inkl. **Bewertung/Kalibrierung des Konflikt-Agenten**).
@@ -194,6 +195,10 @@ Spec: `docs/superpowers/specs/2026-06-18-foundation-aktions-taxonomie-design.md`
 - Anomalien (`AnomalyChiefAgent`) als geteilter Short-Input = **Konfidenz-Modifikator** (keine Doppelzählung). ✅
 - Outputs der Linsen **vergleichen** (conflict), NICHT fusionieren — zwei eigenständige Urteile. ✅
 - `archetypes` = **Menge** (kein Ranking); mehrere Treffer = stärkere These. ✅
+- Anomalie-Richtung strukturiert (`AnomalyReport.direction`) — gerichteter Konfidenz-Effekt; shared Prerequisite für Block 1 (berührt Long-`compute_confidence`). ✅
+- Flag-Registry: `ShortFlag` (name/kind/archetype/weight/needs/fires/detail), Engine iteriert die Liste; neue Quelle = neuer Eintrag. ✅
+- Anomalien werden im **finalen Output** (LLM/XAI) ausgewiesen, nicht nur in der Konfidenz. ✅
+- Konfidenz-Schwellen/Gewichte = **Erst-Heuristik** (an Long-Skala angelehnt, relative Ordnung begründet, Dezimalwerte nicht aus Daten) → **final via Backtest kalibriert** (Block #4, short-spezifische Trefferraten-Buckets). Auch Long-`compute_confidence` ist noch unkalibriert (Fallback 0.70). **Tests prüfen Verhaltens-Bänder, nicht Dezimalwerte.** ✅
 
 ## 18. Konflikt-Agent (Folge-Block, nach Block 1)
 **Zweck:** „Hat sich die gehaltene These gedreht?" — die schwerste Entscheidung (eine kaputte Positions-These eingestehen) bekommt eine eigene, fokussierte Logik.
