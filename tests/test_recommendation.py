@@ -1,9 +1,5 @@
 from core.domain.recommendation import derive_recommendation
-from core.domain.models import AnomalyReport, Signal, Recommendation
-
-
-def _short_report():
-    return AnomalyReport(signals=[], contradictions=[], severity="none")
+from core.domain.models import PositionState, Signal, Recommendation
 
 
 def _base(market: str) -> dict:
@@ -11,7 +7,7 @@ def _base(market: str) -> dict:
         alignment="aligned_bearish",
         signal=Signal.BEARISH,
         asset_class="equity",
-        in_portfolio=False,
+        current_position=PositionState.NONE,
         market=market,
         cockpit=None,
         top_down_available=True,
@@ -19,26 +15,53 @@ def _base(market: str) -> dict:
     )
 
 
-def test_uppercase_market_gets_short():
+def test_bearish_no_position_returns_none():
     result = derive_recommendation(**_base("USA"))
-    assert result.action == Recommendation.SHORT
+    assert result.action == Recommendation.NONE
 
 
-def test_lowercase_market_gets_short():
-    result = derive_recommendation(**_base("usa"))
-    assert result.action == Recommendation.SHORT
+def test_bearish_long_position_sells():
+    result = derive_recommendation(
+        alignment="aligned_bearish",
+        signal=Signal.BEARISH,
+        asset_class="equity",
+        current_position=PositionState.LONG,
+        market="USA",
+        cockpit=None,
+        top_down_available=True,
+        confidence=0.75,
+    )
+    assert result.action == Recommendation.SELL
 
 
-def test_mixed_case_market_gets_short():
-    result = derive_recommendation(**_base("Usa"))
-    assert result.action == Recommendation.SHORT
+def test_bullish_no_position_buys():
+    result = derive_recommendation(
+        alignment="aligned_bullish",
+        signal=Signal.BULLISH,
+        asset_class="equity",
+        current_position=PositionState.NONE,
+        market="USA",
+        cockpit=None,
+        top_down_available=True,
+        confidence=0.75,
+    )
+    assert result.action == Recommendation.BUY
 
 
-def test_market_with_whitespace_gets_short():
-    result = derive_recommendation(**_base(" USA "))
-    assert result.action == Recommendation.SHORT
+def test_short_position_defers_long_lens():
+    result = derive_recommendation(
+        alignment="aligned_bullish",
+        signal=Signal.BULLISH,
+        asset_class="equity",
+        current_position=PositionState.SHORT,
+        market="USA",
+        cockpit=None,
+        top_down_available=True,
+        confidence=0.75,
+    )
+    assert result.action == Recommendation.NONE
 
 
-def test_lowercase_eurozone_market_gets_short():
+def test_lowercase_market_bearish_no_position_returns_none():
     result = derive_recommendation(**_base("de"))
-    assert result.action == Recommendation.SHORT
+    assert result.action == Recommendation.NONE

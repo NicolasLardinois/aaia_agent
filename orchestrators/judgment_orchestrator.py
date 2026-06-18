@@ -1,7 +1,7 @@
 from agents.anomaly_chief_agent import AnomalyChiefAgent
 from agents.judgment_chief_agent import JudgmentChiefAgent
 from agents.backtester_chief_agent import BacktesterChiefAgent
-from core.domain.models import AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult
+from core.domain.models import AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult, PositionState
 from core.domain.recommendation import FULL_ANALYSIS_MARKETS
 from core.domain.top_down_context import derive_top_down_context
 from core.ports.event_bus import EventBus
@@ -26,7 +26,7 @@ class JudgmentOrchestrator:
         cockpit: CockpitResult,
         bottom_up: BottomUpResult,
         market: str,
-        in_portfolio: bool = False,
+        current_position: PositionState = PositionState.NONE,
         sector: str = "default",
     ) -> DeepDiveResult:
         top_down_available = cockpit is not None and market in FULL_ANALYSIS_MARKETS
@@ -56,7 +56,7 @@ class JudgmentOrchestrator:
                 bottom_up=bottom_up,
                 cockpit=cockpit,
                 market=market,
-                in_portfolio=in_portfolio,
+                current_position=current_position,
                 top_down_available=top_down_available,
                 top_down_anomaly=td_anomaly,
                 bottom_up_anomaly=bu_anomaly,

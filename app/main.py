@@ -1,18 +1,20 @@
 """
 Verwendung:
-  python -m app.main dashboard                          → Modus 1: Market Dashboard
-  python -m app.main bottomup AAPL [asset_class] [sector] → Modus 2: Bottom-Up Analyse
-  python -m app.main judge AAPL [market] [--portfolio]  → Modus 3: Kombinations-Urteil
+  python -m app.main dashboard                                     → Modus 1: Market Dashboard
+  python -m app.main bottomup AAPL [asset_class] [sector]          → Modus 2: Bottom-Up Analyse
+  python -m app.main judge AAPL [market] [--position long|short]   → Modus 3: Kombinations-Urteil
 
-asset_class: equity | bond | commodity | precious_metal | etf  (default: equity)
-market:      USA | CH | ISO-2 (DE/FR/IT/ES/NL/AT/BE/PT/FI/IE/GR/...)  (default: USA)
---portfolio: Flag — Aktie ist bereits im Portfolio
+asset_class:      equity | bond | commodity | precious_metal | etf  (default: equity)
+market:           USA | CH | ISO-2 (DE/FR/IT/ES/NL/AT/BE/PT/FI/IE/GR/...)  (default: USA)
+--position long:  Aktie ist bereits als Long-Position im Portfolio
+--position short: Aktie ist bereits als Short-Position im Portfolio
 """
 
 import asyncio
 import sys
 
 from config.settings import FRED_API_KEY, ANTHROPIC_API_KEY, FINNHUB_API_KEY
+from core.domain.models import PositionState
 from adapters.data.fred_api import FredDataProvider
 from adapters.data.yahoo_finance import YahooFinanceProvider
 from adapters.data.finnhub import FinnhubProvider
@@ -114,7 +116,7 @@ async def run_bottom_up(
         print(f"Bond Rating:    {bo.credit.moodys}/{bo.credit.sp}/{bo.credit.fitch}  Trend={bo.credit.trend}  → {bo.credit.signal.value}")
 
 
-async def run_judgment(ticker: str, market: str = "USA", in_portfolio: bool = False) -> None:
+async def run_judgment(ticker: str, market: str = "USA", current_position: PositionState = PositionState.NONE) -> None:
     print(f"\n=== MODUS 3: KOMBINATIONS-URTEIL — {ticker.upper()} ===\n")
     cache     = ResultCache()
     cockpit   = cache.load_cockpit()
@@ -135,7 +137,7 @@ async def run_judgment(ticker: str, market: str = "USA", in_portfolio: bool = Fa
         cockpit=cockpit,
         bottom_up=bottom_up,
         market=market,
-        in_portfolio=in_portfolio,
+        current_position=current_position,
     )
 
     print(f"TOP-DOWN:\n{result.top_down_context}\n")
@@ -144,6 +146,7 @@ async def run_judgment(ticker: str, market: str = "USA", in_portfolio: bool = Fa
           f"(Konfidenz {result.recommendation.confidence:.0%})")
     if result.recommendation.short_warning:
         print(f"\n{result.recommendation.short_warning}")
+    print(f"SHORT-AKTION:   {result.short_action.value}")
     print(f"\nURTEIL:\n{result.judgment}")
 
 
@@ -159,9 +162,12 @@ def main() -> None:
         asyncio.run(run_bottom_up(args[1], asset_class=asset_class, sector=sector,
                                   bond_type=bond_type, rate_direction=rate_direction))
     elif args[0] == "judge" and len(args) >= 2:
-        market       = args[2] if len(args) >= 3 else "USA"
-        in_portfolio = "--portfolio" in args
-        asyncio.run(run_judgment(args[1], market=market, in_portfolio=in_portfolio))
+        market           = args[2] if len(args) >= 3 else "USA"
+        current_position = PositionState.NONE
+        if "--position" in args:
+            val = args[args.index("--position") + 1].lower()
+            current_position = {"long": PositionState.LONG, "short": PositionState.SHORT}.get(val, PositionState.NONE)
+        asyncio.run(run_judgment(args[1], market=market, current_position=current_position))
     else:
         print(__doc__)
         sys.exit(1)

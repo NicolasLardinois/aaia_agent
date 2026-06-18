@@ -326,3 +326,89 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - [ ] Mobile-first oder Desktop-first
 - [ ] Framework-Wahl: React / Vue / Svelte (noch nicht entschieden)
 - [ ] Echtzeit-Refresh: WebSocket oder Polling für Dashboard-Updates
+
+---
+
+## 9. SHORTS AUSBAUEN (Feature-Richtung, Stand 2026-06-18)
+
+**Leitprinzip — zwei getrennte Tracks (nicht vermischen):**
+- **Track A — Aggressiver Einzelaktien-Short** (Gewinn-Motiv): „diese Aktie ist schlecht → Gewinn bei Fall". Input = Einzelaktien-Tiefenanalyse. Heimat = **Stock Deep Dive / Judgment**.
+- **Track B — Defensiver Hedge** (Schutz-Motiv): „mein Buch ist zu exponiert → absichern". Input = **Portfolio-Aggregat** (Netto-Long, Beta, Klumpen) + **Makro-Regime** (Cockpit). Instrument = breiter Index/ETF. Heimat = **Portfolio-Manager + Cockpit**.
+- Beide haben andere Inputs/Logik/Instrumente/Risiken. **Block #3** ist der Punkt, der entscheidet, welcher Track gilt.
+
+**Vereinbarte Reihenfolge:** #1 + #2 zuerst (als **Track A**, Einzelaktien), dann #3 (Regeln + Track-B-Hedge), dann #4 (Backtest).
+
+**Architektur-Entscheidungen (festgehalten 2026-06-18):**
+- **Geteilte Fakten + Short-Schicht:** Die bestehenden Deep-Dive-Sub-Agenten beschaffen die Fakten EINMAL; eine eigene Short-Schicht interpretiert sie short-spezifisch. EIN Analyselauf → ZWEI unabhängige Urteile (Long via `derive_recommendation`, Short via neuer `derive_short_assessment`). **Short ≠ invertiertes Long.**
+- **A zuerst, B später (beide fest eingeplant):** A = reine Funktion `derive_short_assessment` + `ShortAssessment`-Modell + Feld auf `DeepDiveResult` (strukturiertes Urteil, kein LLM). B = `ShortThesisAgent` (LLM-Fließtext-These + XAI) obendrauf, sobald die Engine steht. **B sitzt AUF A.**
+- **`derive_short_assessment` asset-class-dispatched** (wie `derive_recommendation` mit `asset_class`): Equity-Zweig zuerst voll, andere Klassen fallen vorerst auf „bearish + #2-Sizing" zurück → spätere Klassen sind Erweiterung, **kein Redesign.**
+- **Borrow-Kosten:** v1 **Hard-to-borrow-Proxy-Flag** (aus Short-Float/Float/DTC), KEIN erfundener Gebühren-Wert. Echte Leihgebühr später als **optionales manuelles Eingabefeld.**
+
+**Asset-Klassen-Roadmap (verbindlich):**
+- **Equity — Bauabschnitt 1 (jetzt):** volle eigene Short-These (Bilanz/Distress/Earnings-Verfall/Bewertungs-Extrem) + #2.
+- **Rohstoff-Short — späterer Block (fest eingeplant):** eigene Short-Spezifika: **Roll-Yield/Carry** (Contango/Backwardation), **Cost-Curve-Boden** (Mean-Reversion-Floor), **Angebotsschock-Squeeze**. Eigene Datenbedürfnisse (Futures-Kurve, Produktionskosten).
+- **Anleihen-Short — späterer Block (fest eingeplant):** eigene Spezifika: **Carry** (Kupon zahlt der Shortende), **Duration**, **Credit-Asymmetrie**.
+- **Index/ETF:** kein „dieser Index ist schlecht"-Short → das ist **Track B (Hedge)**, Block #3.
+
+**Unter Überlegung (breiter als Shorts, separat zu entscheiden):** **Futures als NEUE Anlageklasse** in Long UND Short aufnehmen. Betrifft die ganze Deep-Dive-Struktur (nicht nur Shorts) — eigener Brainstorming-/Scope-Entscheid, bevor das angefasst wird.
+
+**Kriterien-Katalog als Flag-Registry (Design-Entscheidung 2026-06-18):**
+Der Equity-Short-Katalog wird als **Liste von Flag-Definitionen** modelliert — je `name`, `kategorie`, `benötigte Felder`, `schwelle`, `gewicht`. Die Short-Schicht prüft jedes Flag **defensiv**: fehlen die Felder (`None`), feuert es nicht (kein Crash). Verfügbare Flags → `short_score`; nicht-verfügbare = **dormant** (im Katalog dokumentiert), bis ein Adapter die Quelle liefert → dann automatisch aktiv, **ohne Logik-Änderung**. Der VOLLSTÄNDIGE Katalog (verfügbar + dormant) wird im Spec festgehalten.
+- **Verfügbar (in `bottom_up`):** Bewertungs-Extrem (`valuation_range`+`fundamentals`: KGV, EV/EBITDA, P/Book, P/FCF, PEG, Shiller-CAPE), Distress/Bilanz (`quality`: altman_z, interest_coverage, debt_to_equity, net_debt_ebitda, current_ratio, fcf_margin), Profitabilität (`quality`: roe/roa/roic, Margen), Earnings-Verfall (`earnings_trend`: estimate_revision, beat_rate), schwacher Burggraben (`moat.total_score`), Insider-Verkäufe (`insider.net_direction`), Squeeze (`short_interest`: DTC/Float — als Risiko), Wachstums-Abschwächung (`fundamentals.revenue_cagr_3y`).
+- **Dormant (Quelle später):** Momentum/Technik (Death-Cross, <200-Tage, Abstand 52W-Hoch), negativer Katalysator (Schuldenfälligkeit, Covenant, Guidance-Cut), Accounting-Red-Flags (Beneish M-Score, Accruals, DSO/Vorräte), relative Schwäche (vs. Sektor), Verwässerung/Cash-Burn (Aktienzahl↑, Runway), Sentiment/Positionierung (überfüllter Long, Downgrades).
+
+**Momentum = gemeinsam Long + Short (committet, eigener Folge-Block):** Sobald Momentum/Trend für Equity gebaut wird, kommt es als **neuer Bottom-up-Sub-Agent** (`MomentumSnapshot`, analog zum Index-Momentum-Agenten), der **BEIDE** Seiten speist — Long-Empfehlung (`derive_recommendation`-Alignment) **und** Short-Schicht (aktiviert die dormanten Momentum-Flags). Begründung (User): nutzt Short Momentum, muss Long es auch. In Block 1 bleibt Momentum dormant.
+
+**Aktions-Taxonomie (long + short) — Erweiterung (festgehalten 2026-06-18, betrifft AUCH die Long-Seite):**
+Jede Analyse gibt pro Linse genau eine Aktion. **HOLD vs NONE:** HOLD = Position existiert, Lage unklar → halten; **NONE = nicht investiert + kein belastbares Urteil**. Neu außerdem **Aufstocken (+)**: hält man bereits und das Einstiegssignal gilt weiter/verstärkt sich → nicht HOLD, sondern nachlegen.
+
+| Lage | Long-Linse | Short-Linse |
+|---|---|---|
+| nicht gehalten + klares Einstiegssignal | **BUY** | **SHORT** |
+| nicht gehalten + kein belastbares Urteil (neutral / bearish-aber-kein-Short / unklar) | **NONE** | **NONE** |
+| gehalten + Einstiegssignal gilt weiter/verstärkt | **BUY+** | **SHORT+** (selten sinnvoll) |
+| gehalten + Lage unklar | **HOLD** | **HOLD** |
+| gehalten + These gekippt | **SELL** | **COVER** |
+
+- **Short+ stark gegated:** Nachlegen in Shorts ist gefährlich (Risiko wächst überproportional, Squeeze) → nur wenn These *verstärkt* UND Position nicht im Verlust/Squeeze; **nie** in einen gegen dich laufenden Short nachlegen. Default konservativ/aus.
+- **„Verstärkt" vs „gilt weiter":** v1 = gehalten + weiterhin starkes Einstiegssignal → „+"; echtes „verstärkt" (Vergleich zur letzten Analyse) nutzt die Memory-Historie später.
+- **Betrifft die Long-Seite:** `derive_recommendation` + `Recommendation`-Enum bekommen **NONE + BUY+** und die HOLD-vs-NONE-Unterscheidung. Braucht den Positions-Input **`current_position` (none/long/short)** statt des bool `in_portfolio`.
+- **Eigener Foundation-Block:** weil es die Long-Seite berührt (Regressionsrisiko) → als fokussierter „Aktions-Taxonomie"-Block **vor** der Short-Engine umsetzen; die Short-Engine nutzt ihn dann.
+
+### Block #1 — Short-Kandidaten finden („das Was")
+- **Ziel:** Eine **eigene Short-These** statt des heutigen „bearish → SHORT"-Kippschalters. Bewertet gezielt **Short-Würdigkeit** mit short-spezifischen Kriterien — NICHT das Spiegelbild der Kauf-Kriterien.
+- **Kriterien (Beispiele):** extreme Überbewertung, **fallende/negative Gewinne** + negative Earnings-Revisions, **negatives Momentum/Death-Cross**, **Bilanz-/Quality-Warnsignale** (hoher Leverage, niedriger Altman-Z, schwacher Piotroski, negativer FCF), ggf. hoher Short-Interest als Bestätigung *und* Squeeze-Warnung.
+- **Umfang (pragmatisch):** (1) **on-demand Short-Urteil pro Ticker** (nutzt den bestehenden Deep-Dive-Fluss) + (2) optional **begrenzter Screen** über ein handhabbares Universum (Index-Konstituenten oder die eigenen Portfolio-Longs). **Kein** Voll-Markt-Screener, **keine** Watchlist-Infrastruktur (vorerst).
+- **Output:** Short-Score + begründete These je Titel.
+- **Heute vorhanden:** nur `derive_recommendation` (bearish → SHORT) + `short_interest_agent`. Es fehlt die eigene Short-These-Logik.
+
+### Block #2 — Short-Risiko & Positionsgröße („das Wie viel")
+- **Ziel:** Das Spezifische am Shorten sauber modellieren — setzt **nach** einer vorhandenen Idee an (findet keine Ideen).
+- **Inhalte:** **Borrow-Kosten** (Leihgebühr p. a.), **Squeeze-Risiko** (days-to-cover/Short-Float → Warnung + Deckelung), **asymmetrisches Verlustprofil** (Verlust nach oben theoretisch unbegrenzt → konservativere Größe), **Positionsgröße + Stop-Logik** (vol-/konfidenz-skaliert).
+- **Output:** empfohlene Positionsgröße (% NAV), Stop, Squeeze-/Borrow-Flags.
+- **Heute vorhanden (Plan A):** `derive_recommendation` hat bereits `_position_size_pct`, `days_to_cover`/`short_float_pct`-Parameter + Squeeze-Warnung ab DTC≥5 — als Basis ausbaubar.
+
+### Block #3 — Anlagephilosophie / Regeln („das Ob")
+- **Ziel:** Übergeordnete Leitplanke + **die Track-Weiche**: *darf* man gerade short, und in welcher Form?
+- **Inhalte:** defensiver Hedge (Index/ETF) vs. aggressiv (Einzeltitel); **regime-abhängig** (aggressive Shorts nur in bearishen Makro-Phasen); Cash-vs-Short; **Track B konkret**: regime-getriebene Hedge-Vorschläge im **Portfolio-Manager**, dimensioniert auf das **Netto-Long-Exposure** des Portfolios.
+- **Heute vorhanden:** `_short_type` (defensiv/aggressiv) + SHORT_WARNINGS; Portfolio-Manager überwacht Cash/Klumpen — aber keine regime-getriebene Hedge-Logik.
+
+**Portfolio-Manager-Ausbau (Befund 2026-06-18, gehört zu Track B / Block #3):**
+- **Heute long-only:** `data/portfolio.json`-Positionen haben **kein Richtungs-Feld** (`ticker, shares, buy_price, currency, sector, asset_class, country`). `portfolio_monitor_agent` rechnet P&L (`(current-buy)/buy`), Klumpen- und Exposure-Logik **als wäre alles long** — er **erkennt nicht**, ob eine Position long oder short ist.
+- **Nötig:** (1) `direction`/`side`-Feld („long"|"short") je Position; (2) short-bewusste P&L (invertiert) + Netto-Long-vs-Short-Exposure; (3) daraus die **„aktuelle Position" (none/long/short)** ableiten, die die Short-Aktions-Logik (SHORT/COVER/HOLD) speist.
+- **Heute** geht an die Urteilslogik nur ein **bool `in_portfolio`** (CLI-Flag), nicht die echte Position. Block 1 nimmt die Position als **einfachen Parameter** entgegen; das **automatische Ableiten aus dem echten Depot inkl. Richtung** ist PM-Ausbau (hier).
+- **Interplay (später):** Bist du short und das Signal dreht bullish → Short-Linse sagt COVER, Long-Linse sagt BUY → die **Reconciliation** (was tun, wenn beide Linsen feuern) gehört in den PM.
+- **Aktions-Symmetrie (festgehalten):** Long = BUY/SELL/HOLD, Short = SHORT/COVER/HOLD; je „Einsteigen/Aussteigen/Nichts ändern", HOLD ist der Auffangkorb (auch bei Unklarheit), **kein „NONE"**.
+
+### Block #4 — Shorts im Backtest / Bewertung („Hat's funktioniert")
+- **Ziel:** Ehrlich messen, ob alte Short-Calls **wirklich** Geld gebracht hätten — getrennt von Long-Calls.
+- **Inhalte:** **gespiegelte Returns** (Short verdient bei Fall), **Borrow-Kosten** im Backtest, **asymmetrisches Risiko**/MaxDrawdown der Short-Seite, Hit-Rate **vs. Payoff** (eine hohe Trefferquote kann durch seltene Squeeze-Großverluste negativ werden).
+- **Heute vorhanden (Plan A):** Backtester spiegelt SHORT/SELL-Returns bereits vorzeichen-korrekt; Borrow-Kosten + getrennte Short-Auswertung fehlen.
+
+### Geklärte Design-Fragen (Stand 2026-06-18)
+- **Screener:** NICHT in Block 1. Bauabschnitt 1 = on-demand Short-Urteil pro Equity-Analyse (kein Screener, keine Watchlist). Screener = eigene spätere Sache.
+- **Borrow-Kosten:** Proxy-Flag (v1) + optionales manuelles Feld (später).
+- **Regime-Gate:** Das Regime-Veto ist Teil der Short-Schicht (Cockpit fließt in `derive_short_assessment` ein); die volle Regeln-/Track-Weiche ist Block #3.
+
+### Noch offen (für Bauabschnitt-1-Design)
+- Genaues Feld-Set von `ShortAssessment` (Score, Thesen-Flags, Risiko-Block) + konkrete Equity-Kriterien/Schwellen.

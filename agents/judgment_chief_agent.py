@@ -1,6 +1,6 @@
 from agents.judgment.judgment_agent import JudgmentAgent
 from core.domain.events import JudgmentChiefReady
-from core.domain.models import AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult, InvestmentRecommendation, Recommendation
+from core.domain.models import AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult, InvestmentRecommendation, PositionState, Recommendation
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
 
@@ -17,7 +17,7 @@ class JudgmentChiefAgent:
         bottom_up: BottomUpResult,
         cockpit: CockpitResult,
         market: str,
-        in_portfolio: bool,
+        current_position: PositionState,
         top_down_available: bool,
         top_down_anomaly: AnomalyReport,
         bottom_up_anomaly: AnomalyReport,
@@ -29,7 +29,7 @@ class JudgmentChiefAgent:
             bottom_up=bottom_up,
             cockpit=cockpit,
             market=market,
-            in_portfolio=in_portfolio,
+            current_position=current_position,
             top_down_available=top_down_available,
             top_down_anomaly=top_down_anomaly,
             bottom_up_anomaly=bottom_up_anomaly,

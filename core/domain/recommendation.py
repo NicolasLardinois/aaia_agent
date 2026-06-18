@@ -2,7 +2,7 @@ from typing import Optional
 
 from core.domain.models import (
     AnomalyReport, CockpitResult,
-    InvestmentRecommendation, Recommendation, ShortType, Signal,
+    InvestmentRecommendation, PositionState, Recommendation, ShortAction, ShortType, Signal,
 )
 
 # Alle Märkte mit vollständigem Top-Down-Kontext (Makrodaten vorhanden):
@@ -100,85 +100,59 @@ def derive_recommendation(
     alignment: str,
     signal: Signal,
     asset_class: str,
-    in_portfolio: bool,
+    current_position: PositionState,
     market: str,
     cockpit: Optional[CockpitResult],
     top_down_available: bool,
     confidence: float,
-    days_to_cover: Optional[float] = None,
-    short_float_pct: Optional[float] = None,
 ) -> InvestmentRecommendation:
-
-    market = market.upper().strip()
-
-    if confidence < 0.35:
+    # Titel als Short gehalten → Long-Linse deferiert (kein "BUY, obwohl short").
+    if current_position == PositionState.SHORT:
         return InvestmentRecommendation(
-            action=Recommendation.HOLD,
-            short_type=None,
-            short_warning=None,
+            action=Recommendation.NONE, short_type=None, short_warning=None,
             confidence=confidence,
-            reasoning=(
-                "Stark widersprüchliche oder anomale Signale — Cash bevorzugen, "
-                "kein neues Kapital einsetzen."
-            ),
-        )
-    if confidence < 0.50:
-        return InvestmentRecommendation(
-            action=Recommendation.HOLD,
-            short_type=None,
-            short_warning=None,
-            confidence=confidence,
-            reasoning="Signallage zu widersprüchlich — Abwarten empfohlen.",
+            reasoning="Titel als Short gehalten — Long-Seite deferiert (Short-Linse/PM zuständig).",
         )
 
-    full_analysis = top_down_available and market in FULL_ANALYSIS_MARKETS
+    is_long = current_position == PositionState.LONG
     bearish = signal == Signal.BEARISH or alignment == "aligned_bearish"
     bullish = signal == Signal.BULLISH or alignment == "aligned_bullish"
 
-    if bearish and not in_portfolio and full_analysis:
-        short_t = _short_type(asset_class)
-        reasoning = "Bearish Signal ohne bestehende Portfolio-Position — Short möglich."
-        if days_to_cover is not None and days_to_cover >= _DTC_SQUEEZE_THRESHOLD:
-            reasoning += (
-                f" ⚠️ Squeeze-/Borrow-Risiko: Days-to-Cover={days_to_cover:.1f}"
-                + (f", Short-Float={short_float_pct:.0f}%" if short_float_pct is not None else "")
-                + " — erhöhte Eindeckungskosten/Squeeze-Gefahr."
-            )
-        return InvestmentRecommendation(
-            action=Recommendation.SHORT,
-            short_type=short_t,
-            short_warning=SHORT_WARNINGS[short_t],
-            confidence=confidence,
-            reasoning=reasoning,
-        )
+    # Uneindeutig/anomal → keine Aktion (positionsabhängig)
+    if confidence < 0.50:
+        action = Recommendation.HOLD if is_long else Recommendation.NONE
+        reasoning = ("Stark widersprüchliche/anomale Signale — Cash bevorzugen, kein neues Kapital."
+                     if confidence < 0.35 else
+                     "Signallage zu widersprüchlich — Abwarten empfohlen.")
+        return InvestmentRecommendation(action, None, None, confidence, reasoning)
 
-    if bearish and in_portfolio:
-        return InvestmentRecommendation(
-            action=Recommendation.SELL,
-            short_type=None,
-            short_warning=None,
-            confidence=confidence,
-            reasoning="Bearish Signal bei bestehender Portfolio-Position — Verkauf empfohlen.",
-        )
+    if is_long:
+        if bearish:
+            action = Recommendation.SELL
+            reasoning = "Bearish bei bestehender Long-Position — Verkauf empfohlen."
+        elif bullish:
+            size = _position_size_pct(confidence)
+            action = Recommendation.BUY_PLUS
+            reasoning = (f"Bullish bei bestehender Long-Position — Aufstocken. "
+                         f"Zusätzliche Tranche ~{size:.1f}% des Risikobudgets (konfidenz-skaliert).")
+        else:
+            action = Recommendation.HOLD
+            reasoning = "Kein klares Signal — Position halten."
+    else:  # PositionState.NONE
+        if bullish:
+            size = _position_size_pct(confidence)
+            action = Recommendation.BUY
+            reasoning = (f"Bullish ohne bestehende Position — Kauf empfohlen. "
+                         f"Empfohlene Positionsgröße: {size:.1f}% des Risikobudgets (konfidenz-skaliert).")
+        else:
+            action = Recommendation.NONE
+            reasoning = "Kein Long-Setup (kein bullisches Signal)."
 
-    if bullish and not in_portfolio:
-        size = _position_size_pct(confidence)
-        return InvestmentRecommendation(
-            action=Recommendation.BUY,
-            short_type=None,
-            short_warning=None,
-            confidence=confidence,
-            reasoning=(
-                "Bullish Signal ohne bestehende Portfolio-Position — Kauf empfohlen. "
-                f"Empfohlene Positionsgröße: {size:.1f}% des Risikobudgets "
-                f"(konfidenz-skaliert)."
-            ),
-        )
+    return InvestmentRecommendation(action, None, None, confidence, reasoning)
 
-    return InvestmentRecommendation(
-        action=Recommendation.HOLD,
-        short_type=None,
-        short_warning=None,
-        confidence=confidence,
-        reasoning="Kein klares Kauf- oder Verkaufssignal — Position halten.",
-    )
+
+def derive_short_action_placeholder(current_position: PositionState) -> ShortAction:
+    """Platzhalter bis zur Short-Thesis-Engine (Block 1).
+    short gehalten → HOLD; sonst → NONE (bei LONG deferiert die Short-Linse —
+    man shortet nicht, was man besitzt). Block 1 muss Defer-on-LONG beibehalten."""
+    return ShortAction.HOLD if current_position == PositionState.SHORT else ShortAction.NONE
