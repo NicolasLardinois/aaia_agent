@@ -4,7 +4,8 @@ from core.domain.events import DeepDiveResultReady
 from core.domain.models import (
     AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult, PositionState, Signal,
 )
-from core.domain.recommendation import compute_confidence, derive_recommendation, derive_short_action_placeholder
+from core.domain.recommendation import compute_confidence, derive_recommendation, detect_conflict
+from core.domain.short_assessment import derive_short_assessment
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
 
@@ -173,7 +174,11 @@ Kombiniere Top-Down und Bottom-Up zu einem klaren Urteil. Gibt es Widersprüche?
             top_down_available=top_down_available,
             confidence=confidence,
         )
-        short_action = derive_short_action_placeholder(current_position)
+        short_assessment = derive_short_assessment(
+            bottom_up, cockpit, current_position, top_down_available,
+            bottom_up_anomaly, top_down_anomaly)
+        conflict, conflict_reason = detect_conflict(
+            current_position, alignment, dominant_sig, short_assessment, confidence)
 
         # LLM-Call 2: XAI-Erklärung
         xai_prompt = f"""Aktie: {ticker} | Empfehlung: {recommendation.action.value} | Konfidenz: {confidence:.0%}
@@ -217,7 +222,10 @@ Erkläre ausführlich warum diese Empfehlung getroffen wurde."""
             dominant_signal=dominant_sig.value,
             confidence=confidence,
             xai_explanation=xai_explanation,
-            short_action=short_action,
+            short_action=short_assessment.short_action,
+            short_assessment=short_assessment,
+            conflict=conflict,
+            conflict_reason=conflict_reason,
         )
 
         self.bus.publish(DeepDiveResultReady(source="judgment_agent", payload={

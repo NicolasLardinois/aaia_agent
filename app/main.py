@@ -147,6 +147,12 @@ async def run_judgment(ticker: str, market: str = "USA", current_position: Posit
     if result.recommendation.short_warning:
         print(f"\n{result.recommendation.short_warning}")
     print(f"SHORT-AKTION:   {result.short_action.value}")
+    if result.short_assessment:
+        sa = result.short_assessment
+        print(f"  Short-Konfidenz: {sa.confidence:.0%}"
+              + (f" | Typ: {', '.join(sa.archetypes)}" if sa.archetypes else ""))
+    if result.conflict:
+        print(f"⚠️  KONFLIKT: {result.conflict_reason}")
     print(f"\nURTEIL:\n{result.judgment}")
 
 
