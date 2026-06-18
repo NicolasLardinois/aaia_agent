@@ -27,6 +27,7 @@ class BottomUpAnomalyAgent:
     def run(self, bottom_up, history: list[dict]) -> AnomalyReport:
         statistical: list[str] = []
         contradictions: list[str] = []
+        lean: dict[str, int] = {"bearish": 0, "bullish": 0}
 
         is_equity = bottom_up.asset_class in ("equity", "etf")
         snapshots = [
@@ -42,7 +43,7 @@ class BottomUpAnomalyAgent:
             n_tests = 3  # KGV + Short-Float + Insider
             threshold = bonferroni_z_threshold(ROBUST_Z_THRESHOLD, n_tests)
 
-            def _check(label: str, current, key: str):
+            def _check(label: str, current, key: str, high_dir: str, low_dir: str):
                 if current is None:
                     return
                 vals = [s[key] for s in snapshots if key in s and s[key] is not None]
@@ -51,6 +52,9 @@ class BottomUpAnomalyAgent:
                 z = robust_z_score(float(current), [float(v) for v in vals], min_n=_MIN_N)
                 if abs(z) > threshold:
                     dir_ = "hoch" if z > 0 else "niedrig"
+                    d = high_dir if z > 0 else low_dir
+                    if d in lean:
+                        lean[d] += 1
                     statistical.append(
                         f"{label}={current:.1f} ist ungewöhnlich {dir_} (robust-Z={z:.1f})"
                     )
@@ -60,9 +64,9 @@ class BottomUpAnomalyAgent:
             ins = bottom_up.insider
 
             if fu:
-                _check("KGV", fu.pe_ratio, "pe_ratio")
+                _check("KGV", fu.pe_ratio, "pe_ratio", "bearish", "bullish")
             if si:
-                _check("Short-Float", si.short_float_pct, "short_float_pct")
+                _check("Short-Float", si.short_float_pct, "short_float_pct", "bearish", "neutral")
 
             # Insider: richtungs- und frequenznormiert statt absoluter ">10"-Schwelle
             if ins and ins.recent_transactions is not None:
@@ -77,13 +81,17 @@ class BottomUpAnomalyAgent:
                         z_tx == 0.0 and med_tx > 0 and current_tx / med_tx >= 5.0
                     )
                     if is_anomalous:
-                        direction = getattr(ins, "net_direction", "") or ""
-                        kind = "Kauf-Cluster" if "buy" in direction.lower() else \
-                               ("Verkaufs-Cluster" if "sell" in direction.lower() else "Aktivität")
+                        ins_direction = getattr(ins, "net_direction", "") or ""
+                        kind = "Kauf-Cluster" if "buy" in ins_direction.lower() else \
+                               ("Verkaufs-Cluster" if "sell" in ins_direction.lower() else "Aktivität")
+                        if "buy" in ins_direction.lower():
+                            lean["bullish"] += 1
+                        elif "sell" in ins_direction.lower():
+                            lean["bearish"] += 1
                         statistical.append(
                             f"Ungewöhnlich hohe Insider-{kind}: "
                             f"{ins.recent_transactions} Transaktionen (robust-Z={z_tx:.1f}, "
-                            f"Richtung={direction or 'n/v'})"
+                            f"Richtung={ins_direction or 'n/v'})"
                         )
 
         # Widerspruchs-Checks (nur Equity)
@@ -114,9 +122,16 @@ class BottomUpAnomalyAgent:
                 contradictions.append(
                     f"Mehrheit der Bottom-Up-Signale bearish: {', '.join(bearish_names)}"
                 )
+                lean["bearish"] += 1
 
         severity = compute_severity(statistical, contradictions)
         summary  = _build_summary(statistical, contradictions, severity)
+
+        direction = (
+            "bearish" if lean["bearish"] > lean["bullish"]
+            else "bullish" if lean["bullish"] > lean["bearish"]
+            else "neutral"
+        )
 
         return AnomalyReport(
             has_anomalies=bool(statistical or contradictions),
@@ -124,4 +139,5 @@ class BottomUpAnomalyAgent:
             contradictions=contradictions,
             severity=severity,
             summary=summary,
+            direction=direction,
         )
