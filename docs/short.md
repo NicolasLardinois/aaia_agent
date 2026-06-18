@@ -78,7 +78,7 @@ Jede Analyse gibt **pro Linse genau eine Aktion**. **HOLD ≠ NONE:** HOLD setzt
 **Short+ stark gegated:** Nachlegen in Shorts ist gefährlich (Risiko wächst überproportional, Squeeze) → nur wenn These verstärkt UND Position nicht im Verlust/Squeeze; nie gegen einen laufenden Short nachlegen. Default konservativ/aus. Buy+ (z. B. Nestlé, erneut starke Fundamentaldaten → zweite Tranche) ist unkritischer.
 
 ## 6. Equity-Short-Thesis-Engine (Kriterien-Katalog)
-Modelliert als **Flag-Registry**: Liste von Flag-Definitionen (`name`, `kategorie`, `benötigte Felder`, `schwelle`, `gewicht`). Jedes Flag wird **defensiv** geprüft — fehlt die Quelle (`None`), feuert es nicht (kein Crash). Verfügbare Flags → `short_score`; nicht-verfügbare sind **dormant**, bis ein Adapter die Quelle liefert (dann automatisch aktiv, ohne Logik-Änderung).
+Modelliert als **Flag-Registry**: Liste von Flag-Definitionen (`name`, `kategorie`, `benötigte Felder`, `schwelle`, `gewicht`). Jedes Flag wird **defensiv** geprüft — fehlt die Quelle (`None`), feuert es nicht (kein Crash). Verfügbare Flags fließen in die **Konfidenz**; nicht-verfügbare sind **dormant**, bis ein Adapter die Quelle liefert (dann automatisch aktiv, ohne Logik-Änderung).
 
 **Kern-These (allein ausreichend — mind. 1 nötig für einen Kandidaten):**
 - **Distress/Bilanz** — `quality.altman_z` < 1,8 (Konkurszone), `interest_coverage` < 1, negativer `fcf_margin` + hohe Verschuldung, `current_ratio` < 1.
@@ -96,27 +96,33 @@ Modelliert als **Flag-Registry**: Liste von Flag-Definitionen (`name`, `kategori
 **Regel:** Kandidat nur, wenn **≥1 Kern-These** feuert. „teuer + schwacher Moat + Insider-Verkäufe" ohne Kern-These → **none**.
 
 ## 7. Archetypen & Gating-Regeln
-**Archetyp-Tag** (`ShortAssessment.archetype`), abgeleitet aus welchen Kern-Thesen feuern — macht das Urteil lesbar und sagt, was zu prüfen ist:
-`distress` / `broken_growth` / `fraud` / `cyclical_peak` / `secular_decline` / `none`.
+**Archetyp(en)** (`ShortAssessment.archetypes` — eine **Menge, kein Ranking**): aus welchen Kern-Thesen feuern; macht das Urteil lesbar und sagt, was zu prüfen ist. Mehrere Typen gleichzeitig (z. B. `[distress, broken_growth]`) = **stärkere These → höhere Konfidenz**, keine Priorität.
+Typen: `distress` (aktiv ← Bilanz-Distress) · `broken_growth` (aktiv ← Earnings-Kollaps **+** teuer) · `secular_decline` (aktiv ← `revenue_cagr_3y` stark negativ) · `fraud` (dormant ← Beneish) · `cyclical_peak` (dormant) · `none`.
 
-**Gating-Regeln:**
-- **Kein Top-Down → kein Short:** `top_down_available == False` → „none" (ohne Makro-Kontext zu riskant; deckt sich mit `FULL_ANALYSIS_MARKETS`).
-- **Regime-Gate:** Makro bullisch/expansiv → blockiert/abgewertet; bearisch → passt.
-- **Kein Auslöser → max „moderate":** „strong" nur mit Kern-These **+ Katalysator-Flag**. Da Katalysator-Daten dormant sind, ist v1 max „moderate".
-- **Crowding/Borrow-Dämpfer:** extrem hoher DTC + hard-to-borrow senkt zusätzlich die **Note** (nicht nur die Größe) — ein überfüllter/teuer-leihbarer Short ist ein schlechter Trade.
-- **„Wird schlechter" vor „ist schlecht":** Verschlechterung (Trend) > statisches Niveau — heute fast nur dormant (braucht Historie; vorhanden nur bei `estimate_revision`).
+**Hart-Gates (→ direkt NONE, VOR der Konfidenz, egal wie stark die These):**
+- **Kein Top-Down** (`top_down_available == False`) — **Veto** (ohne Makro-Kontext zu riskant; deckt sich mit `FULL_ANALYSIS_MARKETS`), kein weicher Abschlag.
+- **Keine Kern-These** — dann gibt es schlicht keine Short-These (kein Signal).
 
-**Positionierung:** Das Short-Urteil ist ein **vollwertiges, abgestuftes Urteil** (keine/schwach/mittel/stark) — symmetrisch zur Long-Empfehlung, **nicht** „recherchier selbst". Die Vorsicht steckt in der **Note** (kalibrierte Konviktion), nicht in einem Hedge-Satz.
+**Konfidenz-Modifikatoren (erst danach; formen `confidence` 0–1):**
+- **Katalysator:** aktiver Katalysator (Earnings-Revision/Guidance-Cut, `earnings_trend.estimate_revision` = „Markt preist gerade ab") hebt die Obergrenze (volle Konfidenz möglich, broken_growth/Earnings-Fälle); **reine Distress-Lage** (Altman-Z rot) ohne aktive Verschlechterung → Konfidenz **gedeckelt** (Distress kann jahrelang krebsen). Harte Katalysatoren (Fälligkeits-Wall/Covenant) dormant.
+- **Regime (Modifikator, KEIN Block):** bullisch/risk-on → **Gegenwind** (Konfidenz deutlich gedämpft, aber eine sehr starke Einzelthese kommt durch); neutral → kein Effekt; bearisch → Rückenwind.
+- **Crowding:** hard-to-borrow + extremes DTC → Konfidenz runter (überfüllt/teuer = schlechter Trade).
+- **Anomalien (geteilt mit Long, `AnomalyChiefAgent`):** statistisch abnormale bearishe Werte (Insider-Verkaufs-Cluster, Short-Interest-Spike, Bewertungs-z-Score-Extrem) **erhöhen die Konfidenz** — als **Modifikator, NICHT** als zusätzliches Flag (sonst Doppelzählung desselben Fakts).
+- **„Wird schlechter" vor „ist schlecht":** Verschlechterung (Trend) > statisches Niveau — heute fast nur dormant (Historie nötig; vorhanden bei `estimate_revision`).
 
-## 8. `ShortAssessment`-Modell
+**Aktion (aus Konfidenz + Position, analog Long):** nicht gehalten + Konfidenz ≥ Schwelle → **SHORT**, sonst **NONE**; short gehalten + ≥ Schwelle → **HOLD**, sonst **COVER**. **SHORT+ erst mit PM/Block #3** (braucht Einstand/P&L für „nie in Verlust nachlegen"). Long gehalten → Aktion **NONE**, aber **`conflict`** wenn Short-Konfidenz ≥ Schwelle (bidirektional, siehe §18).
+
+**Positionierung:** vollwertiges Urteil = **Aktion + Konfidenz**, **identisch** zur Long-Seite — **nicht** „recherchier selbst". Die Vorsicht steckt in der **Konfidenz** (kalibriert), nicht in einem Hedge-Satz.
+
+## 8. `ShortAssessment`-Modell (identisch zur Long-Seite: Aktion + Konfidenz)
 - `asset_class`
-- `is_candidate`: „none" | „weak" | „moderate" | „strong"
-- `short_score`: 0–100
-- `archetype`: distress/broken_growth/fraud/cyclical_peak/secular_decline/none
+- `short_action`: SHORT | COVER | HOLD | NONE  (**SHORT+ erst mit PM/Block #3**)
+- `confidence`: 0–1 (short-spezifisch — aus Thesenstärke + **Anomalien** + Regime + Katalysator + Crowding + Kalibrierung; **KEIN `short_score`, KEINE 4-Stufen-Note**)
+- `archetypes`: **Menge** der feuernden Typen (z. B. `[distress, broken_growth]`); **kein Ranking** — mehrere = stärkere These
 - `thesis_flags`: list[str] (gefeuerte Gründe mit Zahlen = Begründung)
-- `regime_gate`: „passed" | „discounted" | „blocked"
-- `short_action`: SHORT | SHORT+ | HOLD | COVER | NONE
-- Risiko/Sizing: `squeeze_risk` (low/elevated/high), `hard_to_borrow` (Proxy-Flag), `borrow_rate_manual` (optionales manuelles Feld, default None), `suggested_size_pct`, `stop_pct`
+- `regime_effect`: „headwind" | „neutral" | „tailwind" (Konfidenz-Modifikator, **kein Block**)
+- `conflict`: bool (+ Begründung) — bei gehaltener Gegenposition (Long-gehalten + Short-Signal); bidirektional via Judgment-Layer (§18)
+- Risiko/Sizing: `squeeze_risk` (low/elevated/high), `hard_to_borrow` (Proxy-Flag), `borrow_rate_manual` (optional, default None), `suggested_size_pct`, `stop_pct`
 
 ## 9. Risiko & Sizing (#2)
 - **Squeeze-Kennzahlen** vorhanden: `short_interest.short_float_pct`, `days_to_cover` (yfinance-Pfad). ✅
@@ -162,10 +168,11 @@ Spec: `docs/superpowers/specs/2026-06-18-foundation-aktions-taxonomie-design.md`
 **Dormant (Quelle später):** Momentum/Technik, Katalysator (Fälligkeiten/Guidance), Accounting-Red-Flags (Beneish/Accruals/DSO), relative Schwäche, Verwässerung/Cash-Burn-Runway, echte Borrow-Rate.
 
 ## 16. Build-Reihenfolge
-1. **Foundation-Block** — Aktions-Taxonomie (long + short). *(Spec fertig, Plan als Nächstes.)*
-2. **Block 1** — Equity-Short-Thesis-Engine (`derive_short_assessment`, Note/Archetyp/Flags/Risiko, Flag-Registry).
-3. **Block #3** — Regeln/Regime-Weiche + Track-B-Hedge + Portfolio-Manager-Ausbau (Richtung/Reconciliation).
-4. **Block #4** — Short-Backtest.
+1. ~~Foundation-Block~~ ✅ **gemergt (PR #3)** — Aktions-Taxonomie (long + short).
+2. **Block 1** — Equity-Short-Thesis-Engine (`derive_short_assessment`, **Aktion + Konfidenz**, Archetyp/Flags/Risiko, Flag-Registry) + **Konflikt-Erkennung** (`conflict`-Flag im Judgment-Layer, bidirektional).
+3. **Konflikt-Agent (Folge-Block)** — spezialisierte Thesis-Reversal-Abwägung bei `conflict` (siehe §18). Nutzt Short-Assessment + PM-Positionsdaten.
+4. **Block #3** — Regeln/Regime-Weiche + Track-B-Hedge + Portfolio-Manager-Ausbau (Richtung/Einstand/P&L/Reconciliation).
+5. **Block #4** — Short-Backtest (inkl. **Bewertung/Kalibrierung des Konflikt-Agenten**).
 - Quer: **B** (LLM-Short-These), **Momentum** (long+short), **Rohstoff-/Anleihe-/Edelmetall-Short**, ggf. **Futures**.
 
 ## 17. Entscheidungs-Log
@@ -179,3 +186,20 @@ Spec: `docs/superpowers/specs/2026-06-18-foundation-aktions-taxonomie-design.md`
 - Borrow: Proxy-Flag v1 + optionales manuelles Feld. ✅
 - Flag-Registry (verfügbar + dormant); voller Katalog dokumentiert. ✅
 - Total Return: bewusst NICHT umgesetzt (Price Return als CH-Default). ✅
+- Short-Urteil **identisch zur Long-Seite**: Aktion + **Konfidenz** (kein `short_score`, keine 4-Stufen-Note). ✅
+- Regime ist **Konfidenz-Modifikator**, kein Hard-Block (bullisch=Gegenwind, neutral=neutral, bearisch=Rückenwind). ✅
+- Hart-Gates (→ NONE, vor Konfidenz): kein Top-Down (Veto), keine Kern-These (kein Signal). ✅
+- Konflikt bidirektional + **eigener Konflikt-Agent** als Folge-Block (Block 1 erkennt nur). ✅
+- Backtester bewertet + kalibriert den Konflikt-Agenten — kein Funktions-Overlap (rückblickend vs. vorwärts). ✅
+- Anomalien (`AnomalyChiefAgent`) als geteilter Short-Input = **Konfidenz-Modifikator** (keine Doppelzählung). ✅
+- Outputs der Linsen **vergleichen** (conflict), NICHT fusionieren — zwei eigenständige Urteile. ✅
+- `archetypes` = **Menge** (kein Ranking); mehrere Treffer = stärkere These. ✅
+
+## 18. Konflikt-Agent (Folge-Block, nach Block 1)
+**Zweck:** „Hat sich die gehaltene These gedreht?" — die schwerste Entscheidung (eine kaputte Positions-These eingestehen) bekommt eine eigene, fokussierte Logik.
+- **Trigger (bidirektional):** gehaltene Position + gegenläufiges Linsen-Signal feuert qualifiziert. *Long gehalten + Short-Signal* → „screent als Short trotz Long". *Short gehalten + Bullish-Read* → „screent bullish trotz Short".
+- **Inputs:** gehaltene Position + (ursprüngliche/aktuelle) These + gegenläufiges Urteil (Short-Assessment bzw. Long-Read) + Anomalien + Backtester-Kalibrierung.
+- **Output (Reconciliation):** These gekippt → **Ausstieg** (SELL/COVER) · Gegenwind, aber These hält → **halten** · ggf. **umkehren** (raus + Gegenposition).
+- **LLM-gestützt** (nuancierte Zwei-Thesen-Abwägung), analog `JudgmentAgent`.
+- **Orchestrator-Verdrahtung:** **bedingter Schritt** in `JudgmentOrchestrator.run()` — NACH dem `JudgmentChiefAgent` (der das `conflict`-Flag setzt): `if result.conflict: result.conflict_resolution = await conflict_chief.run(..., backtester_context=...)`. Läuft **nur** bei Konflikt → sonst kein Kostenaufwand. Bekommt beide Linsen + Position + Kalibrierung.
+- **Verhältnis zum Backtester (kein Overlap):** Backtester = **rückblickender** Punkterichter/Kalibrierer; Konflikt-Agent = **vorwärtsgerichteter** Entscheider. Der Backtester **bewertet die Reversal-Calls separat** (haben „Ausstieg"-Entscheidungen historisch Geld gespart vs. Halten?) und **speist die Kalibrierung zurück** → kalibriert die Konfidenz des Konflikt-Agenten. Komplementär, nicht doppelt.
