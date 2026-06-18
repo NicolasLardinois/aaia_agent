@@ -2,7 +2,7 @@ from typing import Optional
 
 from core.domain.models import (
     AnomalyReport, CockpitResult,
-    InvestmentRecommendation, PositionState, Recommendation, ShortType, Signal,
+    InvestmentRecommendation, PositionState, Recommendation, ShortAction, ShortType, Signal,
 )
 
 # Alle Märkte mit vollständigem Top-Down-Kontext (Makrodaten vorhanden):
@@ -149,3 +149,10 @@ def derive_recommendation(
             reasoning = "Kein Long-Setup (kein bullisches Signal)."
 
     return InvestmentRecommendation(action, None, None, confidence, reasoning)
+
+
+def derive_short_action_placeholder(current_position: PositionState) -> ShortAction:
+    """Platzhalter bis zur Short-Thesis-Engine (Block 1).
+    short gehalten → HOLD; sonst → NONE (bei LONG deferiert die Short-Linse —
+    man shortet nicht, was man besitzt). Block 1 muss Defer-on-LONG beibehalten."""
+    return ShortAction.HOLD if current_position == PositionState.SHORT else ShortAction.NONE

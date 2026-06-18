@@ -771,3 +771,4 @@ class DeepDiveResult:
     xai_explanation: str = ""
     top_down_anomaly: Optional["AnomalyReport"] = None
     bottom_up_anomaly: Optional["AnomalyReport"] = None
+    short_action: ShortAction = ShortAction.NONE

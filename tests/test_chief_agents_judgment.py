@@ -57,7 +57,7 @@ def test_anomaly_chief_no_cockpit():
 # ─────────────────────────────────────────────
 
 from agents.judgment_chief_agent import JudgmentChiefAgent
-from core.domain.models import DeepDiveResult, Recommendation, InvestmentRecommendation, Signal
+from core.domain.models import DeepDiveResult, PositionState, Recommendation, InvestmentRecommendation, ShortAction, Signal
 
 
 def _make_deep_dive_result():
@@ -89,7 +89,7 @@ def test_judgment_chief_returns_result():
         bottom_up=bottom_up,
         cockpit=None,
         market="USA",
-        in_portfolio=False,
+        current_position=PositionState.NONE,
         top_down_available=False,
         top_down_anomaly=AnomalyReport.empty(),
         bottom_up_anomaly=AnomalyReport.empty(),
@@ -97,6 +97,68 @@ def test_judgment_chief_returns_result():
     ))
     assert isinstance(result, DeepDiveResult)
     bus.publish.assert_called_once()
+
+
+def test_judgment_chief_short_action_hold_when_short():
+    bus = MagicMock()
+    llm = MagicMock()
+    bottom_up = MagicMock()
+    bottom_up.ticker = "TSLA"
+    bottom_up.asset_class = "equity"
+
+    deep_dive_short = DeepDiveResult(
+        ticker="TSLA", asset_class="equity", market="USA",
+        top_down_context="neutral", top_down_available=True,
+        judgment="Hold", alignment="mixed",
+        recommendation=InvestmentRecommendation(
+            action=Recommendation.NONE, short_type=None, short_warning=None,
+            confidence=0.65, reasoning="short gehalten",
+        ),
+        dominant_signal="neutral", confidence=0.65, xai_explanation="",
+        short_action=ShortAction.HOLD,
+    )
+
+    chief = JudgmentChiefAgent(llm, bus)
+    chief.judgment_agent.run = AsyncMock(return_value=deep_dive_short)
+
+    result = asyncio.run(chief.run(
+        ticker="TSLA",
+        top_down_context="neutral macro",
+        bottom_up=bottom_up,
+        cockpit=None,
+        market="USA",
+        current_position=PositionState.SHORT,
+        top_down_available=False,
+        top_down_anomaly=AnomalyReport.empty(),
+        bottom_up_anomaly=AnomalyReport.empty(),
+        backtester_context={},
+    ))
+    assert result.short_action == ShortAction.HOLD
+
+
+def test_judgment_chief_short_action_none_when_none():
+    bus = MagicMock()
+    llm = MagicMock()
+    bottom_up = MagicMock()
+    bottom_up.ticker = "AAPL"
+    bottom_up.asset_class = "equity"
+
+    chief = JudgmentChiefAgent(llm, bus)
+    chief.judgment_agent.run = AsyncMock(return_value=_make_deep_dive_result())
+
+    result = asyncio.run(chief.run(
+        ticker="AAPL",
+        top_down_context="neutral macro",
+        bottom_up=bottom_up,
+        cockpit=None,
+        market="USA",
+        current_position=PositionState.NONE,
+        top_down_available=False,
+        top_down_anomaly=AnomalyReport.empty(),
+        bottom_up_anomaly=AnomalyReport.empty(),
+        backtester_context={},
+    ))
+    assert result.short_action == ShortAction.NONE
 
 
 # ─────────────────────────────────────────────
