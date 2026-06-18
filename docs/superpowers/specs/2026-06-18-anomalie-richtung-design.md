@@ -34,8 +34,8 @@ Beim Erkennen der Anomalien eine **bearish/bullish-Tendenz** zählen und am Ende
 - **neutral:** reine Signal-Widersprüche (Fundamentals↔Valuation etc.) ohne klare Richtung; keine Anomalien.
 - Verdichtung: mehr bearish → `"bearish"`; mehr bullish → `"bullish"`; gleich/keine → `"neutral"`. (Zählung als `bearish_score`/`bullish_score` an den jeweiligen `append`-Stellen.)
 
-### 3. `agents/anomaly/top_down_anomaly_agent.py` — Richtung aus Makro-Anomalien
-Analog: risk-off / makro-bearishe Anomalien → `"bearish"`, risk-on → `"bullish"`, sonst `"neutral"`. (Implementer leitet die Tendenz aus der bestehenden Anomalie-Erkennung des Agenten ab; im Zweifel `"neutral"`.)
+### 3. `agents/anomaly/top_down_anomaly_agent.py` — Richtung aus den Bereichs-Signalen
+Der Agent berechnet **bereits** vier richtungsnormierte Bereichs-Signale für die Widerspruchs-Checks (vor der `return`-Zeile vorhanden): `macro_sig` (`_dominant_macro`), `sentiment_sig` (`_dominant_sentiment`), `yield_sig` (`yield_pt.signal`), `commodity_sig` (`_dominant_commodity`). `direction` = **Mehrheitsvotum** dieser vier `Signal`-Werte: mehr `BEARISH` → `"bearish"`, mehr `BULLISH` → `"bullish"`, gleich/keine → `"neutral"`. Kein neuer Indikator nötig.
 
 ### 4. `core/domain/recommendation.py` — `compute_confidence` gerichtet
 Die Anomalie-Behandlung (heute: immer `+= _SEVERITY_DEDUCTION[severity]`) wird **richtungs-bewusst**. Pro Anomalie (td, bu):
