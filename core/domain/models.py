@@ -758,6 +758,21 @@ class InvestmentRecommendation:
 
 
 @dataclass
+class ShortAssessment:
+    asset_class: str
+    short_action: ShortAction
+    confidence: float
+    archetypes: list[str]
+    thesis_flags: list[str]
+    regime_effect: str            # "headwind" | "neutral" | "tailwind"
+    squeeze_risk: str             # "low" | "elevated" | "high"
+    hard_to_borrow: bool
+    borrow_rate_manual: Optional[float] = None
+    suggested_size_pct: Optional[float] = None
+    stop_pct: Optional[float] = None
+
+
+@dataclass
 class DeepDiveResult:
     ticker: str
     asset_class: str
@@ -774,3 +789,6 @@ class DeepDiveResult:
     top_down_anomaly: Optional["AnomalyReport"] = None
     bottom_up_anomaly: Optional["AnomalyReport"] = None
     short_action: ShortAction = ShortAction.NONE
+    short_assessment: Optional["ShortAssessment"] = None
+    conflict: bool = False
+    conflict_reason: str = ""
