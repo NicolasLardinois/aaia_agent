@@ -24,10 +24,26 @@ class SignalStatus(str, Enum):
 
 
 class Recommendation(str, Enum):
-    BUY   = "BUY"
-    HOLD  = "HOLD"
-    SELL  = "SELL"
-    SHORT = "SHORT"
+    BUY      = "BUY"
+    BUY_PLUS = "BUY+"
+    HOLD     = "HOLD"
+    SELL     = "SELL"
+    NONE     = "NONE"
+    SHORT    = "SHORT"   # transitional: nicht mehr von derive_recommendation ausgegeben
+
+
+class ShortAction(str, Enum):
+    SHORT      = "SHORT"
+    SHORT_PLUS = "SHORT+"
+    HOLD       = "HOLD"
+    COVER      = "COVER"
+    NONE       = "NONE"
+
+
+class PositionState(str, Enum):
+    NONE  = "none"
+    LONG  = "long"
+    SHORT = "short"
 
 
 class ShortType(str, Enum):
