@@ -1,5 +1,6 @@
 import asyncio
 
+from core.domain.events import ConflictResolutionReady
 from core.domain.models import ConflictResolution
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
@@ -15,6 +16,10 @@ _VALID = {"EXIT", "HOLD", "REVERSE"}
 
 
 def _parse_verdict(text: str) -> str:
+    """Verdikt ausschließlich aus der `VERDICT:`-Zeile lesen.
+    Bewusst KEIN Stichwort-Scan im Fließtext — Verneinungen/Erwähnungen wie
+    „kein Exit" oder „nicht aussteigen" würden sonst fälschlich EXIT liefern.
+    Fehlt eine gültige Zeile → konservativer Default HOLD (siehe Spec)."""
     for line in (text or "").splitlines():
         s = line.strip().upper()
         if s.startswith("VERDICT:"):
@@ -22,10 +27,6 @@ def _parse_verdict(text: str) -> str:
             tok = parts[1].strip().split()[0] if len(parts) > 1 and parts[1].strip() else ""
             if tok in _VALID:
                 return tok
-    up = (text or "").upper()
-    for v in ("EXIT", "REVERSE", "HOLD"):
-        if v in up:
-            return v
     return "HOLD"
 
 
@@ -42,7 +43,10 @@ class ConflictAgent:
             if hr is not None:
                 track = f"\nSYSTEM-TRACK-RECORD (Kontext): historische Treffsicherheit {hr:.0%}"
 
-        long_line = f"LONG-LESART: {recommendation.action.value} — {recommendation.reasoning}"
+        if recommendation is not None:
+            long_line = f"LONG-LESART: {recommendation.action.value} — {recommendation.reasoning}"
+        else:
+            long_line = "LONG-LESART: n/v"
         if short_assessment:
             sa = short_assessment
             short_line = (f"SHORT-LESART: {sa.short_action.value}, Konfidenz {sa.confidence:.0%}, "
@@ -51,6 +55,11 @@ class ConflictAgent:
         else:
             short_line = "SHORT-LESART: n/v"
 
+        # Anomalie-Summaries defensiv (None → "keine"); der Orchestrator umhüllt zwar
+        # mit try/except, aber so geht bei fehlenden Daten das Urteil nicht still verloren.
+        td_sum = getattr(top_down_anomaly, "summary", None) or "keine"
+        bu_sum = getattr(bottom_up_anomaly, "summary", None) or "keine"
+
         prompt = f"""Titel: {ticker} | Gehaltene Position: {current_position.value}
 KONFLIKT: {conflict_reason}
 
@@ -58,10 +67,17 @@ KONFLIKT: {conflict_reason}
 {short_line}
 
 ANOMALIEN:
-{top_down_anomaly.summary}
-{bottom_up_anomaly.summary}{track}
+{td_sum}
+{bu_sum}{track}
 
 Hat sich die gehaltene These wirklich gedreht? Verdikt + Begründung."""
 
         text = await asyncio.to_thread(self.llm.complete, prompt, SYSTEM_PROMPT)
-        return ConflictResolution(verdict=_parse_verdict(text), reasoning=text)
+        resolution = ConflictResolution(verdict=_parse_verdict(text), reasoning=text)
+        # Konsistenz mit den übrigen Agenten: Fertig-Event veröffentlichen
+        # (Daten fließen via Rückgabewert/result; das Event ist für spätere Listener).
+        self.bus.publish(ConflictResolutionReady(
+            source="conflict_agent",
+            payload={"ticker": ticker, "verdict": resolution.verdict},
+        ))
+        return resolution

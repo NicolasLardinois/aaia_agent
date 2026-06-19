@@ -3,6 +3,7 @@ from types import SimpleNamespace as NS
 from unittest.mock import MagicMock
 
 from agents.conflict.conflict_agent import ConflictAgent, _parse_verdict
+from core.domain.events import ConflictResolutionReady
 
 
 class _LLM:
@@ -50,3 +51,30 @@ def test_parse_fallback_hold():
 def test_track_record_in_prompt():
     agent, _ = _run("VERDICT: HOLD\n…", bt={"hit_rate": 0.65})
     assert "65" in agent.llm.last_prompt or "0.65" in agent.llm.last_prompt
+
+
+def test_parse_fallback_ignores_prose_keywords():
+    # Ohne VERDICT:-Zeile, aber Prosa nennt "Exit"/"aussteigen" → konservativ HOLD,
+    # NICHT EXIT (kein Stichwort-Scan im Fließtext).
+    assert _parse_verdict("Klar halten, auf keinen Fall aussteigen. Kein Exit.") == "HOLD"
+    assert _parse_verdict("Ich würde NICHT zum Exit raten.") == "HOLD"
+
+
+def test_run_handles_missing_inputs():
+    # recommendation + beide Anomalien None → kein Crash, gültiges Verdikt.
+    agent = ConflictAgent(_LLM("VERDICT: HOLD\nBegründung."), MagicMock())
+    from core.domain.models import PositionState
+    cr = asyncio.run(agent.run(
+        ticker="X", current_position=PositionState.LONG, recommendation=None,
+        short_assessment=None, conflict_reason="x",
+        top_down_anomaly=None, bottom_up_anomaly=None, backtester_context=None))
+    assert cr.verdict == "HOLD"
+
+
+def test_publishes_event():
+    # Konsistenz mit den anderen Agenten: am Ende ein ConflictResolutionReady publizieren.
+    agent, cr = _run("VERDICT: EXIT\nDie These ist gekippt.")
+    agent.bus.publish.assert_called_once()
+    ev = agent.bus.publish.call_args[0][0]
+    assert isinstance(ev, ConflictResolutionReady)
+    assert ev.payload["verdict"] == "EXIT" and ev.payload["ticker"] == "X"

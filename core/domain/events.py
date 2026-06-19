@@ -200,3 +200,6 @@ class TopDownContextReady(AgentEvent): pass
 
 @dataclass
 class DeepDiveResultReady(AgentEvent): pass
+
+@dataclass
+class ConflictResolutionReady(AgentEvent): pass

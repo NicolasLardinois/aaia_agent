@@ -101,6 +101,7 @@ class SupabaseMemory(MemoryPort):
 
         if getattr(result, "conflict_resolution", None):
             indicators["conflict_verdict"] = result.conflict_resolution.verdict
+            indicators["conflict_reasoning"] = result.conflict_resolution.reasoning
 
         regime = None
         regime_conf = None
