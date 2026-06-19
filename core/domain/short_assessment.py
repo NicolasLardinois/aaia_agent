@@ -1,5 +1,3 @@
-from typing import Optional
-
 from core.domain.models import (
     AnomalyReport, ShortAssessment, ShortAction, PositionState, MarketRegime,
 )
@@ -77,7 +75,7 @@ def derive_short_assessment(bottom_up, cockpit, current_position,
                         archetypes.append(f.archetype)
                 else:
                     verst.append(f)
-        except Exception:
+        except (AttributeError, TypeError):
             continue
 
     if not kern:
@@ -92,14 +90,16 @@ def derive_short_assessment(bottom_up, cockpit, current_position,
     conf = max(bases)
     conf += 0.04 * (len(archetypes) - 1)
     conf += sum(f.weight for f in verst)
-    has_catalyst = any(f.name == "earnings_collapse" for f in kern)
-    if not has_catalyst:
-        conf = min(conf, 0.70)
     if regime == "headwind":  conf -= 0.12
     elif regime == "tailwind": conf += 0.05
     if dtc is not None and dtc >= 8 and htb:
         conf -= 0.10
     conf += _anomaly_boost(bu_anomaly) + _anomaly_boost(td_anomaly)
+    # Ohne Katalysator (earnings_collapse) ist 0.70 ein HARTER Deckel — erst NACH
+    # allen Regime-/Anomalie-Anpassungen anwenden, damit Rueckenwind ihn nicht durchbricht.
+    has_catalyst = any(f.name == "earnings_collapse" for f in kern)
+    if not has_catalyst:
+        conf = min(conf, 0.70)
     conf = max(0.10, min(1.0, conf))
 
     action = _action(current_position, conf)

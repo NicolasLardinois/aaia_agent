@@ -97,3 +97,15 @@ def test_non_equity_fallback():
     a = _run(_bu(asset_class="commodity"))
     assert a.short_action == ShortAction.NONE
     assert "Fallback" in a.thesis_flags[0]
+
+
+def test_no_catalyst_cap_is_hard_ceiling():
+    """Ohne Katalysator (earnings_collapse) ist 0.70 ein HARTER Deckel — auch
+    Rückenwind-Regime + bearishe Anomalie dürfen ihn nicht durchbrechen."""
+    bu = _bu(quality=NS(altman_z=0.9, interest_coverage=0.5, fcf_margin=-5.0,
+                        debt_to_equity=2.0, current_ratio=0.8))   # Distress, KEIN Katalysator
+    bear = AnomalyReport(has_anomalies=True, statistical=["x"], contradictions=[],
+                         severity="high", summary="s", direction="bearish")
+    a = _run(bu, cockpit=_cockpit(MarketRegime.RECESSION), bua=bear)   # tailwind + Boost
+    assert "broken_growth" not in a.archetypes        # wirklich kein Katalysator
+    assert a.confidence <= 0.70
