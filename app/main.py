@@ -153,6 +153,9 @@ async def run_judgment(ticker: str, market: str = "USA", current_position: Posit
               + (f" | Typ: {', '.join(sa.archetypes)}" if sa.archetypes else ""))
     if result.conflict:
         print(f"⚠️  KONFLIKT: {result.conflict_reason}")
+    if result.conflict_resolution:
+        cr = result.conflict_resolution
+        print(f"🔀 KONFLIKT-URTEIL: {cr.verdict}\n{cr.reasoning}")
     print(f"\nURTEIL:\n{result.judgment}")
 
 
