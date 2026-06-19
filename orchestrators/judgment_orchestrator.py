@@ -1,6 +1,7 @@
 from agents.anomaly_chief_agent import AnomalyChiefAgent
 from agents.judgment_chief_agent import JudgmentChiefAgent
 from agents.backtester_chief_agent import BacktesterChiefAgent
+from agents.conflict.conflict_agent import ConflictAgent
 from core.domain.models import AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult, PositionState
 from core.domain.recommendation import FULL_ANALYSIS_MARKETS
 from core.domain.top_down_context import derive_top_down_context
@@ -20,6 +21,7 @@ class JudgmentOrchestrator:
         self.anomaly_chief    = AnomalyChiefAgent(bus)
         self.judgment_chief   = JudgmentChiefAgent(llm, bus)
         self.backtester_chief = BacktesterChiefAgent(memory, bus)
+        self.conflict_agent   = ConflictAgent(llm, bus)
 
     async def run(
         self,
@@ -71,5 +73,17 @@ class JudgmentOrchestrator:
 
         result.top_down_anomaly = td_anomaly
         result.bottom_up_anomaly = bu_anomaly
+
+        if result.conflict:
+            try:
+                result.conflict_resolution = await self.conflict_agent.run(
+                    ticker=bottom_up.ticker, current_position=current_position,
+                    recommendation=result.recommendation, short_assessment=result.short_assessment,
+                    conflict_reason=result.conflict_reason,
+                    top_down_anomaly=td_anomaly, bottom_up_anomaly=bu_anomaly,
+                    backtester_context=backtester_context)
+            except Exception:
+                result.conflict_resolution = None
+
         self.memory.save_analysis(result, cockpit, price=None)
         return result
