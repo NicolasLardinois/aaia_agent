@@ -1,7 +1,9 @@
 # Open TODOs
 
 Alle offenen Aufgaben aus Codebase, Code Review (2026-06-05) und Plan-Dateien.
-Stand: 2026-06-16 | Nach Erledigung: Zeile abhaken oder entfernen.
+Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
+
+> **Hinweis (2026-06-19):** Die fachliche Review `docs/finanz_konzept_review_2026-06-16.md` (~50 Befunde) wurde gegen den Code abgeglichen — **Ergebnis: weitgehend umgesetzt.** Der Status steht in **§10**; offene Reste sind dort verlinkt und in §1–§7 bereits erfasst.
 
 ---
 
@@ -191,7 +193,8 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - [ ] `top_10_concentration` berechnen (aktuell `None`)
 
 ### agents/stock_deep_dive/index/index_valuation_agent.py (Zeile 59)
-- [ ] Shiller CAPE (`shiller_cape=None`) — Quelle: Quandl / multpl.com
+- [x] Shiller CAPE — **implementiert** (2026-06-19 verifiziert): `earnings_yield`/`equity_risk_premium`/`shiller_cape` im Agenten, zinsabhängiges ERP-Signal.
+  Offen ist nur noch die **Datenquelle 10J-Real-EPS** (FMP) anzubinden, damit `cape` real befüllt wird statt `None` → siehe §2 (Datenadapter).
 
 ### agents/stock_deep_dive/commodity/commodity_valuation_range_agent.py (Zeile 64)
 - [ ] Commodity-spezifische Kostenmodelle (`production_cost_low/high=None`)
@@ -410,5 +413,53 @@ Jede Analyse gibt pro Linse genau eine Aktion. **HOLD vs NONE:** HOLD = Position
 - **Borrow-Kosten:** Proxy-Flag (v1) + optionales manuelles Feld (später).
 - **Regime-Gate:** Das Regime-Veto ist Teil der Short-Schicht (Cockpit fließt in `derive_short_assessment` ein); die volle Regeln-/Track-Weiche ist Block #3.
 
-### Noch offen (für Bauabschnitt-1-Design)
-- Genaues Feld-Set von `ShortAssessment` (Score, Thesen-Flags, Risiko-Block) + konkrete Equity-Kriterien/Schwellen.
+### Build-Status & offene Blöcke (im Code geprüft 2026-06-19)
+
+**✅ Erledigt:** Foundation-Block (PR #3) · Block 1 + 1b (`core/domain/short_assessment.py` `derive_short_assessment`, im `judgment_agent` verdrahtet, `detect_conflict` bidirektional) · `AnomalyReport.direction` als Block-1-Voraussetzung (`core/domain/models.py`) · Feld-Set von `ShortAssessment` steht.
+
+**⏳ Offen (verifiziert noch nicht im Code):**
+- [ ] **Konflikt-Agent (Folge-Block, short.md §18)** — eigene LLM-Reversal-Abwägung bei `conflict` (Block 1 *erkennt* nur). **In Umsetzung auf Branch `feat/conflict-agent`** (Spec + Plan + erste Commits, 4-Task-Plan) — finaler Status beim End-Abgleich der Short-Blöcke prüfen.
+  Spec: `docs/superpowers/specs/2026-06-19-konflikt-agent-design.md` · Plan: `docs/superpowers/plans/2026-06-19-konflikt-agent.md`.
+  **Umfang laut Spec:** **beratend** (ändert keine formale Aktion); `ConflictResolution`-Modell (Verdikt `EXIT`/`HOLD`/`REVERSE` + Reasoning, vom LLM via `VERDICT:`-Zeile, Parse-Fehler → `HOLD`) an `DeepDiveResult`; `ConflictAgent` (`agents/conflict/`, LLM wie `JudgmentAgent`); **bedingter Call** im `judgment_orchestrator` (kein Chief); Anzeige in `app/main.py`; Persistenz via `memory.save_analysis` + Konsum von `backtester_context`. **Verdikt-Auswertung gegen Forward-Returns + Kalibrierung = Block #4.**
+- [ ] **Block #3 — Regeln/Regime-Weiche + Track-B-Hedge + Portfolio-Manager-Ausbau.** `portfolio_monitor_agent` hat **kein** `side`/`direction`-Feld (heute long-only).
+  **Ansatz:** `side` (long/short) je Position in `portfolio.json`; short-bewusste P&L (invertiert) + Netto-Exposure; daraus `current_position` (none/long/short) ableiten; Reconciliation (beide Linsen feuern).
+- [ ] **Block #4 — Short-Backtest** — gespiegelte Returns, Borrow-Kosten, getrennte Short-Auswertung + Kalibrierung des Konflikt-Agenten. *(Backtester spiegelt SHORT/SELL bereits vorzeichen-korrekt; Borrow-Kosten + getrennte Auswertung fehlen.)*
+- [ ] **Track B — `ShortThesisAgent` (LLM)** — Fließtext-These + XAI auf der Engine.
+- [ ] **Equity-Momentum-Agent (long + short)** — `MomentumSnapshot` (analog Index), aktiviert die dormanten Momentum-Flags. *(Equity hat noch keinen Momentum-Agenten.)*
+- [ ] **Asset-Klassen-Shorts** — Rohstoff (Roll-Yield/Carry, Cost-Curve-Boden), Anleihe (Carry/Duration/Credit-Asymmetrie), Edelmetall. Je eigener Block.
+- [ ] **Futures als neue Anlageklasse** (long + short) — eigener Scope-/Brainstorming-Entscheid **vor** Umsetzung.
+- [ ] **Borrow-Rate manuell** — optionales Eingabefeld als Ergänzung zum Hard-to-borrow-Proxy-Flag.
+
+---
+
+## 10. FINANZ-KONZEPT-REVIEW 2026-06-16 — STATUS (im Code geprüft 2026-06-19)
+
+Die CFA-Review `docs/finanz_konzept_review_2026-06-16.md` (~50 Befunde: ❌ falsch · ⚠️ verbesserungswürdig) wurde am 2026-06-19 gegen den aktuellen Code abgeglichen.
+**Ergebnis: weitgehend umgesetzt** (Pläne A–E, 06-16 bis 06-18). **Alle ❌-Befunde** und die strukturellen Prio-1–3-Punkte aus Teil B sind erledigt. Offen sind nur Daten-Anbindungen (Stubs) und einzelne Verdrahtungen — bereits in §1–§7 erfasst. **Kein Einzel-Import der erledigten Befunde**, um keine Schein-Todos anzulegen.
+
+### ✅ Erledigt — Beleg im Code (NICHT erneut eintragen)
+- **Backtest-Validität (1.1):** fixe `HORIZONS_DAYS`, `forward_return`, `hit_rate_ci`, Benchmark-Bereinigung, delistet-Handling; `top_down_backtester` = echter Prognose-Backtest (Regime t → Benchmark t+h).
+- **Risikokennzahlen (1.2):** `core/utils/performance_metrics.py` (sharpe/sortino/max_drawdown/profit_factor); `_position_size_pct` in `recommendation.py`.
+- **Stubs ≠ NEUTRAL (1.4):** `aggregation.weighted_signal` ignoriert UNAVAILABLE + re-normalisiert die Gewichte.
+- **DCF (2.1):** echtes `two_stage_dcf` + `capm_wacc`.
+- **Edelmetall-Bewertung (2.2):** `real_rate_anchor` preis-unabhängig, `weighted_median_range` statt Min/Max-Union.
+- **Credit-Rating (2.3):** kein `startswith`-Skalen-Mismatch mehr.
+- **Niveau→Momentum (2.4):** `energy`/`industrial_metals` via Z-Score; Metalle als **Copper/Gold-Ratio**.
+- **CAPE/ERP (2.5):** CAPE aus `fundamentals` entfernt; `index_valuation` mit `earnings_yield`/`equity_risk_premium`/`shiller_cape`.
+- **Relativ/real/Sub-Signale (3.1–3.3):** reales Kreditwachstum (`to_real`), Money-Supply `excess_over_nominal_gdp` (lückenlose Bänder), `macro_chief.detect(sub_signals=…)`; **alle** Chiefs aggregieren via `weighted_signal` (macro/sentiment/yield_curve/equity/index).
+- **VIX contrarian (3.4)** · **Insider wertgewichtet + Sektor benchmark-relativ (3.6)** · **`_RATE_HISTORY` → `DatedHistoryPort` (3.7)**.
+- **Statistik (4.1):** `robust_z_score` (MAD/Iglewicz-Hoaglin) + `bonferroni_z_threshold`.
+- **Wilder-RSI + MA200 ≥ 2y (4.2)** · **echtes Commodity-Perzentil (4.3)** · **lückenlose Bänder Inflation/Geldmenge (4.4)** · **Portfolio FX/HHI/Max-DD**.
+
+### ⏳ Noch offen — bereits anderswo erfasst (kein Duplikat anlegen)
+- **Konfidenz-Kalibrierung (1.3)** → §4 `recommendation.py` (Buckets leer, Fallback 0.70).
+- **Daten-Stubs** (COT, Supply/Demand, Fear&Greed, Bond-Rohdaten, Index-Konstituenten) → §2/§3/§5 + Plan E.
+- **Verdrahtungen** (Money-Supply-Velocity-Trend, Yield-Curve-Bull-Steepening `prev_10y3m`, Interest-Rate-Richtung-History, EU/CH-Sahm-Historie) → §D1. *(Logik je vorhanden, `run()` übergibt noch `None`.)*
+- **Bond-Detail** (Yield-to-Worst, Convexity in Preisänderung, OAS-Effective-Duration, Recovery/LGD/Credit-Triangle) → §2 (Bond-Daten) + §7 (Plan C).
+- **Total Return vs. Price Return (4.6)** → §7/Plan E: für CH bewusst Price Return als Default (nicht umgesetzt).
+
+### ⏳ Neu erfasst (war noch nirgends notiert)
+- [ ] **`agents/stock_deep_dive/precious_metals_chief_agent.py` (Z. 45/56): `cot_signal=Signal.NEUTRAL` hart verdrahtet** trotz vorhandenem `cot_agent`.
+  **Ansatz:** sobald COT-Daten angebunden sind (§3), `cot_agent`-Signal einspeisen statt fix NEUTRAL.
+- [ ] **`commodity_chief`/`precious_metals_chief`: gewichtete Signal-Synthese + `currency_impact` (USD-Effekt) prüfen/ergänzen** (Review Domäne 7: nur Einsammeln ohne Zuverlässigkeits-Gewichtung; Saisonalität mit n<10 nicht heruntergewichtet).
+  **Ansatz:** `weighted_signal` analog den übrigen Chiefs; Saisonalität klein gewichten; USD-Effekt erfassen.
