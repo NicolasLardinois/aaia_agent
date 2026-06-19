@@ -773,6 +773,12 @@ class ShortAssessment:
 
 
 @dataclass
+class ConflictResolution:
+    verdict: str       # "EXIT" | "HOLD" | "REVERSE"
+    reasoning: str
+
+
+@dataclass
 class DeepDiveResult:
     ticker: str
     asset_class: str
@@ -792,3 +798,4 @@ class DeepDiveResult:
     short_assessment: Optional["ShortAssessment"] = None
     conflict: bool = False
     conflict_reason: str = ""
+    conflict_resolution: Optional["ConflictResolution"] = None
