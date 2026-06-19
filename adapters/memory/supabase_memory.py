@@ -99,6 +99,9 @@ class SupabaseMemory(MemoryPort):
             except AttributeError:
                 pass
 
+        if getattr(result, "conflict_resolution", None):
+            indicators["conflict_verdict"] = result.conflict_resolution.verdict
+
         regime = None
         regime_conf = None
         if cockpit:
