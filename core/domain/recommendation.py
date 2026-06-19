@@ -2,7 +2,7 @@ from typing import Optional
 
 from core.domain.models import (
     AnomalyReport, CockpitResult,
-    InvestmentRecommendation, PositionState, Recommendation, ShortAction, ShortType, Signal,
+    InvestmentRecommendation, PositionState, Recommendation, ShortType, Signal,
 )
 
 # Alle Märkte mit vollständigem Top-Down-Kontext (Makrodaten vorhanden):
@@ -163,8 +163,16 @@ def derive_recommendation(
     return InvestmentRecommendation(action, None, None, confidence, reasoning)
 
 
-def derive_short_action_placeholder(current_position: PositionState) -> ShortAction:
-    """Platzhalter bis zur Short-Thesis-Engine (Block 1).
-    short gehalten → HOLD; sonst → NONE (bei LONG deferiert die Short-Linse —
-    man shortet nicht, was man besitzt). Block 1 muss Defer-on-LONG beibehalten."""
-    return ShortAction.HOLD if current_position == PositionState.SHORT else ShortAction.NONE
+def detect_conflict(current_position, alignment, dominant_signal, short_assessment, long_confidence):
+    """Bidirektional: gehaltene Position vs. gegenläufiges Linsen-Signal."""
+    if current_position == PositionState.LONG:
+        if short_assessment.confidence >= 0.50 and short_assessment.archetypes:
+            return True, (f"Long gehalten, screent aber als Short "
+                          f"(Konfidenz {short_assessment.confidence:.0%}; "
+                          f"{', '.join(short_assessment.archetypes)}) — Long-These prüfen (evtl. SELL).")
+    if current_position == PositionState.SHORT:
+        bullish = alignment == "aligned_bullish" or dominant_signal == Signal.BULLISH
+        if bullish and long_confidence >= 0.50:
+            return True, (f"Short gehalten, screent aber bullish "
+                          f"(Long-Konfidenz {long_confidence:.0%}) — Short-These prüfen (evtl. COVER).")
+    return False, ""
