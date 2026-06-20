@@ -2,7 +2,7 @@ import asyncio
 from unittest.mock import MagicMock
 
 from agents.stock_deep_dive.equity.short_interest_agent import ShortInterestAgent, _signal
-from core.domain.models import Signal
+from core.domain.models import ShortInterestSnapshot, Signal
 
 
 def _make_agent(data: dict) -> ShortInterestAgent:
@@ -65,7 +65,6 @@ def test_run_durchreichung():
 
 def test_run_provider_wirft_liefert_neutralen_snapshot():
     """Provider wirft → run() liefert neutralen ShortInterestSnapshot statt zu crashen."""
-    from core.domain.models import ShortInterestSnapshot
     provider = MagicMock()
     provider.get_short_interest.side_effect = ValueError("API down")
     result = asyncio.run(ShortInterestAgent(provider, MagicMock()).run("FAIL"))
@@ -76,7 +75,6 @@ def test_run_provider_wirft_liefert_neutralen_snapshot():
 
 def test_run_provider_gibt_exception_zurueck_liefert_neutralen_snapshot():
     """Provider gibt eine Exception als Wert zurück → run() crasht nicht (kein .get auf Exception)."""
-    from core.domain.models import ShortInterestSnapshot
     provider = MagicMock()
     provider.get_short_interest.return_value = ValueError("bad data")
     result = asyncio.run(ShortInterestAgent(provider, MagicMock()).run("FAIL"))

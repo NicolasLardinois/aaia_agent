@@ -2,7 +2,7 @@ import asyncio
 from unittest.mock import MagicMock
 
 from agents.stock_deep_dive.equity.insider_agent import InsiderAgent, _net_value, _signal
-from core.domain.models import Signal
+from core.domain.models import InsiderSnapshot, Signal
 
 
 def _make_agent(transactions: list[dict]) -> InsiderAgent:
@@ -82,7 +82,6 @@ def test_leere_liste_neutral():
 
 def test_run_provider_wirft_liefert_neutralen_snapshot():
     """Provider wirft → run() liefert neutralen InsiderSnapshot statt zu crashen."""
-    from core.domain.models import InsiderSnapshot
     provider = MagicMock()
     provider.get_insider_activity.side_effect = ValueError("API down")
     result = asyncio.run(InsiderAgent(provider, MagicMock()).run("FAIL"))
@@ -94,7 +93,6 @@ def test_run_provider_wirft_liefert_neutralen_snapshot():
 
 def test_run_provider_gibt_exception_zurueck_liefert_neutralen_snapshot():
     """Provider gibt eine Exception als Wert zurück → run() crasht nicht."""
-    from core.domain.models import InsiderSnapshot
     provider = MagicMock()
     provider.get_insider_activity.return_value = ValueError("bad data")
     result = asyncio.run(InsiderAgent(provider, MagicMock()).run("FAIL"))
