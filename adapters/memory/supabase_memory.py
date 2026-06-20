@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import time
 import urllib.parse
@@ -10,6 +11,37 @@ import psycopg2
 import psycopg2.extras
 
 from core.ports.memory_port import MemoryPort
+
+_log = logging.getLogger(__name__)
+
+# Sentinel: unterscheidet "Feldzugriff fehlgeschlagen" von "Wert ist None".
+_MISSING = object()
+
+
+def _safe_value(getter, *, what: str):
+    """Liest einen (ggf. verschachtelten) Wert defensiv aus.
+
+    Schlägt der Zugriff fehl — typischer Fall: ein umbenanntes/fehlendes
+    CockpitResult-/BottomUpResult-Unterfeld — wird der Fehler GELOGGT statt
+    still verschluckt und ``_MISSING`` zurückgegeben, sodass der Aufrufer nur
+    diesen einen Wert überspringt (granular), nicht alle folgenden.
+    (Verwandt mit dem geplanten zentralen ``_safe``-Helfer, siehe §7 im Logbuch.)
+    """
+    try:
+        return getter()
+    except AttributeError:
+        _log.warning("Snapshot-Feld %r nicht lesbar (umbenanntes/fehlendes Feld?)", what, exc_info=True)
+        return _MISSING
+
+
+def _put(snap: dict, key: str, getter, *, allow_none: bool = False) -> None:
+    """Setzt ``snap[key]`` defensiv. Bei Lesefehler: loggen + überspringen.
+    Bei erfolgreich gelesenem ``None`` nur setzen, wenn ``allow_none`` gilt."""
+    value = _safe_value(getter, what=key)
+    if value is _MISSING:
+        return
+    if value is not None or allow_none:
+        snap[key] = value
 
 
 def _extract_price(result) -> Optional[float]:
@@ -31,19 +63,13 @@ def _build_indicators_snapshot(cockpit) -> dict:
     if cockpit is None:
         return {}
     snap: dict = {}
-    try:
-        if cockpit.sentiment.vix.vix is not None:
-            snap["vix"] = cockpit.sentiment.vix.vix
-        if cockpit.sentiment.fear_greed.value is not None:
-            snap["fear_greed"] = cockpit.sentiment.fear_greed.value
-        snap["regime_confidence"] = cockpit.macro.regime_confidence
-        s = cockpit.yield_curve.yield_spreads.usa
-        if s.spread_10y2y is not None:
-            snap["yield_spread_10y2y"] = s.spread_10y2y
-        if cockpit.macro.inflation.usa.cpi is not None:
-            snap["inflation_cpi_usa"] = cockpit.macro.inflation.usa.cpi
-    except AttributeError:
-        pass
+    # Jeder Indikator wird einzeln und defensiv gelesen: ein umbenanntes Feld
+    # überspringt nur sich selbst (+ Log), statt den ganzen Snapshot zu leeren.
+    _put(snap, "vix", lambda: cockpit.sentiment.vix.vix)
+    _put(snap, "fear_greed", lambda: cockpit.sentiment.fear_greed.value)
+    _put(snap, "regime_confidence", lambda: cockpit.macro.regime_confidence, allow_none=True)
+    _put(snap, "yield_spread_10y2y", lambda: cockpit.yield_curve.yield_spreads.usa.spread_10y2y)
+    _put(snap, "inflation_cpi_usa", lambda: cockpit.macro.inflation.usa.cpi)
     return snap
 
 
@@ -89,15 +115,12 @@ class SupabaseMemory(MemoryPort):
 
         bu = result.bottom_up
         if bu:
-            try:
-                if bu.fundamentals and bu.fundamentals.pe_ratio is not None:
-                    indicators["pe_ratio"] = bu.fundamentals.pe_ratio
-                if bu.short_interest and bu.short_interest.short_float_pct is not None:
-                    indicators["short_float_pct"] = bu.short_interest.short_float_pct
-                if bu.insider and bu.insider.recent_transactions is not None:
-                    indicators["insider_transactions"] = bu.insider.recent_transactions
-            except AttributeError:
-                pass
+            _put(indicators, "pe_ratio",
+                 lambda: bu.fundamentals.pe_ratio if bu.fundamentals else None)
+            _put(indicators, "short_float_pct",
+                 lambda: bu.short_interest.short_float_pct if bu.short_interest else None)
+            _put(indicators, "insider_transactions",
+                 lambda: bu.insider.recent_transactions if bu.insider else None)
 
         if getattr(result, "conflict_resolution", None):
             indicators["conflict_verdict"] = result.conflict_resolution.verdict
@@ -106,11 +129,13 @@ class SupabaseMemory(MemoryPort):
         regime = None
         regime_conf = None
         if cockpit:
-            try:
-                regime = cockpit.macro.regime.value
-                regime_conf = cockpit.macro.regime_confidence
-            except AttributeError:
-                pass
+            # Granular: bricht z. B. `regime`, wird `regime_confidence` trotzdem gelesen.
+            regime_val = _safe_value(lambda: cockpit.macro.regime.value, what="regime")
+            if regime_val is not _MISSING:
+                regime = regime_val
+            conf_val = _safe_value(lambda: cockpit.macro.regime_confidence, what="regime_confidence")
+            if conf_val is not _MISSING:
+                regime_conf = conf_val
 
         with self._connect() as conn:
             with conn.cursor() as cur:

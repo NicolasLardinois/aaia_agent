@@ -92,9 +92,10 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
   Inkonsistent mit `quality_agent.py` (hat den Guard). Exceptions propagieren unkontrolliert.
   **✅ Audit 2026-06-20 → behoben (TDD).** Befund: `fundamentals_agent` hatte den Guard bereits (robuster als `quality_agent`: `try/except` **plus** `isinstance`). Offen waren `insider_agent` + `short_interest_agent`. **Lösung:** dasselbe robuste Muster (`try/except Exception` → leere Liste/Dict, **plus** `isinstance(..., Exception)`-Guard) in beide `run()` ergänzt → Rückfall auf neutralen Default statt Crash. Deckt beide Fehlermodi ab (Provider **wirft** und Provider **gibt Exception zurück**). Je 2 neue Tests; Gesamtsuite **715 grün**. **PR #13 am 2026-06-20 gemergt** (Branch `fix/bug44-equity-exception-guards`; im Review noch Snapshot-Imports an den Dateikopf gezogen — reine Stil-Kosmetik, kein Verhalten geändert).
 
-- [ ] **Bug #46** — `adapters/memory/supabase_memory.py:44`
+- [x] **Bug #46** — `adapters/memory/supabase_memory.py:44`
   Breites `except AttributeError: pass` schluckt alle Fehler still.
   Jede Umbenennung von `CockpitResult`-Unterfeldern führt zu einem leeren Snapshot ohne Fehlermeldung.
+  **✅ Audit 2026-06-20 → behoben (TDD).** Befund: das stille `except AttributeError: pass` lag **3×** in der Datei (`_build_indicators_snapshot` + 2× in `save_analysis`: Bottom-Up-Indikatoren + Regime). **Lösung:** modul-lokaler Defensiv-Helfer `_safe_value(getter, what=…)` (loggt via `logging.warning(..., exc_info=True)` statt still zu schlucken, liefert `_MISSING`-Sentinel) + `_put(snap, key, getter, allow_none=…)`. Alle 3 Stellen lesen jetzt **granular**: ein umbenanntes Feld überspringt nur sich selbst (+ Log), reißt die folgenden Indikatoren nicht mehr mit. 4 neue Tests (Granularität + Logging für alle 3 Stellen); Gesamtsuite **719 grün**. **Bewusst klein gehalten** — der projektweite zentrale `_safe`-Helfer für Provider-Calls bleibt das separate Feature aus §7 (PR #14). *(PR: `fix/bug46-supabase-silent-except`.)*
 
 - [ ] **Bug #47** — `agents/stock_deep_dive/equity_chief_agent.py`, `bond_chief_agent.py`, `commodity_chief_agent_mikro.py`
   Chief Agents sammeln Sub-Agent-Ergebnisse, synthetisieren aber kein aggregiertes Gesamt-Signal.
