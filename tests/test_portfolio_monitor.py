@@ -9,7 +9,10 @@ def _make_memory(last_recs: dict = None):
     if last_recs:
         def load_history(ticker, days=90):
             if ticker in last_recs:
-                return [{"recommendation": last_recs[ticker]}]
+                v = last_recs[ticker]
+                # str → Long-Aktion (Spalte "recommendation"); dict → ganze History-Zeile
+                # (z. B. {"short_action": "COVER"}), wie sie supabase_memory.load_history liefert.
+                return [v if isinstance(v, dict) else {"recommendation": v}]
             return []
         memory.load_history.side_effect = load_history
     else:
@@ -185,11 +188,15 @@ def test_exposure_fields_present():
 
 
 # ---------------------------------------------------------------------------
-# F1 — Alignment-Warnung richtungs-bewusst (long: SELL/SHORT, short: COVER/BUY)
+# Alignment-Warnung richtungs-bewusst UND an echte Persistenz gekoppelt:
+#   long  liest die Long-Aktion (Spalte "recommendation") → Fehlausrichtung = SELL
+#   short liest die Short-Aktion (Spalte "short_action")   → Fehlausrichtung = COVER
+# (Die Long-Linse deferiert bei Short auf NONE, daher MUSS die Short-Warnung am
+#  separat persistierten short_action hängen, nicht am recommendation-Feld.)
 # ---------------------------------------------------------------------------
 
 def test_long_with_sell_rec_triggers_alignment_warning():
-    """Long + letzte Analyse SELL → Fehlausrichtung → Alignment-Warnung (Regression)."""
+    """Long + letzte Long-Aktion SELL → Fehlausrichtung → Alignment-Warnung (Regression)."""
     positions = [_pos("AAPL", 10, 100, 100, direction="long")]
     agent = PortfolioMonitorAgent(
         _make_memory({"AAPL": "SELL"}), portfolio_port=_make_port(positions),
@@ -200,28 +207,40 @@ def test_long_with_sell_rec_triggers_alignment_warning():
     assert len(align) == 1, f"Erwartet 1 Alignment-Warnung, got: {result['alerts']}"
 
 
-def test_short_with_short_rec_no_alignment_warning():
-    """Short + letzte Analyse SHORT → ausgerichtet → KEINE Alignment-Warnung."""
-    positions = [_pos("XYZ", 10, 100, 100, direction="short")]
+def test_long_with_short_rec_no_alignment_warning():
+    """Long + 'recommendation'=SHORT → vestigial (wird nie ausgegeben) → KEINE Warnung."""
+    positions = [_pos("AAPL", 10, 100, 100, direction="long")]
     agent = PortfolioMonitorAgent(
-        _make_memory({"XYZ": "SHORT"}), portfolio_port=_make_port(positions),
+        _make_memory({"AAPL": "SHORT"}), portfolio_port=_make_port(positions),
         fx_rate=lambda a, b: 1.0,
     )
     result = agent._evaluate_positions(positions)
     align = [a for a in result["alerts"] if "Alignment" in a]
-    assert align == [], f"Short+SHORT ist ausgerichtet — keine Warnung erwartet, got: {result['alerts']}"
+    assert align == [], f"SHORT ist vestigial — keine Warnung erwartet, got: {result['alerts']}"
 
 
-def test_short_with_cover_rec_triggers_alignment_warning():
-    """Short + letzte Analyse COVER → Fehlausrichtung (Analyse will eindecken) → Alignment-Warnung."""
+def test_short_with_cover_action_triggers_alignment_warning():
+    """Short + persistierte short_action=COVER → Fehlausrichtung (Engine will eindecken) → Warnung."""
     positions = [_pos("XYZ", 10, 100, 100, direction="short")]
     agent = PortfolioMonitorAgent(
-        _make_memory({"XYZ": "COVER"}), portfolio_port=_make_port(positions),
+        _make_memory({"XYZ": {"short_action": "COVER"}}), portfolio_port=_make_port(positions),
         fx_rate=lambda a, b: 1.0,
     )
     result = agent._evaluate_positions(positions)
     align = [a for a in result["alerts"] if "Alignment" in a]
     assert len(align) == 1, f"Erwartet 1 Alignment-Warnung (Short+COVER), got: {result['alerts']}"
+
+
+def test_short_with_hold_action_no_alignment_warning():
+    """Short + persistierte short_action=HOLD → ausgerichtet → KEINE Warnung."""
+    positions = [_pos("XYZ", 10, 100, 100, direction="short")]
+    agent = PortfolioMonitorAgent(
+        _make_memory({"XYZ": {"short_action": "HOLD"}}), portfolio_port=_make_port(positions),
+        fx_rate=lambda a, b: 1.0,
+    )
+    result = agent._evaluate_positions(positions)
+    align = [a for a in result["alerts"] if "Alignment" in a]
+    assert align == [], f"Short+HOLD ist ausgerichtet — keine Warnung erwartet, got: {result['alerts']}"
 
 
 # ---------------------------------------------------------------------------

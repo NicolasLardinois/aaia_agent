@@ -119,11 +119,12 @@ class SupabaseMemory(MemoryPort):
                     INSERT INTO analysis_memory (
                         ticker, asset_class, market, regime, regime_confidence,
                         top_down_context, alignment, dominant_signal, recommendation,
+                        short_action,
                         confidence, xai_explanation, price_at_analysis,
                         top_down_anomaly_severity, bottom_up_anomaly_severity,
                         indicators_snapshot
                     ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     """,
                     (
@@ -136,6 +137,10 @@ class SupabaseMemory(MemoryPort):
                         result.alignment,
                         result.dominant_signal,
                         result.recommendation.action.value,
+                        # Short-Aktion separat persistieren: die Long-Linse deferiert bei
+                        # Short-Positionen auf NONE, daher steckt der echte COVER/HOLD/SHORT
+                        # nur in short_action — nötig für die Short-Alignment-Warnung im Monitor.
+                        result.short_action.value,
                         result.confidence,
                         result.xai_explanation,
                         resolved_price,
