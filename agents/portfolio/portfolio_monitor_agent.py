@@ -128,23 +128,25 @@ class PortfolioMonitorAgent:
                         f"(Einstand: {p.entry_price:.2f}, Heute: {cur:.2f})"
                     )
 
-        # Memory-Alignment-Warnungen — richtungs-bewusst:
-        #   long  ist fehlausgerichtet, wenn die Analyse raus/drehen will (SELL/SHORT);
-        #   short ist fehlausgerichtet, wenn die Analyse eindecken/drehen will (COVER/BUY).
-        # Sonst würde ein Short mit letzter Analyse SHORT (= perfekt ausgerichtet)
-        # fälschlich gewarnt und ein Short mit COVER (= echte Fehlausrichtung) übersehen.
+        # Memory-Alignment-Warnungen — richtungs-bewusst UND an die je Linse persistierte Aktion gekoppelt:
+        #   long  liest die Long-Aktion (Feld "recommendation") → Fehlausrichtung = SELL (Analyse will raus);
+        #   short liest die Short-Aktion (Feld "short_action")   → Fehlausrichtung = COVER (Engine will eindecken).
+        # Wichtig: die Long-Linse deferiert bei Short-Positionen auf NONE, daher MUSS die Short-Warnung
+        # am separat persistierten short_action hängen — am recommendation-Feld stünde für Shorts immer NONE.
         for p in positions:
             history = self.memory.load_history(p.ticker, days=90)
             if not history:
                 continue
-            last_rec = history[0].get("recommendation", "")
+            last = history[0]
             if p.direction == "long":
-                misaligned = last_rec in ("SELL", "SHORT")
+                last_action = last.get("recommendation", "")
+                misaligned = last_action == "SELL"
             else:  # short
-                misaligned = last_rec in ("COVER", "BUY")
+                last_action = last.get("short_action", "")
+                misaligned = last_action == "COVER"
             if misaligned:
                 alerts.append(
-                    f"Alignment-Warnung {p.ticker} ({p.direction}): letzte Analyse = {last_rec}, "
+                    f"Alignment-Warnung {p.ticker} ({p.direction}): letzte Analyse = {last_action}, "
                     f"Position aber noch gehalten."
                 )
 
