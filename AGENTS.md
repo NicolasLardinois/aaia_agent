@@ -120,6 +120,8 @@ So bildet das Logbuch lückenlos ab: Aufgabe → Lösung → PR-Entscheidung.
 
 > Die `docs/code_review_*.md` / `docs/finanz_konzept_review_*.md` sind **datierte Einmal-Audits** (Gesamt-Reviews) — **kein** Logbuch. Dort nur bei einem neuen Vollaudit schreiben.
 
+> **Design-Hubs** (z. B. `docs/short.md`) und **Specs** (`docs/superpowers/specs/`) halten das **dauerhafte Design** (Konzepte, Architektur, das „Warum"). Der **laufende Status** — Roadmap/Reihenfolge, offene Folge-Aufgaben, PR-Protokoll, Entscheidungen — steht **ausschließlich im Logbuch** (`docs/open_todos.md`). **Keine** parallelen Roadmaps/Status-Listen in Design-Dokumenten (sonst driften sie auseinander).
+
 ### Größere Features
 
 - Spezifikation → `docs/superpowers/specs/`, Plan → `docs/superpowers/plans/` (Muster: `YYYY-MM-DD-thema.md`).
