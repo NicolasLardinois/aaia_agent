@@ -262,6 +262,8 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - [ ] **FundamentalsAgent** — `_score()` mit 7 Indikatoren ungetestet
 - [ ] **Chief-Agent-Tests** — prüfen nur `isinstance(result, XxxResult)`, keine Logik oder Aggregation
 - [ ] **BacktesterChiefAgent** — `backtester_context`-Einfluss auf Confidence nie getestet
+- [ ] **ResultCache Bottom-Up Round-Trip** *(Folge aus Bug #1, Audit 2026-06-20)* — `save_bottom_up()` → `load_bottom_up()` ist nie als Round-Trip getestet; gerade die nachgereichten Felder `index`/`commodity_deep` waren der ursprüngliche Crash-Auslöser. **Ansatz:** `BottomUpResult` mit allen 13 Feldern befüllen, speichern, neu laden, Feld-für-Feld-Gleichheit asserten (Happy Path + leere Optionalfelder).
+- [ ] **JudgmentOrchestrator-Konstruktor-Smoke-Test** *(Folge aus Bug #2, Audit 2026-06-20)* — der `judge`-Modus ist nur durch einen echten Lauf abgesichert; kein Test fixiert die 3-Argument-Signatur `(llm, bus, memory)`. **Ansatz:** `JudgmentOrchestrator(llm, bus, memory)` mit Fakes instanzieren und asserten, dass die Konstruktion ohne `TypeError` durchläuft (verhindert die Regression des früher fehlenden `memory`-Arguments).
 
 ---
 
