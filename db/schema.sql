@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS portfolio_snapshots (
     cluster_risks     jsonb             DEFAULT '[]'::jsonb,
     alerts            jsonb             DEFAULT '[]'::jsonb,
     overall_health    varchar,
+    metrics           jsonb             DEFAULT '{}'::jsonb,       -- Risiko-Kennzahlen (net_beta, Vola, Exposure …); 2026-06-20 nachträglich ergänzt (PR #11)
     CONSTRAINT portfolio_snapshots_pkey PRIMARY KEY (id)
 );
 
@@ -83,3 +84,5 @@ CREATE TABLE IF NOT EXISTS portfolio_snapshots (
 -- =============================================================================
 -- 2026-06-20  analysis_memory: Spalte short_action ergänzt (PR #9 / Block 3a F1-Nachbesserung).
 --             ALTER TABLE analysis_memory ADD COLUMN IF NOT EXISTS short_action text;
+-- 2026-06-20  portfolio_snapshots: Spalte metrics ergänzt (PR #11 / F4a-Review — Risiko-Kennzahlen).
+--             ALTER TABLE portfolio_snapshots ADD COLUMN IF NOT EXISTS metrics jsonb DEFAULT '{}'::jsonb;
