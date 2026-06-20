@@ -214,3 +214,21 @@ Spec: `docs/superpowers/specs/2026-06-18-foundation-aktions-taxonomie-design.md`
 - **Verdikte:** `EXIT` (These gekippt → Ausstieg: SELL bei Long / COVER bei Short) · `HOLD` (Gegenwind, aber These hält) · `REVERSE` (raus + Gegenposition, aggressiv). **Vom LLM bestimmt** (geparst aus einer `VERDICT: …`-Zeile); Parse-Fehler → `HOLD` + Roh-Text.
 - **Komponenten:** `ConflictResolution`-Modell + `DeepDiveResult.conflict_resolution`; `ConflictAgent` (`agents/conflict/`, LLM-gestützt wie `JudgmentAgent`); **bedingter Call** im `judgment_orchestrator` (kein Chief nötig); Anzeige in `app/main.py`.
 - **Lern-Schleife (Haken jetzt, Auswertung Block #4):** (1) `ConflictResolution` wird **mit der Analyse persistiert** (`memory.save_analysis`); (2) der Agent **konsumiert `backtester_context`** (eigener Track-Record im Prompt). Die **Verdikt-Auswertung gegen Forward-Returns + das Befüllen der Kalibrierung** ist **Block #4** (wie bei der Long-Konfidenz heute noch unbefüllt). Vorher: ehrliche, aber unkalibrierte Urteile.
+
+---
+
+## 19. Konflikt-UX (Inbox + Entscheidungs-Protokoll) — Brainstorm-Ergebnis (2026-06-20)
+
+**Status:** Design-Entscheidungen festgehalten. **Block #3 ist erledigt (PR #7, 2026-06-20)** → die Abhängigkeit (Depot kennt Positionen + Richtung) ist erfüllt; die Konflikt-Inbox ist **jetzt baubar** („alles auf einmal", ein sauberer Block).
+**Worum es geht:** *wie* der bereits gebaute Konflikt-Agent (§18) den Nutzer erreicht — ein **framework-agnostisches** Interaktions-Konzept (kein React/Vue/Svelte-Entscheid).
+
+**Festgehaltene Entscheidungen:**
+1. **Tool handelt NIE selbst (harte Leitplanke).** Zeigt Konflikt + beratendes Verdikt, **fragt** „Position halten oder schließen?", **protokolliert nur die Antwort**. Kein automatischer Trade, keine automatische Positionsänderung.
+2. **Zwei Daten getrennt erfassen:** (a) **Rat des Systems** = Konflikt-Verdikt (EXIT/HOLD/REVERSE); (b) **tatsächliche Entscheidung des Nutzers** (gehalten/geschlossen). Beide für die Block-#4-Lernschleife (war der Rat gut? folgte der Nutzer?).
+3. **Auslöser: beides.** (a) **on-demand** bei `judge` auf eine gehaltene Position; (b) **proaktiv** — `background_runner` überwacht das Depot und meldet neue Konflikte von selbst (mit **Dedupe**, kein Mehrfach-Alarm).
+4. **Lebenszyklus: persistente Konflikt-Inbox.** Konflikt = offener Posten, bleibt **offen bis entschieden**; erledigte → Archiv/Memory. Zustandsmaschine erkannt → offen → erledigt; braucht einen kleinen Konflikt-Speicher mit Status-Feld.
+5. **Einbettung ins geplante Frontend** (kein isolierter Kasten): nutzt die Muster aus `docs/frontend_notes.md` — **XAI-Erklärung** pro Empfehlung („wo lagen Widersprüche") + **Widerspruchs-/Anomalie-Anzeige mit Schweregrad** (none/low/medium/high). Der Konflikt ist die **lauteste Stufe** dieses „Widerspruch + Erklärung"-Konzepts.
+
+**Abhängigkeit (erfüllt):** Proaktiv braucht das Depot mit Positions-Richtung — geliefert durch **Block #3 / PR #7** (`Position`-Modell, `PortfolioPort`, richtungs-bewusster Monitor, `current_position` aus dem Depot). Der Weg ist frei.
+
+**Offen für die spätere Spec:** genaues `ConflictItem`-Feld-Set · Dedupe-Regel · ob ein erledigter Konflikt bei erneutem Auftreten wieder aufmacht · CLI-Befehle (`conflicts` listen / `resolve`) · konkretes Frontend-Widget.
