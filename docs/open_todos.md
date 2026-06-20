@@ -261,6 +261,12 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - [ ] `tests/test_recommendation.py` (Zeile 6) — `_short_report()` definiert aber nie aufgerufen; entfernen
 - [ ] `docs/code_review_2026-06-05.md` — Bug-Fixes Tasks 1–18 als ✅ markieren (alle abgeschlossen, Datei spiegelt das nicht wider)
 
+### Architektur-Entscheidung: EDA-Event-Bus ohne Zuhörer (Stand 2026-06-19)
+
+- [ ] **Entscheiden, ob/wann die Publish-only-EDA einen echten Subscriber bekommt.**
+  ~40 Agenten publishen Fertig-Events (`*Ready`), aber **kein Code `subscribe`d** → der Bus liefert heute **keinen** Mehrwert (Daten fließen über Rückgabewerte/`result`/Persistenz). Hexagonal (Ports/Adapter) ist davon unberührt und trägt sich. Risiko: sieht event-getrieben aus, verhält sich wie Direktaufrufe (YAGNI).
+  **Ansatz:** Entweder **einen** ersten echten Zuhörer bauen, damit EDA sich verdient — natürlicher Erst-Kandidat: **Frontend-Fortschritts-Stream** oder ein **Audit-/Erklärungs-Log**; ggf. **Redis-Bus** für verteilten Lauf (`adapters/event_bus/redis_bus.py`-Stub existiert) — ODER bewusst dokumentieren, dass die Publish-Seite reine Vorbereitung ist. **Nicht** rausreißen (billig zu behalten, teuer über 40 Agenten zu entfernen).
+
 ### Aus Plan 0 (Review 2026-06-16 — bewusst zurückgestellte Minor-Robustheit, niedrige Prio)
 
 - [ ] `core/utils/relative.py` `_winsorize` — kein Guard bei `fraction >= 0.5`: dann gilt `lo_idx >= hi_idx` und alle Werte kollabieren still auf einen einzigen Wert.
@@ -336,6 +342,12 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - [ ] Mobile-first oder Desktop-first
 - [ ] Framework-Wahl: React / Vue / Svelte (noch nicht entschieden)
 - [ ] Echtzeit-Refresh: WebSocket oder Polling für Dashboard-Updates
+
+### Eingabe-/Ticker-Auflösung — fehlt komplett (Stand 2026-06-19)
+
+- [ ] **Nutzer-Eingabe robust zu einem kanonischen Tickersymbol auflösen.**
+  Heute nur `ticker.upper()` in `app/main.py` (CLI) → „apple"/„APPL" scheitern (nur „AAPL" funktioniert); keine Namens-/Fuzzy-Auflösung, kein Frontend.
+  **Ansatz (Tool-Wahl wichtig):** Kern-Auflösung über eine **Symbol-Such-API** (Finnhub `/search`, FMP `/search`, Yahoo Symbol-Lookup) — deterministisch, liefert kanonisches Symbol + Börse. **KEIN LLM für die reine Auflösung** (Halluzinations-Risiko: falsches Symbol = falsche Analyse). Optional eine **LLM-Schicht nur für natürliche Absicht** („wie riskant ist apple gerade?" → Entität + Analyse-Modus extrahieren), die dann die Such-API füttert. Sauber als Port `SymbolSearchProvider` modellieren, Adapter dahinter (Hexagonal).
 
 ---
 
@@ -425,9 +437,11 @@ Jede Analyse gibt pro Linse genau eine Aktion. **HOLD vs NONE:** HOLD = Position
 **✅ Erledigt:** Foundation-Block (PR #3) · Block 1 + 1b (`core/domain/short_assessment.py` `derive_short_assessment`, im `judgment_agent` verdrahtet, `detect_conflict` bidirektional) · `AnomalyReport.direction` als Block-1-Voraussetzung (`core/domain/models.py`) · Feld-Set von `ShortAssessment` steht.
 
 **⏳ Offen (verifiziert noch nicht im Code):**
-- [ ] **Konflikt-Agent (Folge-Block, short.md §18)** — eigene LLM-Reversal-Abwägung bei `conflict` (Block 1 *erkennt* nur). **In Umsetzung auf Branch `feat/conflict-agent`** (Spec + Plan + erste Commits, 4-Task-Plan) — finaler Status beim End-Abgleich der Short-Blöcke prüfen.
-  Spec: `docs/superpowers/specs/2026-06-19-konflikt-agent-design.md` · Plan: `docs/superpowers/plans/2026-06-19-konflikt-agent.md`.
-  **Umfang laut Spec:** **beratend** (ändert keine formale Aktion); `ConflictResolution`-Modell (Verdikt `EXIT`/`HOLD`/`REVERSE` + Reasoning, vom LLM via `VERDICT:`-Zeile, Parse-Fehler → `HOLD`) an `DeepDiveResult`; `ConflictAgent` (`agents/conflict/`, LLM wie `JudgmentAgent`); **bedingter Call** im `judgment_orchestrator` (kein Chief); Anzeige in `app/main.py`; Persistenz via `memory.save_analysis` + Konsum von `backtester_context`. **Verdikt-Auswertung gegen Forward-Returns + Kalibrierung = Block #4.**
+- [x] **Konflikt-Agent (Folge-Block, short.md §18)** — **Erledigt, gemergt via PR #6 am 2026-06-20.**
+  `ConflictResolution`-Modell + `DeepDiveResult.conflict_resolution`; `ConflictAgent` (`agents/conflict/`, LLM via `VERDICT:`-Zeile, Parse-Fehler → `HOLD`); bedingter Call im `judgment_orchestrator` (nur bei `conflict`); Persistenz (`conflict_verdict` + `conflict_reasoning`) + Anzeige. Im Review nachgebessert: HOLD-Fallback (kein Prosa-Scan), None-Guards, `ConflictResolutionReady`-Event. Spec/Plan: `docs/superpowers/{specs,plans}/2026-06-19-konflikt-agent*`.
+  → Folge-Feature **Konflikt-UX (Inbox)** = eigener offener Punkt direkt darunter.
+- [ ] **Konflikt-UX (Inbox + Entscheidungs-Protokoll)** — Folge des Konflikt-Agenten; **jetzt baubar** (Block #3 / PR #7 erledigt).
+  **⚠️ VOR dem Bau `docs/short.md` §19 lesen — dort liegt der vollständige Design-Kontext + alle Brainstorm-Entscheidungen.** Das Logbuch hält hier nur den **Status**; das **Design lebt im Short-Hub** (`short.md`). Kurzfassung: Tool handelt nie selbst (zeigt Konflikt + fragt „halten/schließen?" + protokolliert nur die Antwort); persistente **Inbox** (offen → erledigt); Auslöser **on-demand + proaktiv**. Verdikt-Auswertung/Kalibrierung = Block #4.
 - [ ] **Block #3 — Regeln/Regime-Weiche + Track-B-Hedge + Portfolio-Manager-Ausbau.** `portfolio_monitor_agent` hat **kein** `side`/`direction`-Feld (heute long-only).
   **Ansatz:** `side` (long/short) je Position in `portfolio.json`; short-bewusste P&L (invertiert) + Netto-Exposure; daraus `current_position` (none/long/short) ableiten; Reconciliation (beide Linsen feuern).
   - **3a in Review (PR #7, 2026-06-20):** `Position`-Modell + `PortfolioPort` + `JsonPortfolioProvider` + richtungs-bewusster Monitor (P&L/Exposure/Klumpen netto) + `current_position` aus dem Depot, CLI-`--position` entfernt. **Review-Befunde im Branch gefixt** (TDD, Gesamtsuite 709 grün): **F1** Alignment-Warnung jetzt richtungs-bewusst (short fehlausgerichtet bei COVER/BUY statt SELL/SHORT — Short+SHORT ist Ausrichtung, kein Fehlalarm mehr); **F2** englische Monitor-Kommentare auf Deutsch (AGENTS.md §0); **F3** `shares`/`buy_price` werfen wie `direction` `PortfolioError` (fail-loud konsistent); **F4** Monitor druckt Netto **und** Brutto getrennt. **PR #7 am 2026-06-20 gemergt** (Merge-Commit `dfda4b7`) — Review-Änderungen F1–F4 wie oben, Gesamtsuite 709 grün.
