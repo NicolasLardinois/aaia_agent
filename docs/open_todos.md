@@ -250,6 +250,7 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 
 ## 7. CODE-QUALITÄT / TOTER CODE
 
+- [ ] **DB-Schema autoritativ ins Repo (`db/schema.sql`).** Provisorische, **aus dem Code rekonstruierte** `db/schema.sql` wurde am 2026-06-20 angelegt (Spaltennamen exakt, aber Typen/PK/Indizes/Defaults geschätzt — *direkt auf `master`, als bewusste Workflow-Ausnahme*). **Offen:** durch echten Dump ersetzen — `pg_dump --schema-only --no-owner "$SUPABASE_DB_URL" > db/schema.sql` (oder Supabase-Dashboard-Export) — damit die Datei im Ernstfall (Wiederherstellung/Umzug) verlässlich ist. Später optional ein echtes Migrations-Tool/-Ordner statt der manuellen Migrationshistorie in der Datei.
 - [ ] `core/utils/statistics.py` (Zeile 4) — `Z_THRESHOLD = 2.5` wird nirgends verwendet; entfernen oder einbinden
 - [ ] `tests/test_recommendation.py` (Zeile 6) — `_short_report()` definiert aber nie aufgerufen; entfernen
 - [ ] `docs/code_review_2026-06-05.md` — Bug-Fixes Tasks 1–18 als ✅ markieren (alle abgeschlossen, Datei spiegelt das nicht wider)
