@@ -90,7 +90,7 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
 - [x] **Bug #44** — `agents/stock_deep_dive/equity/fundamentals_agent.py`, `insider_agent.py`, `short_interest_agent.py`
   Keine Exception-Guard auf Provider-Response (kein `if isinstance(data, Exception)`).
   Inkonsistent mit `quality_agent.py` (hat den Guard). Exceptions propagieren unkontrolliert.
-  **✅ Audit 2026-06-20 → behoben (TDD).** Befund: `fundamentals_agent` hatte den Guard bereits (robuster als `quality_agent`: `try/except` **plus** `isinstance`). Offen waren `insider_agent` + `short_interest_agent`. **Lösung:** dasselbe robuste Muster (`try/except Exception` → leere Liste/Dict, **plus** `isinstance(..., Exception)`-Guard) in beide `run()` ergänzt → Rückfall auf neutralen Default statt Crash. Deckt beide Fehlermodi ab (Provider **wirft** und Provider **gibt Exception zurück**). Je 2 neue Tests; Gesamtsuite **715 grün**. *(PR: `fix/bug44-equity-exception-guards`.)*
+  **✅ Audit 2026-06-20 → behoben (TDD).** Befund: `fundamentals_agent` hatte den Guard bereits (robuster als `quality_agent`: `try/except` **plus** `isinstance`). Offen waren `insider_agent` + `short_interest_agent`. **Lösung:** dasselbe robuste Muster (`try/except Exception` → leere Liste/Dict, **plus** `isinstance(..., Exception)`-Guard) in beide `run()` ergänzt → Rückfall auf neutralen Default statt Crash. Deckt beide Fehlermodi ab (Provider **wirft** und Provider **gibt Exception zurück**). Je 2 neue Tests; Gesamtsuite **715 grün**. **PR #13 am 2026-06-20 gemergt** (Branch `fix/bug44-equity-exception-guards`; im Review noch Snapshot-Imports an den Dateikopf gezogen — reine Stil-Kosmetik, kein Verhalten geändert).
 
 - [ ] **Bug #46** — `adapters/memory/supabase_memory.py:44`
   Breites `except AttributeError: pass` schluckt alle Fehler still.
@@ -289,7 +289,7 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   2. **Logging in den Helfer legen** (`logger.warning("<quelle> fehlgeschlagen für <ticker>", exc_info=True)`) → Ausfälle werden projektweit + einheitlich sichtbar, an genau EINER Stelle (kein Hand-Patchen von 40 Dateien).
   3. Inkrementell ausrollen (pro Agenten-Paket ein eigener PR), Tests je grün halten.
   4. **Eigener Branch ab `master`** (nicht auf `fix/bug44-…`); größeres Feature → kurzes Spec/Plan unter `docs/superpowers/` (AGENTS.md §5).
-  *(Adressiert Punkt 1 [Logging projektweit] + Punkt 2 [`_safe`-Helfer/Dedup] aus dem PR-#13-Review; eng verwandt mit Bug #46.)*
+  *(Adressiert Punkt 1 [Logging projektweit] + Punkt 2 [`_safe`-Helfer/Dedup] aus dem PR-#13-Review; eng verwandt mit Bug #46. Als Folge-Aufgabe via **PR #14 am 2026-06-20 gemergt** ins Logbuch aufgenommen — die Aufgabe selbst bleibt **offen**.)*
 
 ### Architektur-Entscheidung: EDA-Event-Bus ohne Zuhörer (Stand 2026-06-19)
 

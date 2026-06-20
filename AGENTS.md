@@ -99,6 +99,7 @@ Jede Änderung, die zu einem Commit führt, läuft über einen **Pull Request**.
 6. **Erst nach ausdrücklichem OK des Users mergen.**
 
 - **NIE direkt nach `master` pushen. NIE mergen ohne den zweiten Blick + OK des Users.**
+  - **Einzige erlaubte Ausnahme — eng begrenzt:** Ein **reiner Logbuch-/PR-Protokoll-Vermerk in `docs/open_todos.md`** (die Merge-/Ablehnungs-Entscheidung gemäß PR-Protokoll: Eintrag abhaken bzw. `PR #N am YYYY-MM-DD …`) darf **direkt auf `master`** committet werden — er dokumentiert nur eine bereits vom User getroffene Entscheidung. **AUSSCHLIESSLICH dafür.** **Niemals** für Code, Tests, Refactorings, neue Features, Konfiguration oder andere Dateien/Docs — alles andere läuft weiterhin zwingend über einen PR. Im Zweifel: PR.
 - Hooks/Signierung **nicht** umgehen (kein `--no-verify`).
 
 ### Logbuch — `docs/open_todos.md` ist die einzige laufende Quelle
