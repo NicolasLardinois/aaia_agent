@@ -278,6 +278,18 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - [ ] `tests/test_recommendation.py` (Zeile 6) — `_short_report()` definiert aber nie aufgerufen; entfernen
 - [ ] `docs/code_review_2026-06-05.md` — Bug-Fixes Tasks 1–18 als ✅ markieren (alle abgeschlossen, Datei spiegelt das nicht wider)
 
+### Robustheit & Beobachtbarkeit: Provider-Fehler zentral kapseln + loggen (Review PR #13, 2026-06-20)
+
+- [ ] **Geteilten Fehler-Schutz-Helfer (`_safe`) einführen, Logging hineinlegen, projektweit ausrollen.**
+  **Befund 1 (Duplikation, Review zu Bug #44):** Derselbe Schutz gegen Provider-Fehler — geworfene Exception **oder** als Wert zurückgegebene Exception → neutraler Default — ist in **~40 Dateien** kopiert, in 3–4 verschiedenen Schreibweisen: `def _safe(r, d)` in Chief-Agents/Orchestratoren (nach `asyncio.gather(return_exceptions=True)`), `try/except`+`isinstance(...)` in Sub-Agenten, lokales `_safe(v)`. Jede Verbesserung müsste man heute an ~40 Stellen einzeln nachziehen.
+  **Befund 2 (Beobachtbarkeit):** Der Fehlerfall wird **still** verschluckt — ein echtes neutrales Ergebnis ist nicht von einem Datenquellen-Ausfall unterscheidbar (z. B. `recent_transactions=0` / `short_float_pct=None` sehen identisch aus, egal ob „echt nichts da" oder „API kaputt"). Steht in Spannung zu **Bug #46** („breites except schluckt Fehler still"). `import logging` existiert heute fast nur in `adapters/` (fred/finnhub/yahoo/ecb/claude/redis), in Agenten praktisch nicht.
+  **Lösungsansatz (löst Logging + Dedup in EINEM Schritt; AGENTS.md §2 nennt `_safe(...)` selbst):**
+  1. Helfer in `core/utils/` bauen: z. B. `await safe_provider_call(fn, *args, default=..., logger=...)` für Sub-Agenten (kapselt `try/except Exception` **und** `isinstance(result, Exception)` → `default`) sowie `safe_result(r, default)` für die `gather`-Entpackung in Chiefs/Orchestratoren.
+  2. **Logging in den Helfer legen** (`logger.warning("<quelle> fehlgeschlagen für <ticker>", exc_info=True)`) → Ausfälle werden projektweit + einheitlich sichtbar, an genau EINER Stelle (kein Hand-Patchen von 40 Dateien).
+  3. Inkrementell ausrollen (pro Agenten-Paket ein eigener PR), Tests je grün halten.
+  4. **Eigener Branch ab `master`** (nicht auf `fix/bug44-…`); größeres Feature → kurzes Spec/Plan unter `docs/superpowers/` (AGENTS.md §5).
+  *(Adressiert Punkt 1 [Logging projektweit] + Punkt 2 [`_safe`-Helfer/Dedup] aus dem PR-#13-Review; eng verwandt mit Bug #46.)*
+
 ### Architektur-Entscheidung: EDA-Event-Bus ohne Zuhörer (Stand 2026-06-19)
 
 - [ ] **Entscheiden, ob/wann die Publish-only-EDA einen echten Subscriber bekommt.**
