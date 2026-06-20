@@ -73,3 +73,31 @@ def test_ausgeglichen_ist_neutral():
 def test_leere_liste_neutral():
     result = asyncio.run(_make_agent([]).run("X"))
     assert result.signal == Signal.NEUTRAL
+
+
+# ── Bug #44: Exception-Guard auf Provider-Response ────────────────────────
+# Konsistent zum FundamentalsAgent: weder ein geworfener Fehler noch eine als
+# Wert zurückgegebene Exception dürfen run() crashen — Rückfall auf neutralen
+# Default (AGENTS.md §2: ausgefallene Datenquelle darf die Analyse nie killen).
+
+def test_run_provider_wirft_liefert_neutralen_snapshot():
+    """Provider wirft → run() liefert neutralen InsiderSnapshot statt zu crashen."""
+    from core.domain.models import InsiderSnapshot
+    provider = MagicMock()
+    provider.get_insider_activity.side_effect = ValueError("API down")
+    result = asyncio.run(InsiderAgent(provider, MagicMock()).run("FAIL"))
+    assert isinstance(result, InsiderSnapshot)
+    assert result.signal == Signal.NEUTRAL
+    assert result.net_direction == "neutral"
+    assert result.recent_transactions == 0
+
+
+def test_run_provider_gibt_exception_zurueck_liefert_neutralen_snapshot():
+    """Provider gibt eine Exception als Wert zurück → run() crasht nicht."""
+    from core.domain.models import InsiderSnapshot
+    provider = MagicMock()
+    provider.get_insider_activity.return_value = ValueError("bad data")
+    result = asyncio.run(InsiderAgent(provider, MagicMock()).run("FAIL"))
+    assert isinstance(result, InsiderSnapshot)
+    assert result.signal == Signal.NEUTRAL
+    assert result.recent_transactions == 0

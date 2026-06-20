@@ -40,7 +40,14 @@ class ShortInterestAgent:
         self.bus = bus
 
     async def run(self, ticker: str) -> ShortInterestSnapshot:
-        data = await asyncio.to_thread(self.provider.get_short_interest, ticker)
+        # Exception-Guard analog FundamentalsAgent: geworfener Fehler ODER als Wert
+        # zurückgegebene Exception → leeres Dict (neutraler Default, kein .get-Crash).
+        try:
+            data = await asyncio.to_thread(self.provider.get_short_interest, ticker)
+        except Exception:
+            data = {}
+        if isinstance(data, Exception):
+            data = {}
         short_float = data.get("short_float_pct")
         dtc = data.get("days_to_cover")
         trend = data.get("short_float_trend", "stable")
