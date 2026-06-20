@@ -15,6 +15,18 @@ LOSS_THRESHOLD        = 0.15
 BASE_CURRENCY         = "USD"
 
 
+def make_returns_provider(market_provider):
+    """Callable ticker -> Renditereihe aus get_price_history (Close → pct_change). Fehler → []."""
+    def _provider(ticker: str) -> list:
+        try:
+            hist = market_provider.get_price_history(ticker, "1y")
+            close = hist["Close"].dropna()
+            return close.pct_change().dropna().tolist()
+        except Exception:
+            return []
+    return _provider
+
+
 def _fetch_current_price(ticker: str) -> Optional[float]:
     try:
         return float(yf.Ticker(ticker).fast_info["last_price"])
@@ -259,5 +271,9 @@ class PortfolioMonitorAgent:
               f"{len(snapshot['alerts'])} Warnungen | "
               f"Netto: ${snapshot['net_exposure']:,.0f} | "
               f"Brutto: ${snapshot['gross_exposure']:,.0f}")
+        for region, v in (snapshot.get("net_beta") or {}).items():
+            pct = (snapshot.get("net_beta_pct") or {}).get(region)
+            suffix = f" ({pct:+.0%} Brutto)" if pct is not None else ""
+            print(f"  net-β {region}: ${v:,.0f}{suffix}")
         for alert in snapshot["alerts"]:
             print(f"  ⚠ {alert}")

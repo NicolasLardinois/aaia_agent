@@ -307,3 +307,24 @@ def test_net_beta_per_region_split():
     ]
     snap = _agent_mp(positions, {"US1": 1.0, "CH1": 1.0})._evaluate_positions(positions)
     assert set(snap["net_beta"].keys()) == {"USA", "CH"}
+
+
+# ---------------------------------------------------------------------------
+# make_returns_provider — Factory (Task 2 / F4a)
+# ---------------------------------------------------------------------------
+
+import pandas as pd
+from agents.portfolio.portfolio_monitor_agent import make_returns_provider
+
+
+def test_make_returns_provider_from_price_history():
+    mp = MagicMock()
+    mp.get_price_history.return_value = pd.DataFrame({"Close": [100.0, 110.0, 99.0]})
+    rets = make_returns_provider(mp)("X")
+    assert len(rets) == 2 and abs(rets[0] - 0.10) < 1e-9
+
+
+def test_make_returns_provider_error_empty():
+    mp = MagicMock()
+    mp.get_price_history.side_effect = Exception("net")
+    assert make_returns_provider(mp)("X") == []
