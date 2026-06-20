@@ -261,3 +261,49 @@ def test_run_prints_net_and_gross_exposure(capsys):
     assert "Brutto" in out, f"Brutto-Exposure fehlt in Ausgabe: {out!r}"
     assert "300" in out, f"Netto-Wert 300 fehlt in Ausgabe: {out!r}"   # net  = 500 - 200
     assert "700" in out, f"Brutto-Wert 700 fehlt in Ausgabe: {out!r}"  # gross = 500 + 200
+
+
+# ---------------------------------------------------------------------------
+# net_beta pro Region
+# ---------------------------------------------------------------------------
+
+def _market(betas):
+    m = MagicMock()
+    m.get_info.side_effect = lambda t: {"beta": betas.get(t)}
+    return m
+
+
+def _agent_mp(positions, betas):
+    port = MagicMock()
+    port.get_positions.return_value = positions
+    return PortfolioMonitorAgent(
+        MagicMock(), portfolio_port=port,
+        market_provider=_market(betas), fx_rate=lambda a, b: 1.0)
+
+
+def test_net_beta_signed_and_beta_weighted():
+    # SPY long  100 shares * $100 = $10 000, beta=1.0  → +10 000
+    # TSLA short 100 shares * $100 = $10 000, beta=1.8  → -18 000
+    # net_beta USA = 10 000 - 18 000 = -8 000 → round(..., 0) = -8000
+    positions = [_pos("SPY",  100, 100, 100, direction="long",  sector="Index"),
+                 _pos("TSLA", 100, 100, 100, direction="short", sector="Auto")]
+    snap = _agent_mp(positions, {"SPY": 1.0, "TSLA": 1.8})._evaluate_positions(positions)
+    assert round(snap["net_beta"]["USA"], 0) == -8000
+
+
+def test_net_beta_missing_beta_defaults_one():
+    # beta=None → defaults to 1.0; 100 shares * $100 * 1.0 = 10 000
+    positions = [_pos("X", 100, 100, 100, direction="long")]
+    snap = _agent_mp(positions, {"X": None})._evaluate_positions(positions)
+    assert snap["net_beta"]["USA"] == 10000.0
+
+
+def test_net_beta_per_region_split():
+    from core.domain.portfolio import Position
+    positions = [
+        _pos("US1", 10, 10, 10, direction="long", country="USA"),
+        Position(ticker="CH1", shares=10, entry_price=10, direction="long",
+                 current_price=10, sector="Pharma", asset_class="equity", country="CH"),
+    ]
+    snap = _agent_mp(positions, {"US1": 1.0, "CH1": 1.0})._evaluate_positions(positions)
+    assert set(snap["net_beta"].keys()) == {"USA", "CH"}

@@ -36,6 +36,26 @@ def _herfindahl(weights: list[float]) -> float:
     return round(sum(w * w for w in weights), 4) if weights else 0.0
 
 
+_US = {"USA", "US", "United States"}
+_CH = {"CH", "CHE", "Schweiz", "Switzerland"}
+_EUROZONE = {
+    "DE", "FR", "IT", "ES", "NL", "AT", "BE", "PT", "FI", "IE", "GR", "SK", "SI",
+    "EE", "LV", "LT", "LU", "MT", "CY",
+    "Deutschland", "Frankreich", "Eurozone",
+}
+
+
+def _region_of(country: str) -> str:
+    c = (country or "").strip()
+    if c in _US:
+        return "USA"
+    if c in _CH:
+        return "CH"
+    if c in _EUROZONE:
+        return "Eurozone"
+    return c or "Unbekannt"
+
+
 def _check_cluster_risks(positions: list[Position], values: list[float], gross: float) -> list[dict]:
     if gross == 0:
         return []
@@ -75,8 +95,19 @@ class PortfolioMonitorAgent:
     ):
         self.memory = memory
         self.portfolio_port = portfolio_port
+        self.market_provider = market_provider
         self.fx_rate = fx_rate
         self.returns_provider = returns_provider
+
+    def _beta_for(self, ticker: str) -> float:
+        if self.market_provider is None:
+            return 1.0
+        try:
+            info = self.market_provider.get_info(ticker) or {}
+            b = info.get("beta")
+            return float(b) if b is not None else 1.0
+        except Exception:
+            return 1.0
 
     def _evaluate_positions(self, positions: list[Position]) -> dict:
         if not positions:
@@ -93,6 +124,8 @@ class PortfolioMonitorAgent:
                 "concentration_hhi":       0.0,
                 "portfolio_volatility":    0.0,
                 "portfolio_max_drawdown":  0.0,
+                "net_beta":                {},
+                "net_beta_pct":            {},
             }
 
         # Aktuellen Kurs ermitteln und Positionswert in Basiswährung berechnen
@@ -178,6 +211,15 @@ class PortfolioMonitorAgent:
         n_alerts = len(alerts)
         health   = "green" if n_alerts == 0 else ("yellow" if n_alerts <= 2 else "red")
 
+        # net_beta pro Region: Σ(signed_value · β) je Markt (USD-Betrag)
+        net_beta: dict[str, float] = {}
+        for p, val in zip(positions, values):
+            signed = val if p.direction == "long" else -val
+            region = _region_of(p.country)
+            net_beta[region] = net_beta.get(region, 0.0) + signed * self._beta_for(p.ticker)
+        net_beta = {r: round(v, 2) for r, v in net_beta.items()}
+        net_beta_pct = {r: round(v / gross, 3) for r, v in net_beta.items()} if gross > 0 else {}
+
         return {
             "total_positions":         len(positions),
             "total_value_usd":         round(total_value, 2),
@@ -191,6 +233,8 @@ class PortfolioMonitorAgent:
             "concentration_hhi":       hhi,
             "portfolio_volatility":    port_vol,
             "portfolio_max_drawdown":  port_mdd,
+            "net_beta":                net_beta,
+            "net_beta_pct":            net_beta_pct,
         }
 
     async def run(self) -> None:
