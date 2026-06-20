@@ -27,6 +27,13 @@ class JsonPortfolioProvider(PortfolioPort):
                 raise PortfolioError(
                     f"Position {ticker}: direction fehlt/ungültig ({direction!r}) — "
                     f"muss 'long' oder 'short' sein.")
+            # shares/buy_price sind ebenfalls Pflicht — gleiche Fail-loud-Behandlung
+            # wie bei direction, damit Konsumenten EINE klare Fehlerart abfangen können.
+            for feld in ("shares", "buy_price"):
+                if feld not in d:
+                    raise PortfolioError(
+                        f"Position {ticker}: Pflichtfeld {feld!r} fehlt — "
+                        f"'shares' und 'buy_price' sind erforderlich.")
             out.append(Position(
                 ticker=ticker, shares=d["shares"], entry_price=d["buy_price"],
                 direction=direction, currency=d.get("currency", "USD"),

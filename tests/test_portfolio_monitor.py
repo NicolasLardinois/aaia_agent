@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import MagicMock
 from core.domain.portfolio import Position
 from agents.portfolio.portfolio_monitor_agent import PortfolioMonitorAgent, _check_cluster_risks
@@ -181,3 +182,63 @@ def test_exposure_fields_present():
     assert result["short_value"] == 200.0
     assert result["net_exposure"] == 300.0
     assert result["gross_exposure"] == 700.0
+
+
+# ---------------------------------------------------------------------------
+# F1 — Alignment-Warnung richtungs-bewusst (long: SELL/SHORT, short: COVER/BUY)
+# ---------------------------------------------------------------------------
+
+def test_long_with_sell_rec_triggers_alignment_warning():
+    """Long + letzte Analyse SELL → Fehlausrichtung → Alignment-Warnung (Regression)."""
+    positions = [_pos("AAPL", 10, 100, 100, direction="long")]
+    agent = PortfolioMonitorAgent(
+        _make_memory({"AAPL": "SELL"}), portfolio_port=_make_port(positions),
+        fx_rate=lambda a, b: 1.0,
+    )
+    result = agent._evaluate_positions(positions)
+    align = [a for a in result["alerts"] if "Alignment" in a]
+    assert len(align) == 1, f"Erwartet 1 Alignment-Warnung, got: {result['alerts']}"
+
+
+def test_short_with_short_rec_no_alignment_warning():
+    """Short + letzte Analyse SHORT → ausgerichtet → KEINE Alignment-Warnung."""
+    positions = [_pos("XYZ", 10, 100, 100, direction="short")]
+    agent = PortfolioMonitorAgent(
+        _make_memory({"XYZ": "SHORT"}), portfolio_port=_make_port(positions),
+        fx_rate=lambda a, b: 1.0,
+    )
+    result = agent._evaluate_positions(positions)
+    align = [a for a in result["alerts"] if "Alignment" in a]
+    assert align == [], f"Short+SHORT ist ausgerichtet — keine Warnung erwartet, got: {result['alerts']}"
+
+
+def test_short_with_cover_rec_triggers_alignment_warning():
+    """Short + letzte Analyse COVER → Fehlausrichtung (Analyse will eindecken) → Alignment-Warnung."""
+    positions = [_pos("XYZ", 10, 100, 100, direction="short")]
+    agent = PortfolioMonitorAgent(
+        _make_memory({"XYZ": "COVER"}), portfolio_port=_make_port(positions),
+        fx_rate=lambda a, b: 1.0,
+    )
+    result = agent._evaluate_positions(positions)
+    align = [a for a in result["alerts"] if "Alignment" in a]
+    assert len(align) == 1, f"Erwartet 1 Alignment-Warnung (Short+COVER), got: {result['alerts']}"
+
+
+# ---------------------------------------------------------------------------
+# F4 — run() weist Netto- UND Brutto-Exposure getrennt aus (statt mehrdeutiger 'Wert'-Zeile)
+# ---------------------------------------------------------------------------
+
+def test_run_prints_net_and_gross_exposure(capsys):
+    positions = [
+        _pos("AAPL", 5, 100, 100, direction="long"),   # long  500
+        _pos("SPY",  2, 100, 100, direction="short"),  # short 200
+    ]
+    agent = PortfolioMonitorAgent(
+        _make_memory(), portfolio_port=_make_port(positions), fx_rate=lambda a, b: 1.0,
+    )
+    asyncio.run(agent.run())
+    out = capsys.readouterr().out
+    assert "Netto" in out, f"Netto-Exposure fehlt in Ausgabe: {out!r}"
+    assert "Brutto" in out, f"Brutto-Exposure fehlt in Ausgabe: {out!r}"
+    assert "300" in out, f"Netto-Wert 300 fehlt in Ausgabe: {out!r}"   # net  = 500 - 200
+    assert "700" in out, f"Brutto-Wert 700 fehlt in Ausgabe: {out!r}"  # gross = 500 + 200

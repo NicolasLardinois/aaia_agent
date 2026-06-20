@@ -95,7 +95,7 @@ class PortfolioMonitorAgent:
                 "portfolio_max_drawdown":  0.0,
             }
 
-        # Resolve current price and compute per-position base-currency value
+        # Aktuellen Kurs ermitteln und Positionswert in Basiswährung berechnen
         values: list[float] = []
         cur_prices: list[float] = []
         for p in positions:
@@ -104,23 +104,23 @@ class PortfolioMonitorAgent:
             val = p.shares * cur * self.fx_rate(p.currency, BASE_CURRENCY)
             values.append(val)
 
-        # Long / short / net / gross
+        # Long / Short / Netto / Brutto
         longs  = sum(v for p, v in zip(positions, values) if p.direction == "long")
         shorts = sum(v for p, v in zip(positions, values) if p.direction == "short")
         net    = round(longs - shorts, 2)
         gross  = round(longs + shorts, 2)
 
-        total_value = gross  # for display purposes (same as gross exposure)
+        total_value = gross  # nur zur Anzeige (entspricht dem Brutto-Exposure)
 
         cluster_risks = _check_cluster_risks(positions, values, gross)
         alerts: list[str] = [r["message"] for r in cluster_risks]
 
-        # P&L alerts — direction-aware
+        # P&L-Alarme — richtungs-bewusst
         for p, cur in zip(positions, cur_prices):
             if p.entry_price > 0:
                 if p.direction == "long":
                     pnl = (cur - p.entry_price) / p.entry_price
-                else:  # short: profit when price falls
+                else:  # short: Gewinn, wenn der Kurs fällt
                     pnl = (p.entry_price - cur) / p.entry_price
                 if pnl < -LOSS_THRESHOLD:
                     alerts.append(
@@ -128,22 +128,31 @@ class PortfolioMonitorAgent:
                         f"(Einstand: {p.entry_price:.2f}, Heute: {cur:.2f})"
                     )
 
-        # Memory alignment warnings
+        # Memory-Alignment-Warnungen — richtungs-bewusst:
+        #   long  ist fehlausgerichtet, wenn die Analyse raus/drehen will (SELL/SHORT);
+        #   short ist fehlausgerichtet, wenn die Analyse eindecken/drehen will (COVER/BUY).
+        # Sonst würde ein Short mit letzter Analyse SHORT (= perfekt ausgerichtet)
+        # fälschlich gewarnt und ein Short mit COVER (= echte Fehlausrichtung) übersehen.
         for p in positions:
             history = self.memory.load_history(p.ticker, days=90)
-            if history:
-                last_rec = history[0].get("recommendation", "")
-                if last_rec in ("SELL", "SHORT"):
-                    alerts.append(
-                        f"Alignment-Warnung {p.ticker}: letzte Analyse = {last_rec}, "
-                        f"Position aber noch gehalten."
-                    )
+            if not history:
+                continue
+            last_rec = history[0].get("recommendation", "")
+            if p.direction == "long":
+                misaligned = last_rec in ("SELL", "SHORT")
+            else:  # short
+                misaligned = last_rec in ("COVER", "BUY")
+            if misaligned:
+                alerts.append(
+                    f"Alignment-Warnung {p.ticker} ({p.direction}): letzte Analyse = {last_rec}, "
+                    f"Position aber noch gehalten."
+                )
 
-        # Concentration (HHI) over gross weights
+        # Konzentration (HHI) über Brutto-Gewichte
         weights = [v / gross for v in values] if gross > 0 else []
         hhi = _herfindahl(weights)
 
-        # Portfolio vol / MaxDD — signed weights so hedges reduce vol
+        # Portfolio-Vola / MaxDD — signierte Gewichte, damit Hedges die Vola senken
         port_vol = 0.0
         port_mdd = 0.0
         if self.returns_provider and gross > 0:
@@ -197,8 +206,12 @@ class PortfolioMonitorAgent:
         self.memory.save_portfolio_snapshot(snapshot)
 
         health = snapshot["overall_health"].upper()
+        # Netto UND Brutto getrennt ausweisen: bei einem marktneutralen Buch
+        # (z. B. 100 long / 100 short) wäre eine einzelne "Wert"-Zeile (= Brutto)
+        # irreführend, weil netto ~0 Kapital gebunden ist.
         print(f"[PortfolioMonitor] Gesundheit: {health} | "
               f"{len(snapshot['alerts'])} Warnungen | "
-              f"Wert: ${snapshot['total_value_usd']:,.0f}")
+              f"Netto: ${snapshot['net_exposure']:,.0f} | "
+              f"Brutto: ${snapshot['gross_exposure']:,.0f}")
         for alert in snapshot["alerts"]:
             print(f"  ⚠ {alert}")

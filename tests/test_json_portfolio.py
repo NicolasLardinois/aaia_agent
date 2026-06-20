@@ -41,3 +41,17 @@ def test_missing_file_is_empty(tmp_path):
     p = JsonPortfolioProvider(str(tmp_path / "nope.json"))
     assert p.get_positions() == []
     assert p.position_state_for("AAPL") == PositionState.NONE
+
+
+def test_missing_shares_raises(tmp_path):
+    """Fehlendes Pflichtfeld 'shares' → PortfolioError (fail-loud, wie bei direction)."""
+    path = _write(tmp_path, [{"ticker": "AAPL", "buy_price": 150, "direction": "long"}])
+    with pytest.raises(PortfolioError):
+        JsonPortfolioProvider(path).get_positions()
+
+
+def test_missing_buy_price_raises(tmp_path):
+    """Fehlendes Pflichtfeld 'buy_price' → PortfolioError (fail-loud, wie bei direction)."""
+    path = _write(tmp_path, [{"ticker": "AAPL", "shares": 10, "direction": "long"}])
+    with pytest.raises(PortfolioError):
+        JsonPortfolioProvider(path).get_positions()
