@@ -28,45 +28,58 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
 
 ## 1. OFFENE BUGS (aus code_review_2026-06-05.md)
 
+> **Audit 2026-06-20 (Subagenten, gegen den Code auf `master`):** Die 12 Bugs einzeln verifiziert.
+> **7 echt behoben** (hier abgehakt, mit Code-Beleg): #1, #2, #4, #5, #26, #34, #36.
+> **5 verbleiben** (#30, #42, #44, #46, #47) — Abarbeitung **eine PR pro Bug** (Start #44); die präzise
+> Rest-Scope-Analyse aus dem Audit kommt jeweils in die zugehörige Fix-PR (mit `[x]` + Lösung).
+> Hinweis: Die Zeilennummern in den Bug-Texten sind veraltet (Code hat sich verschoben); maßgeblich ist der Beleg im Audit-Vermerk.
+
 ### Kritisch (Crash / Datenverlust)
 
-- [ ] **Bug #1** — `adapters/cache/result_cache.py:233`
+- [x] **Bug #1** — `adapters/cache/result_cache.py:233`
   `BottomUpResult` braucht 13 Felder; `load_bottom_up()` übergibt nur 11 — `index` und `commodity_deep` fehlen.
   Raises `TypeError` jedes Mal wenn eine frische Bottom-Up-Cache-Datei existiert (normaler Happy Path).
   **Lösung:** Die zwei fehlenden Felder analog zu den anderen 11 aus JSON lesen und übergeben.
+  **✅ Audit 2026-06-20 BEHOBEN:** `result_cache.py:902-903` übergibt heute `index=_load_index_result(...)` + `commodity_deep=_load_commodity_deep(...)` — alle 13 Felder vollständig, Save/Load symmetrisch. *(Offen bleibt nur ein fehlender Round-Trip-Regressionstest.)*
 
-- [ ] **Bug #2** — `app/main.py:130`
+- [x] **Bug #2** — `app/main.py:130`
   `JudgmentOrchestrator(llm, bus)` — fehlt `memory` als drittes Argument.
   Crasht sofort im `judge`-Modus. Das `memory`-Objekt ist weiter oben bereits instanziert.
+  **✅ Audit 2026-06-20 BEHOBEN:** `app/main.py` ruft `JudgmentOrchestrator(llm, bus, memory)`; Signatur `__init__(self, llm, bus, memory)` (`orchestrators/judgment_orchestrator.py:19`) passt. *(Kein Konstruktor-Smoke-Test vorhanden.)*
 
-- [ ] **Bug #4** — `adapters/memory/supabase_memory.py:128-129`
+- [x] **Bug #4** — `adapters/memory/supabase_memory.py:128-129`
   Anomalie-Schweregrade sind hartcodiert auf `"none"` — die echten `AnomalyReport.severity`-Werte werden nie in die DB geschrieben.
   Jede Datenbankzeile ist permanent korrumpiert.
   **Lösung:** `result.top_down_anomaly.severity if result.top_down_anomaly else "none"` (analog bottom_up).
+  **✅ Audit 2026-06-20 BEHOBEN:** `supabase_memory.py:147-148` liest `top_down_anomaly.severity`/`bottom_up_anomaly.severity` korrekt aus, `"none"` nur als None-Fallback.
 
-- [ ] **Bug #5** — `adapters/memory/supabase_memory.py`
+- [x] **Bug #5** — `adapters/memory/supabase_memory.py`
   `psycopg2.connect()` wird in jeder Methode geöffnet, nie geschlossen → Connection Pool Leak.
   **Lösung:** `_connect()` als `@contextmanager` mit `conn.close()` in `finally`-Block.
+  **✅ Audit 2026-06-20 BEHOBEN:** `_connect()` ist `@contextmanager` mit `conn.close()` im `finally` (`supabase_memory.py:57-82`, inkl. 3×-Retry); alle 7 Methoden nutzen `with self._connect() as conn`.
 
 ### Medium Severity
 
-- [ ] **Bug #26** — `agents/market_cockpit/macro/shiller_cape_agent.py:29`
+- [x] **Bug #26** — `agents/market_cockpit/macro/shiller_cape_agent.py:29`
   Kein unterer Schwellenwert für BULLISH — jeder CAPE-Wert unterhalb des Durchschnitts, egal wie weit, erzeugt BULLISH.
   Ein Markt im Kollaps erzeugt dasselbe Signal wie einer, der leicht unterbewertet ist.
+  **✅ Audit 2026-06-20 BEHOBEN (durch Umbau):** Der Agent existiert nicht mehr; CAPE ist heute eine reine Mathe-Funktion ohne Signal (`core/utils/valuation_math.py:101`). Das Nachfolge-Signal in `index_valuation_agent.py` ist **beidseitig** begrenzt (ERP-Cutoffs + symmetrischer PE-Puffer) und durch `test_index_valuation_agent.py` (`test_signal_buffers_are_symmetric` u.a.) abgesichert.
 
 - [ ] **Bug #30** — `agents/market_cockpit/macro_chief_agent.py:82`
   `EXPANSION` als Default-Regime wenn alle Provider ausfallen.
   Nachgelagerte Agenten generieren aktionabel wirkende "buy Tech" Empfehlungen ohne reale Datenbasis.
   **Lösung:** Default auf `NEUTRAL` oder `UNKNOWN` setzen.
 
-- [ ] **Bug #34** — `agents/stock_deep_dive/bond/bond_metrics_agent.py:47`
+- [x] **Bug #34** — `agents/stock_deep_dive/bond/bond_metrics_agent.py:47`
   `if ytm and inflation` schlägt für Zero-Coupon-Anleihen (`ytm=0.0`) fehl.
   Real-Yield wird `None` statt `-inflation`, versteckt genuinen negativen Real-Yield.
   **Lösung:** `if ytm is not None and inflation is not None`.
+  **✅ Audit 2026-06-20 BEHOBEN:** `bond_metrics_agent.py:90` nutzt `if ytw is not None and infl is not None` (Real-Yield aus YTW); `crate is not None` lässt Zero-Coupon korrekt durch — `0.0` wird nicht mehr fälschlich als `None` behandelt.
 
-- [ ] **Bug #36** — `agents/stock_deep_dive/commodity/supply_demand_agent.py:77`
+- [x] **Bug #36** — `agents/stock_deep_dive/commodity/supply_demand_agent.py:77`
   `_signal()` ist definiert aber wird nie aufgerufen. `signal=Signal.NEUTRAL` ist hartcodiert.
   Gesamte Signallogik ist toter Code.
+  **✅ Audit 2026-06-20 BEHOBEN:** `supply_demand_agent.py:75` ruft `signal=_signal(pct)` im AVAILABLE-Zweig real auf; hartes NEUTRAL nur noch im legitimen `_DEFAULT`/UNAVAILABLE-Pfad (kein Provider/keine Daten). Tests (`test_low/high/normal_inventory`, `test_run_available_with_inventory`) beweisen echtes BULLISH.
 
 - [ ] **Bug #42** — `agents/stock_deep_dive/index/index_price_agent.py:61-62`
   `close.index.searchsorted(f"{datetime.utcnow().year}-01-01")` wirft `TypeError` bei timezone-aware Index.
@@ -249,6 +262,8 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - [ ] **FundamentalsAgent** — `_score()` mit 7 Indikatoren ungetestet
 - [ ] **Chief-Agent-Tests** — prüfen nur `isinstance(result, XxxResult)`, keine Logik oder Aggregation
 - [ ] **BacktesterChiefAgent** — `backtester_context`-Einfluss auf Confidence nie getestet
+- [ ] **ResultCache Bottom-Up Round-Trip** *(Folge aus Bug #1, Audit 2026-06-20)* — `save_bottom_up()` → `load_bottom_up()` ist nie als Round-Trip getestet; gerade die nachgereichten Felder `index`/`commodity_deep` waren der ursprüngliche Crash-Auslöser. **Ansatz:** `BottomUpResult` mit allen 13 Feldern befüllen, speichern, neu laden, Feld-für-Feld-Gleichheit asserten (Happy Path + leere Optionalfelder).
+- [ ] **JudgmentOrchestrator-Konstruktor-Smoke-Test** *(Folge aus Bug #2, Audit 2026-06-20)* — der `judge`-Modus ist nur durch einen echten Lauf abgesichert; kein Test fixiert die 3-Argument-Signatur `(llm, bus, memory)`. **Ansatz:** `JudgmentOrchestrator(llm, bus, memory)` mit Fakes instanzieren und asserten, dass die Konstruktion ohne `TypeError` durchläuft (verhindert die Regression des früher fehlenden `memory`-Arguments).
 
 ---
 
