@@ -261,3 +261,180 @@ def test_run_prints_net_and_gross_exposure(capsys):
     assert "Brutto" in out, f"Brutto-Exposure fehlt in Ausgabe: {out!r}"
     assert "300" in out, f"Netto-Wert 300 fehlt in Ausgabe: {out!r}"   # net  = 500 - 200
     assert "700" in out, f"Brutto-Wert 700 fehlt in Ausgabe: {out!r}"  # gross = 500 + 200
+
+
+# ---------------------------------------------------------------------------
+# net_beta pro Region
+# ---------------------------------------------------------------------------
+
+def _market(betas):
+    m = MagicMock()
+    m.get_info.side_effect = lambda t: {"beta": betas.get(t)}
+    return m
+
+
+def _agent_mp(positions, betas):
+    port = MagicMock()
+    port.get_positions.return_value = positions
+    return PortfolioMonitorAgent(
+        MagicMock(), portfolio_port=port,
+        market_provider=_market(betas), fx_rate=lambda a, b: 1.0)
+
+
+def test_net_beta_signed_and_beta_weighted():
+    # SPY long  100 shares * $100 = $10 000, beta=1.0  → +10 000
+    # TSLA short 100 shares * $100 = $10 000, beta=1.8  → -18 000
+    # net_beta USA = 10 000 - 18 000 = -8 000 → round(..., 0) = -8000
+    positions = [_pos("SPY",  100, 100, 100, direction="long",  sector="Index"),
+                 _pos("TSLA", 100, 100, 100, direction="short", sector="Auto")]
+    snap = _agent_mp(positions, {"SPY": 1.0, "TSLA": 1.8})._evaluate_positions(positions)
+    assert round(snap["net_beta"]["USA"], 0) == -8000
+
+
+def test_net_beta_missing_beta_defaults_one():
+    # beta=None → defaults to 1.0; 100 shares * $100 * 1.0 = 10 000
+    positions = [_pos("X", 100, 100, 100, direction="long")]
+    snap = _agent_mp(positions, {"X": None})._evaluate_positions(positions)
+    assert snap["net_beta"]["USA"] == 10000.0
+
+
+def test_net_beta_per_region_split():
+    from core.domain.portfolio import Position
+    positions = [
+        _pos("US1", 10, 10, 10, direction="long", country="USA"),
+        Position(ticker="CH1", shares=10, entry_price=10, direction="long",
+                 current_price=10, sector="Pharma", asset_class="equity", country="CH"),
+    ]
+    snap = _agent_mp(positions, {"US1": 1.0, "CH1": 1.0})._evaluate_positions(positions)
+    assert set(snap["net_beta"].keys()) == {"USA", "CH"}
+
+
+def test_net_beta_excludes_non_equity():
+    # net_beta soll einen AKTIEN-Index-Hedge dimensionieren → nur equity/index zählt.
+    # Aktie SPY long 10 000 β1 → +10 000; Bond TLT long 10 000 → ausgeschlossen
+    # (eine Anleihe hat kein Aktienmarkt-Beta von 1 → nicht mit SPY hedgebar).
+    positions = [_pos("SPY", 100, 100, 100, direction="long", asset_class="equity"),
+                 _pos("TLT", 100, 100, 100, direction="long", asset_class="bond")]
+    snap = _agent_mp(positions, {"SPY": 1.0, "TLT": 1.0})._evaluate_positions(positions)
+    assert snap["net_beta"]["USA"] == 10000.0   # nur SPY; TLT (bond) zählt nicht
+
+
+def test_net_beta_pct_denominator_is_equity_gross():
+    # Nenner = AKTIEN-Brutto (equity/index), nicht Gesamt-Brutto — sonst Äpfel/Birnen.
+    # Aktien netto: SPY +12 000 long, QQQ -2 000 short → 10 000; Aktien-Brutto = 14 000.
+    # Bond TLT long 6 000 darf NICHT im Nenner stehen (sonst 20 000 → 0.5).
+    positions = [_pos("SPY", 120, 100, 100, direction="long",  asset_class="equity"),
+                 _pos("QQQ",  20, 100, 100, direction="short", asset_class="equity"),
+                 _pos("TLT",  60, 100, 100, direction="long",  asset_class="bond")]
+    snap = _agent_mp(positions, {"SPY": 1.0, "QQQ": 1.0, "TLT": 1.0})._evaluate_positions(positions)
+    assert snap["net_beta_pct"]["USA"] == round(10000 / 14000, 3)   # 0.714, NICHT 0.5/0.8
+
+
+def test_region_of_maps_eurozone_and_fallbacks():
+    from agents.portfolio.portfolio_monitor_agent import _region_of
+    assert _region_of("DE") == "Eurozone"
+    assert _region_of("Deutschland") == "Eurozone"
+    assert _region_of("Japan") == "Japan"      # unbekannt → Land durchgereicht
+    assert _region_of("") == "Unbekannt"
+    assert _region_of(None) == "Unbekannt"
+
+
+def test_beta_for_exception_defaults_one():
+    # get_info wirft → defensiver Fallback 1,0 (kein Crash der Analyse)
+    mp = MagicMock()
+    mp.get_info.side_effect = Exception("boom")
+    agent = PortfolioMonitorAgent(MagicMock(), portfolio_port=MagicMock(),
+                                  market_provider=mp, fx_rate=lambda a, b: 1.0)
+    assert agent._beta_for("X") == 1.0
+
+
+def test_beta_for_no_market_provider_defaults_one():
+    # kein market_provider injiziert → Beta 1,0 (degradiert, kein Crash)
+    agent = PortfolioMonitorAgent(MagicMock(), portfolio_port=MagicMock(), fx_rate=lambda a, b: 1.0)
+    assert agent._beta_for("X") == 1.0
+
+
+# ---------------------------------------------------------------------------
+# make_returns_provider — Factory (Task 2 / F4a)
+# ---------------------------------------------------------------------------
+
+import pandas as pd
+from agents.portfolio.portfolio_monitor_agent import make_returns_provider
+
+
+def test_make_returns_provider_from_price_history():
+    mp = MagicMock()
+    mp.get_price_history.return_value = pd.DataFrame({"Close": [100.0, 110.0, 99.0]})
+    rets = make_returns_provider(mp)("X")
+    assert isinstance(rets, pd.Series)
+    assert len(rets) == 2 and abs(rets.iloc[0] - 0.10) < 1e-9
+
+
+def test_make_returns_provider_returns_dated_series():
+    # Renditen MÜSSEN datiert sein (Index = Datum), damit die Vola per Datum joinen kann.
+    mp = MagicMock()
+    idx = pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"])
+    mp.get_price_history.return_value = pd.DataFrame({"Close": [100.0, 110.0, 99.0]}, index=idx)
+    rets = make_returns_provider(mp)("X")
+    assert isinstance(rets, pd.Series)
+    assert list(rets.index) == list(pd.to_datetime(["2024-01-02", "2024-01-03"]))
+
+
+def test_make_returns_provider_error_empty():
+    mp = MagicMock()
+    mp.get_price_history.side_effect = Exception("net")
+    rets = make_returns_provider(mp)("X")
+    assert isinstance(rets, pd.Series) and rets.empty
+
+
+def test_vola_uses_date_aligned_returns():
+    # Zwei Titel mit ÜBERLAPPENDEN, aber versetzten Handelstagen. Die Vola muss die
+    # Renditen PER DATUM zusammenführen (gemeinsame Tage 01-03 & 01-04), nicht per
+    # Listenposition — sonst käme ein anderer (falscher) Wert heraus.
+    idx_a = pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04"])
+    idx_b = pd.to_datetime(["2024-01-03", "2024-01-04", "2024-01-05"])
+    series = {
+        "A": pd.Series([0.10, 0.02, -0.02], index=idx_a),
+        "B": pd.Series([0.04, -0.04, 0.10], index=idx_b),
+    }
+    positions = [_pos("A", 1, 100, 100, direction="long"),
+                 _pos("B", 1, 100, 100, direction="long")]
+    agent = PortfolioMonitorAgent(
+        _make_memory(), portfolio_port=_make_port(positions),
+        fx_rate=lambda a, b: 1.0, returns_provider=lambda t: series[t])
+    snap = agent._evaluate_positions(positions)
+    # Gewichte je 0.5; gem. Tage: A=[0.02,-0.02], B=[0.04,-0.04] → port=[0.03,-0.03]
+    # mean=0, var=(0.03²+0.03²)/1=0.0018, std=0.042426… → 0.0424
+    assert snap["portfolio_volatility"] == 0.0424
+
+
+# ---------------------------------------------------------------------------
+# Parallelisierung der Daten-Beschaffung (Task P4 / F4a-Review)
+# ---------------------------------------------------------------------------
+
+def test_gather_market_data_collects_price_beta_returns():
+    # _gather_market_data holt je Position Kurs, Beta und Renditen (hier ohne echtes I/O)
+    positions = [_pos("A", 1, 100, 111, direction="long")]   # current_price=111 gesetzt
+    mp = MagicMock()
+    mp.get_info.side_effect = lambda t: {"beta": 1.5}
+    agent = PortfolioMonitorAgent(
+        _make_memory(), portfolio_port=_make_port(positions), market_provider=mp,
+        fx_rate=lambda a, b: 1.0, returns_provider=lambda t: pd.Series([0.01, 0.02]))
+    data = asyncio.run(agent._gather_market_data(positions))
+    assert data[0]["price"] == 111
+    assert data[0]["beta"] == 1.5
+    assert list(data[0]["returns"]) == [0.01, 0.02]
+
+
+def test_evaluate_uses_prefetched_market_data():
+    # Wird market_data übergeben, nutzt _evaluate_positions die vorab geholten Werte —
+    # KEIN erneuter Provider-Aufruf (get_info würde sonst die AssertionError werfen).
+    positions = [_pos("A", 100, 100, 100, direction="long", asset_class="equity")]
+    mp = MagicMock()
+    mp.get_info.side_effect = AssertionError("get_info darf bei market_data nicht aufgerufen werden")
+    agent = PortfolioMonitorAgent(
+        _make_memory(), portfolio_port=_make_port(positions), market_provider=mp,
+        fx_rate=lambda a, b: 1.0)
+    market_data = {0: {"price": 100, "beta": 2.0, "returns": None}}
+    snap = agent._evaluate_positions(positions, market_data)
+    assert snap["net_beta"]["USA"] == 20000.0   # 100 * 100 * 2.0 (Beta aus market_data)

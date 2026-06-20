@@ -252,15 +252,24 @@ class SupabaseMemory(MemoryPort):
 
     # ── Portfolio ───────────────────────────────────────────────────────
 
+    # Risiko-Kennzahlen ohne eigene Spalte werden gebündelt als JSON in `metrics` persistiert
+    # (eine jsonb-Spalte, zukunftssicher: neue Kennzahlen brauchen keine weitere Migration).
+    _SNAPSHOT_METRIC_KEYS = (
+        "long_value", "short_value", "net_exposure", "gross_exposure",
+        "concentration_hhi", "portfolio_volatility", "portfolio_max_drawdown",
+        "net_beta", "net_beta_pct",
+    )
+
     def save_portfolio_snapshot(self, snapshot: dict) -> None:
+        metrics = {k: snapshot.get(k) for k in self._SNAPSHOT_METRIC_KEYS}
         with self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
                     INSERT INTO portfolio_snapshots (
                         total_positions, total_value_usd,
-                        cluster_risks, alerts, overall_health
-                    ) VALUES (%s, %s, %s, %s, %s)
+                        cluster_risks, alerts, overall_health, metrics
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
                     """,
                     (
                         snapshot.get("total_positions", 0),
@@ -268,6 +277,7 @@ class SupabaseMemory(MemoryPort):
                         json.dumps(snapshot.get("cluster_risks", [])),
                         json.dumps(snapshot.get("alerts", [])),
                         snapshot.get("overall_health", "green"),
+                        json.dumps(metrics),
                     ),
                 )
             conn.commit()
@@ -279,4 +289,14 @@ class SupabaseMemory(MemoryPort):
                     "SELECT * FROM portfolio_snapshots ORDER BY timestamp DESC LIMIT 1"
                 )
                 row = cur.fetchone()
-                return dict(row) if row else None
+                if not row:
+                    return None
+                snap = dict(row)
+                # metrics-Container wieder ins Top-Level entpacken → Snapshot-Form wie gespeichert
+                # (jsonb kommt je nach Treiber als dict oder str zurück — beides behandeln).
+                metrics = snap.pop("metrics", None)
+                if metrics:
+                    if isinstance(metrics, str):
+                        metrics = json.loads(metrics)
+                    snap.update(metrics)
+                return snap

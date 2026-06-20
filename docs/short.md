@@ -167,14 +167,8 @@ Spec: `docs/superpowers/specs/2026-06-18-foundation-aktions-taxonomie-design.md`
 **Vorhanden in `bottom_up` (BottomUpResult):** `fundamentals` (Multiples), `quality` (altman_z, interest_coverage, debt_to_equity, net_debt_ebitda, current_ratio, fcf_margin, roe/roa/roic, Margen), `earnings_trend` (beat_rate, estimate_revision), `moat` (total_score), `short_interest` (short_float_pct, days_to_cover), `insider` (net_direction), `valuation_range` (position, combined_low/high). Cockpit (Regime). Memory-Historie (für Trend/„verstärkt", später).
 **Dormant (Quelle später):** Momentum/Technik, Katalysator (Fälligkeiten/Guidance), Accounting-Red-Flags (Beneish/Accruals/DSO), relative Schwäche, Verwässerung/Cash-Burn-Runway, echte Borrow-Rate.
 
-## 16. Build-Reihenfolge
-1. ~~Foundation-Block~~ ✅ **gemergt (PR #3)** — Aktions-Taxonomie (long + short).
-2. **Block 1** — Equity-Short-Thesis-Engine (`derive_short_assessment`, **Aktion + Konfidenz**, Archetyp(en)/Flags/Risiko, Flag-Registry) + **Konflikt-Erkennung** (`conflict`-Flag im Judgment-Layer, bidirektional).
-   - **Voraussetzung (shared, berührt Long):** `AnomalyReport` um `direction` (bearish/bullish/neutral) erweitern + `compute_confidence` gerichtet nutzen → bearishe Anomalie hebt Short-Konfidenz, bestätigt/penalisiert Long je nach These. Eigener abgegrenzter Schritt (Regressionsrisiko Long-Konfidenz).
-3. **Konflikt-Agent (Folge-Block)** — spezialisierte Thesis-Reversal-Abwägung bei `conflict` (siehe §18). Nutzt Short-Assessment + PM-Positionsdaten.
-4. **Block #3** — Regeln/Regime-Weiche + Track-B-Hedge + Portfolio-Manager-Ausbau (Richtung/Einstand/P&L/Reconciliation).
-5. **Block #4** — Short-Backtest (inkl. **Bewertung/Kalibrierung des Konflikt-Agenten**).
-- Quer: **B** (LLM-Short-These), **Momentum** (long+short), **Rohstoff-/Anleihe-/Edelmetall-Short**, ggf. **Futures**.
+## 16. Build-Reihenfolge & Status
+→ **Wird im Logbuch geführt:** `docs/open_todos.md`, Abschnitt „Build-Status & offene Blöcke". Dieses Design-Dokument enthält **bewusst keine** Roadmap/Status mehr (keine Doppelpflege — siehe `AGENTS.md` §5).
 
 ## 17. Entscheidungs-Log
 - Short ≠ invertiertes Long. ✅
