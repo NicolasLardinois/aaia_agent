@@ -9,16 +9,20 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
 
 ## GESAMTÜBERSICHT
 
-| Bereich | Offen |
-|---------|-------|
-| Offene Bugs (code_review_2026-06-05.md) | 12 |
-| Stub-APIs (ECB, SNB, etc.) | 20+ Methoden |
-| Agent-Stubs (komplette Implementierung fehlt) | 5 Agents |
-| Fehlende Einzelfeatures in bestehenden Agents | 15 |
-| Feature-Backlog (Pläne) | ~36 Tasks |
-| Test-Lücken | 6 |
-| Code-Qualität / toter Code | 3 |
-| Design-Entscheidungen (Frontend) | 10 |
+> **Details und Stand: siehe die Abschnitte unten.** Maßgeblich sind die Häkchen
+> (`- [ ]` offen / `- [x]` erledigt) direkt an den Einträgen — bewusst **keine**
+> separat gepflegte Anzahl, die ohnehin veraltet.
+
+| Bereich |
+|---------|
+| Offene Bugs (code_review_2026-06-05.md) |
+| Stub-APIs (ECB, SNB, etc.) |
+| Agent-Stubs (komplette Implementierung fehlt) |
+| Fehlende Einzelfeatures in bestehenden Agents |
+| Feature-Backlog (Pläne) |
+| Test-Lücken |
+| Code-Qualität / toter Code |
+| Design-Entscheidungen (Frontend) |
 
 ---
 
