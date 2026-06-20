@@ -87,9 +87,10 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
   `close.index.searchsorted(f"{datetime.utcnow().year}-01-01")` wirft `TypeError` bei timezone-aware Index.
   Ausserdem: wenn Jahresanfang nicht im 5-Jahres-Fenster liegt, wird YTD falsch berechnet.
 
-- [ ] **Bug #44** — `agents/stock_deep_dive/equity/fundamentals_agent.py`, `insider_agent.py`, `short_interest_agent.py`
+- [x] **Bug #44** — `agents/stock_deep_dive/equity/fundamentals_agent.py`, `insider_agent.py`, `short_interest_agent.py`
   Keine Exception-Guard auf Provider-Response (kein `if isinstance(data, Exception)`).
   Inkonsistent mit `quality_agent.py` (hat den Guard). Exceptions propagieren unkontrolliert.
+  **✅ Audit 2026-06-20 → behoben (TDD).** Befund: `fundamentals_agent` hatte den Guard bereits (robuster als `quality_agent`: `try/except` **plus** `isinstance`). Offen waren `insider_agent` + `short_interest_agent`. **Lösung:** dasselbe robuste Muster (`try/except Exception` → leere Liste/Dict, **plus** `isinstance(..., Exception)`-Guard) in beide `run()` ergänzt → Rückfall auf neutralen Default statt Crash. Deckt beide Fehlermodi ab (Provider **wirft** und Provider **gibt Exception zurück**). Je 2 neue Tests; Gesamtsuite **715 grün**. *(PR: `fix/bug44-equity-exception-guards`.)*
 
 - [ ] **Bug #46** — `adapters/memory/supabase_memory.py:44`
   Breites `except AttributeError: pass` schluckt alle Fehler still.

@@ -2,7 +2,7 @@ import asyncio
 from unittest.mock import MagicMock
 
 from agents.stock_deep_dive.equity.short_interest_agent import ShortInterestAgent, _signal
-from core.domain.models import Signal
+from core.domain.models import ShortInterestSnapshot, Signal
 
 
 def _make_agent(data: dict) -> ShortInterestAgent:
@@ -56,3 +56,28 @@ def test_run_durchreichung():
     }).run("X"))
     assert result.signal == Signal.BULLISH
     assert result.days_to_cover == 9.0
+
+
+# ── Bug #44: Exception-Guard auf Provider-Response ────────────────────────
+# Konsistent zum FundamentalsAgent: weder ein geworfener Fehler noch eine als
+# Wert zurückgegebene Exception dürfen run() crashen — Rückfall auf neutralen
+# Default (AGENTS.md §2: ausgefallene Datenquelle darf die Analyse nie killen).
+
+def test_run_provider_wirft_liefert_neutralen_snapshot():
+    """Provider wirft → run() liefert neutralen ShortInterestSnapshot statt zu crashen."""
+    provider = MagicMock()
+    provider.get_short_interest.side_effect = ValueError("API down")
+    result = asyncio.run(ShortInterestAgent(provider, MagicMock()).run("FAIL"))
+    assert isinstance(result, ShortInterestSnapshot)
+    assert result.signal == Signal.NEUTRAL
+    assert result.short_float_pct is None
+
+
+def test_run_provider_gibt_exception_zurueck_liefert_neutralen_snapshot():
+    """Provider gibt eine Exception als Wert zurück → run() crasht nicht (kein .get auf Exception)."""
+    provider = MagicMock()
+    provider.get_short_interest.return_value = ValueError("bad data")
+    result = asyncio.run(ShortInterestAgent(provider, MagicMock()).run("FAIL"))
+    assert isinstance(result, ShortInterestSnapshot)
+    assert result.signal == Signal.NEUTRAL
+    assert result.short_float_pct is None

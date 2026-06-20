@@ -76,7 +76,14 @@ class InsiderAgent:
         self.bus = bus
 
     async def run(self, ticker: str) -> InsiderSnapshot:
-        transactions = await asyncio.to_thread(self.provider.get_insider_activity, ticker)
+        # Exception-Guard analog FundamentalsAgent: geworfener Fehler ODER als Wert
+        # zurückgegebene Exception → leere Transaktionsliste (neutraler Default).
+        try:
+            transactions = await asyncio.to_thread(self.provider.get_insider_activity, ticker)
+        except Exception:
+            transactions = []
+        if isinstance(transactions, Exception):
+            transactions = []
         net   = _net_value(transactions)
         gross = _gross_value(transactions)
         signal = _signal(net, gross)
