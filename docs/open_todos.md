@@ -33,6 +33,8 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
 > **5 verbleiben** (#30, #42, #44, #46, #47) — Abarbeitung **eine PR pro Bug** (Start #44); die präzise
 > Rest-Scope-Analyse aus dem Audit kommt jeweils in die zugehörige Fix-PR (mit `[x]` + Lösung).
 > Hinweis: Die Zeilennummern in den Bug-Texten sind veraltet (Code hat sich verschoben); maßgeblich ist der Beleg im Audit-Vermerk.
+>
+> **PR-Protokoll (§5):** Audit + die zwei Folge-Test-Lücken aus #1/#2 → **PR #12 am 2026-06-20 gemergt** (Merge-Commit `eb044a0`). Review (gemeinsam): alle 7 Code-Belege gegen `master` verifiziert, zitierte Tests grün. *(Dieser Protokoll-Vermerk selbst: bewusste Direkt-auf-`master`-Ausnahme — er braucht den Merge-Commit-Hash, kann also nicht mehr in den bereits gemergten PR.)*
 
 ### Kritisch (Crash / Datenverlust)
 
