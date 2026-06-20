@@ -108,3 +108,16 @@
 4. `returns_provider` produktiv verdrahtet → Portfolio-Vola/MaxDD live (nicht mehr konstant 0).
 5. Anzeige zeigt `net_beta` je Region.
 6. Gesamtsuite grün (0 failed).
+
+## Review-Erweiterungen (PR #11, 2026-06-20)
+
+Aus dem PR-#11-Review beschlossene Nachbesserungen (per TDD umgesetzt, Gesamtsuite 727 grün):
+
+1. **`net_beta` nur Aktien/Indizes** (`_EQUITY_CLASSES = {"equity", "index"}`). `net_beta` dimensioniert einen **Aktien**-Index-Hedge (Track B); Bonds/Rohstoffe/Edelmetalle haben kein Aktienmarkt-Beta und gehören nicht hinein — ihr Risiko fängt die Vola ab. (Fehlendes Beta bei *Aktien* weiterhin → 1,0.)
+2. **`net_beta_pct`-Nenner = Aktien-Brutto** derselben Region (nicht Gesamt-Brutto) → Zähler/Nenner gleiche Klasse („Äpfel mit Äpfeln"). Mischgröße (Zähler beta-gewichtet) bleibt, ist im Code dokumentiert.
+3. **Vola per Datum statt per Listenposition.** `make_returns_provider` liefert eine **datierte `pandas.Series`**; die Vola führt die Renditen über den **gemeinsamen Datums-Index** zusammen (`DataFrame.dropna`) — sonst werden Titel mit verschieden langer/verschobener Historie (US/CH/EU-Feiertage) falsch übereinandergelegt.
+4. **Parallele Daten-Beschaffung.** Neue `async _gather_market_data` holt Kurs/Beta/Renditen je Position parallel (`asyncio.to_thread` + `gather`); `_evaluate_positions` nimmt die vorab geholten Daten entgegen (Sync-Fallback für Direkt-Aufrufe). Vermeidet sequenzielles, rate-limit-anfälliges yfinance-I/O (AGENTS.md §2).
+5. **Typisierung.** `market_provider: Optional[MarketDataProvider]` (Hexagonal: Abhängigkeit von der Port-Abstraktion sichtbar).
+6. **Persistenz.** Risiko-Kennzahlen (`net_beta`, `net_beta_pct`, Exposure, Vola, MaxDD, HHI) werden als **`metrics`-jsonb** in `portfolio_snapshots` gespeichert und beim Laden ins Top-Level entpackt → 3b kann `net_beta` später aus dem Snapshot lesen. **Migration (vor Deploy einmalig):** `ALTER TABLE portfolio_snapshots ADD COLUMN metrics jsonb;`.
+
+**Folge-Block (geparkt, eigenes Brainstorming):** instrumentengenaue **Nicht-Aktien-Hedges** (Bonds via DV01/Duration → Staatsanleihe-Futures; Rohstoffe je Underlying; Edelmetalle einzeln). DV01-Maschinerie (`core/utils/bond_math`) vorhanden, aber **Bond-Datenquelle** (`get_bond_data`) ist Stub → Voraussetzung. Siehe Logbuch.
