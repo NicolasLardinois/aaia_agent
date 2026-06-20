@@ -96,6 +96,26 @@ def _broken_cockpit():
     )
 
 
+def _bu_without_short_interest():
+    """Bottom-Up-Ergebnis mit gültigen fundamentals/insider, aber fehlendem
+    short_interest-Attribut — simuliert ein umbenanntes Feld."""
+    return SimpleNamespace(
+        valuation_range=None, index=None, precious_metals=None, commodity_deep=None,
+        fundamentals=SimpleNamespace(pe_ratio=15.0),
+        insider=SimpleNamespace(recent_transactions=3),
+        # absichtlich KEIN short_interest-Attribut → simuliert umbenanntes Feld
+    )
+
+
+def _cockpit_without_regime():
+    """Cockpit mit gültigem regime_confidence, aber fehlendem regime-Attribut."""
+    return SimpleNamespace(
+        sentiment=SimpleNamespace(),
+        yield_curve=SimpleNamespace(),
+        macro=SimpleNamespace(regime_confidence=0.6),  # KEIN regime-Attribut
+    )
+
+
 def test_build_snapshot_granular_keeps_later_fields_when_one_breaks():
     """Das gebrochene sentiment-Feld darf die späteren Indikatoren nicht mitreißen."""
     snap = _build_indicators_snapshot(_broken_cockpit())
@@ -114,24 +134,31 @@ def test_build_snapshot_logs_warning_instead_of_silent_swallow(caplog):
 
 def test_save_analysis_bottom_up_block_is_granular(monkeypatch):
     """short_interest bricht, darf aber fundamentals/insider nicht mitreißen."""
-    bu = SimpleNamespace(
-        valuation_range=None, index=None, precious_metals=None, commodity_deep=None,
-        fundamentals=SimpleNamespace(pe_ratio=15.0),
-        insider=SimpleNamespace(recent_transactions=3),
-        # absichtlich KEIN short_interest-Attribut → simuliert umbenanntes Feld
-    )
-    params = _save_and_capture(_result_with_bu(bu), monkeypatch=monkeypatch)
+    params = _save_and_capture(_result_with_bu(_bu_without_short_interest()), monkeypatch=monkeypatch)
     indicators = json.loads(params[-1])
     assert indicators.get("pe_ratio") == 15.0
     assert indicators.get("insider_transactions") == 3
 
 
+def test_save_analysis_bottom_up_block_logs_warning(monkeypatch, caplog):
+    """Das gebrochene short_interest-Feld muss eine Warnung loggen, nicht still scheitern."""
+    with caplog.at_level(logging.WARNING):
+        _save_and_capture(_result_with_bu(_bu_without_short_interest()), monkeypatch=monkeypatch)
+    assert any(r.levelno == logging.WARNING and "short_float_pct" in r.getMessage()
+               for r in caplog.records), \
+        "kein WARNING für das gebrochene short_interest-Feld (still verschluckt?)"
+
+
 def test_save_analysis_regime_block_is_granular(monkeypatch):
     """regime (params[3]) bricht, regime_confidence (params[4]) muss trotzdem durchkommen."""
-    cockpit = SimpleNamespace(
-        sentiment=SimpleNamespace(),
-        yield_curve=SimpleNamespace(),
-        macro=SimpleNamespace(regime_confidence=0.6),  # KEIN regime-Attribut
-    )
-    params = _save_and_capture(_result(ShortAction.COVER), cockpit=cockpit, monkeypatch=monkeypatch)
+    params = _save_and_capture(_result(ShortAction.COVER), cockpit=_cockpit_without_regime(), monkeypatch=monkeypatch)
     assert params[4] == 0.6
+
+
+def test_save_analysis_regime_block_logs_warning(monkeypatch, caplog):
+    """Das gebrochene regime-Feld muss eine Warnung loggen, nicht still scheitern."""
+    with caplog.at_level(logging.WARNING):
+        _save_and_capture(_result(ShortAction.COVER), cockpit=_cockpit_without_regime(), monkeypatch=monkeypatch)
+    assert any(r.levelno == logging.WARNING and "'regime'" in r.getMessage()
+               for r in caplog.records), \
+        "kein WARNING für das gebrochene regime-Feld (still verschluckt?)"
