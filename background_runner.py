@@ -6,6 +6,7 @@ load_dotenv()
 
 from adapters.event_bus.redis_bus import InMemoryEventBus
 from adapters.memory.supabase_memory import SupabaseMemory
+from adapters.persistence.json_portfolio import JsonPortfolioProvider
 from agents.backtester_chief_agent import BacktesterChiefAgent
 from agents.portfolio.portfolio_monitor_agent import PortfolioMonitorAgent
 
@@ -22,7 +23,7 @@ async def main() -> None:
 
     agents = [
         ("BacktesterChief", backtester.run),
-        ("PortfolioMonitor", PortfolioMonitorAgent(memory).run),
+        ("PortfolioMonitor", PortfolioMonitorAgent(memory, portfolio_port=JsonPortfolioProvider()).run),
     ]
 
     for name, run_fn in agents:

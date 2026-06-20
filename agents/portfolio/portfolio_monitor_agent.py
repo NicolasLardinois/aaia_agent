@@ -1,13 +1,12 @@
-import json
 import os
 from typing import Callable, Optional
 
 import yfinance as yf
 
+from core.domain.portfolio import Position, PortfolioError
 from core.ports.memory_port import MemoryPort
+from core.ports.portfolio_port import PortfolioPort
 from core.utils.performance_metrics import max_drawdown
-
-PORTFOLIO_FILE = os.path.join(os.path.dirname(__file__), "..", "..", "data", "portfolio.json")
 
 SECTOR_THRESHOLD      = 0.40
 ASSET_CLASS_THRESHOLD = 0.60   # verschärft von 0.80
@@ -37,26 +36,19 @@ def _herfindahl(weights: list[float]) -> float:
     return round(sum(w * w for w in weights), 4) if weights else 0.0
 
 
-def _check_cluster_risks(positions: list[dict]) -> list[dict]:
-    if not positions:
-        return []
-    total_value = sum(p.get("_value_base", p["shares"] * p["current_price"]) for p in positions)
-    if total_value == 0:
+def _check_cluster_risks(positions: list[Position], values: list[float], gross: float) -> list[dict]:
+    if gross == 0:
         return []
     risks = []
-    thresholds = {
-        "sector":      SECTOR_THRESHOLD,
-        "asset_class": ASSET_CLASS_THRESHOLD,
-        "country":     COUNTRY_THRESHOLD,
-    }
+    thresholds = {"sector": SECTOR_THRESHOLD, "asset_class": ASSET_CLASS_THRESHOLD, "country": COUNTRY_THRESHOLD}
     for dim, threshold in thresholds.items():
         buckets: dict[str, float] = {}
-        for p in positions:
-            val  = p.get("_value_base", p["shares"] * p["current_price"])
-            name = p.get(dim, "Unbekannt")
-            buckets[name] = buckets.get(name, 0.0) + val
-        for name, val in buckets.items():
-            pct = val / total_value
+        for p, val in zip(positions, values):
+            signed = val if p.direction == "long" else -val
+            name = getattr(p, dim, "Unbekannt")
+            buckets[name] = buckets.get(name, 0.0) + signed
+        for name, net in buckets.items():
+            pct = abs(net) / gross
             if pct > threshold:
                 risks.append({
                     "type":      dim,
@@ -65,7 +57,7 @@ def _check_cluster_risks(positions: list[dict]) -> list[dict]:
                     "threshold": threshold,
                     "message":   (
                         f"Klumpenrisiko {dim.replace('_', '-').title()}: "
-                        f"{name} = {pct:.0%} (Grenze: {threshold:.0%})"
+                        f"{name} = {pct:.0%} netto (Grenze: {threshold:.0%})"
                     ),
                 })
     return risks
@@ -76,71 +68,100 @@ class PortfolioMonitorAgent:
     def __init__(
         self,
         memory: MemoryPort,
+        portfolio_port: PortfolioPort,
         market_provider=None,
         fx_rate: Callable[[str, str], float] = _default_fx_rate,
         returns_provider: Optional[Callable[[str], list]] = None,
     ):
         self.memory = memory
+        self.portfolio_port = portfolio_port
         self.fx_rate = fx_rate
         self.returns_provider = returns_provider
 
-    def _evaluate_positions(self, positions: list[dict]) -> dict:
+    def _evaluate_positions(self, positions: list[Position]) -> dict:
         if not positions:
             return {
-                "total_positions": 0,
-                "total_value_usd": 0.0,
-                "cluster_risks":   [],
-                "alerts":          [],
-                "overall_health":  "green",
-                "concentration_hhi": 0.0,
-                "portfolio_volatility": 0.0,
-                "portfolio_max_drawdown": 0.0,
+                "total_positions":         0,
+                "total_value_usd":         0.0,
+                "long_value":              0.0,
+                "short_value":             0.0,
+                "net_exposure":            0.0,
+                "gross_exposure":          0.0,
+                "cluster_risks":           [],
+                "alerts":                  [],
+                "overall_health":          "green",
+                "concentration_hhi":       0.0,
+                "portfolio_volatility":    0.0,
+                "portfolio_max_drawdown":  0.0,
             }
 
+        # Aktuellen Kurs ermitteln und Positionswert in Basiswährung berechnen
+        values: list[float] = []
+        cur_prices: list[float] = []
         for p in positions:
-            if "current_price" not in p:
-                price = _fetch_current_price(p["ticker"])
-                p["current_price"] = price if price else p["buy_price"]
-            ccy = p.get("currency", BASE_CURRENCY)
-            p["_fx"] = self.fx_rate(ccy, BASE_CURRENCY)
-            p["_value_base"] = p["shares"] * p["current_price"] * p["_fx"]
+            cur = p.current_price if p.current_price is not None else (_fetch_current_price(p.ticker) or p.entry_price)
+            cur_prices.append(cur)
+            val = p.shares * cur * self.fx_rate(p.currency, BASE_CURRENCY)
+            values.append(val)
 
-        total_value   = sum(p["_value_base"] for p in positions)
-        cluster_risks = _check_cluster_risks(positions)
+        # Long / Short / Netto / Brutto
+        longs  = sum(v for p, v in zip(positions, values) if p.direction == "long")
+        shorts = sum(v for p, v in zip(positions, values) if p.direction == "short")
+        net    = round(longs - shorts, 2)
+        gross  = round(longs + shorts, 2)
+
+        total_value = gross  # nur zur Anzeige (entspricht dem Brutto-Exposure)
+
+        cluster_risks = _check_cluster_risks(positions, values, gross)
         alerts: list[str] = [r["message"] for r in cluster_risks]
 
-        for p in positions:
-            if p["buy_price"] > 0:
-                loss_pct = (p["current_price"] - p["buy_price"]) / p["buy_price"]
-                if loss_pct < -LOSS_THRESHOLD:
+        # P&L-Alarme — richtungs-bewusst
+        for p, cur in zip(positions, cur_prices):
+            if p.entry_price > 0:
+                if p.direction == "long":
+                    pnl = (cur - p.entry_price) / p.entry_price
+                else:  # short: Gewinn, wenn der Kurs fällt
+                    pnl = (p.entry_price - cur) / p.entry_price
+                if pnl < -LOSS_THRESHOLD:
                     alerts.append(
-                        f"Offener Verlust {p['ticker']}: {loss_pct:.0%} "
-                        f"(Kauf: {p['buy_price']:.2f}, Heute: {p['current_price']:.2f})"
+                        f"Offener Verlust {p.ticker} ({p.direction}): {pnl:.0%} "
+                        f"(Einstand: {p.entry_price:.2f}, Heute: {cur:.2f})"
                     )
 
+        # Memory-Alignment-Warnungen — richtungs-bewusst:
+        #   long  ist fehlausgerichtet, wenn die Analyse raus/drehen will (SELL/SHORT);
+        #   short ist fehlausgerichtet, wenn die Analyse eindecken/drehen will (COVER/BUY).
+        # Sonst würde ein Short mit letzter Analyse SHORT (= perfekt ausgerichtet)
+        # fälschlich gewarnt und ein Short mit COVER (= echte Fehlausrichtung) übersehen.
         for p in positions:
-            history = self.memory.load_history(p["ticker"], days=90)
-            if history:
-                last_rec = history[0].get("recommendation", "")
-                if last_rec in ("SELL", "SHORT"):
-                    alerts.append(
-                        f"Alignment-Warnung {p['ticker']}: letzte Analyse = {last_rec}, "
-                        f"Position aber noch gehalten."
-                    )
+            history = self.memory.load_history(p.ticker, days=90)
+            if not history:
+                continue
+            last_rec = history[0].get("recommendation", "")
+            if p.direction == "long":
+                misaligned = last_rec in ("SELL", "SHORT")
+            else:  # short
+                misaligned = last_rec in ("COVER", "BUY")
+            if misaligned:
+                alerts.append(
+                    f"Alignment-Warnung {p.ticker} ({p.direction}): letzte Analyse = {last_rec}, "
+                    f"Position aber noch gehalten."
+                )
 
-        # Konzentration (HHI) über FX-konvertierte Gewichte
-        weights = [p["_value_base"] / total_value for p in positions] if total_value > 0 else []
+        # Konzentration (HHI) über Brutto-Gewichte
+        weights = [v / gross for v in values] if gross > 0 else []
         hhi = _herfindahl(weights)
 
-        # Portfolio-Vola/MaxDD aus gewichteten Positions-Returns (sofern Provider vorhanden)
+        # Portfolio-Vola / MaxDD — signierte Gewichte, damit Hedges die Vola senken
         port_vol = 0.0
         port_mdd = 0.0
-        if self.returns_provider and total_value > 0:
+        if self.returns_provider and gross > 0:
             series = []
-            for p in positions:
-                rets = self.returns_provider(p["ticker"]) or []
+            for p, val in zip(positions, values):
+                rets = self.returns_provider(p.ticker) or []
                 if rets:
-                    series.append((p["_value_base"] / total_value, rets))
+                    signed_weight = (val / gross) if p.direction == "long" else -(val / gross)
+                    series.append((signed_weight, rets))
             if series:
                 n = min(len(r) for _, r in series)
                 port_returns = [
@@ -156,25 +177,27 @@ class PortfolioMonitorAgent:
         health   = "green" if n_alerts == 0 else ("yellow" if n_alerts <= 2 else "red")
 
         return {
-            "total_positions": len(positions),
-            "total_value_usd": round(total_value, 2),
-            "cluster_risks":   cluster_risks,
-            "alerts":          alerts,
-            "overall_health":  health,
-            "concentration_hhi": hhi,
-            "portfolio_volatility": port_vol,
-            "portfolio_max_drawdown": port_mdd,
+            "total_positions":         len(positions),
+            "total_value_usd":         round(total_value, 2),
+            "long_value":              round(longs, 2),
+            "short_value":             round(shorts, 2),
+            "net_exposure":            net,
+            "gross_exposure":          gross,
+            "cluster_risks":           cluster_risks,
+            "alerts":                  alerts,
+            "overall_health":          health,
+            "concentration_hhi":       hhi,
+            "portfolio_volatility":    port_vol,
+            "portfolio_max_drawdown":  port_mdd,
         }
 
     async def run(self) -> None:
         try:
-            with open(PORTFOLIO_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except FileNotFoundError:
-            print("[PortfolioMonitor] portfolio.json nicht gefunden — übersprungen.")
+            positions = self.portfolio_port.get_positions()
+        except PortfolioError as e:
+            print(f"[PortfolioMonitor] Portfolio-Daten ungültig: {e}")
             return
 
-        positions = data.get("positions", [])
         if not positions:
             print("[PortfolioMonitor] Keine Positionen erfasst — übersprungen.")
             return
@@ -183,8 +206,12 @@ class PortfolioMonitorAgent:
         self.memory.save_portfolio_snapshot(snapshot)
 
         health = snapshot["overall_health"].upper()
+        # Netto UND Brutto getrennt ausweisen: bei einem marktneutralen Buch
+        # (z. B. 100 long / 100 short) wäre eine einzelne "Wert"-Zeile (= Brutto)
+        # irreführend, weil netto ~0 Kapital gebunden ist.
         print(f"[PortfolioMonitor] Gesundheit: {health} | "
               f"{len(snapshot['alerts'])} Warnungen | "
-              f"Wert: ${snapshot['total_value_usd']:,.0f}")
+              f"Netto: ${snapshot['net_exposure']:,.0f} | "
+              f"Brutto: ${snapshot['gross_exposure']:,.0f}")
         for alert in snapshot["alerts"]:
             print(f"  ⚠ {alert}")
