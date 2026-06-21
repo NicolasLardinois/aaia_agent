@@ -67,10 +67,11 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
   Ein Markt im Kollaps erzeugt dasselbe Signal wie einer, der leicht unterbewertet ist.
   **✅ Audit 2026-06-20 BEHOBEN (durch Umbau):** Der Agent existiert nicht mehr; CAPE ist heute eine reine Mathe-Funktion ohne Signal (`core/utils/valuation_math.py:101`). Das Nachfolge-Signal in `index_valuation_agent.py` ist **beidseitig** begrenzt (ERP-Cutoffs + symmetrischer PE-Puffer) und durch `test_index_valuation_agent.py` (`test_signal_buffers_are_symmetric` u.a.) abgesichert.
 
-- [ ] **Bug #30** — `agents/market_cockpit/macro_chief_agent.py:82`
+- [x] **Bug #30** — `agents/market_cockpit/macro_chief_agent.py:82`
   `EXPANSION` als Default-Regime wenn alle Provider ausfallen.
   Nachgelagerte Agenten generieren aktionabel wirkende "buy Tech" Empfehlungen ohne reale Datenbasis.
   **Lösung:** Default auf `NEUTRAL` oder `UNKNOWN` setzen.
+  **✅ Audit 2026-06-20 → behoben (TDD).** Befund: Der gefährliche Laufpfad (`run()` bei Provider-Ausfall) war schon entschärft; offen war nur der statische `MacroChiefAgent.default()` (regime `EXPANSION`, confidence `0.5`), genutzt als Fallback in `top_down_orchestrator.py:44`. **Wichtig:** Enum `MarketRegime` hat **kein** `NEUTRAL`/`UNKNOWN` → die Logbuch-Lösung war nicht 1:1 möglich. **Umgesetzt:** `default()` → `MarketRegime.SLOWDOWN` (neutralstes vorhandenes, defensives Regime, konsistent zum `run()`-Pfad bei leerem State) + `regime_confidence=0.2` (signalisiert „keine Datenbasis"). Fachlich: ein falsch-positives Risk-on ist asymmetrisch teurer als ein zu vorsichtiges Regime. Festnagelnder Test (`test_macro_chief_default`) auf SLOWDOWN + niedrige Confidence angepasst; die übrigen `EXPANSION`-Stellen in Tests sind Beispiel-Eingaben (unberührt). Gesamtsuite **737 grün**. *(PR: `fix/bug30-macro-default-regime`.)*
 
 - [x] **Bug #34** — `agents/stock_deep_dive/bond/bond_metrics_agent.py:47`
   `if ytm and inflation` schlägt für Zero-Coupon-Anleihen (`ytm=0.0`) fehl.

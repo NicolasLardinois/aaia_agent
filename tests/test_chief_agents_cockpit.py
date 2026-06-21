@@ -87,9 +87,14 @@ def test_macro_chief_resilience():
 
 
 def test_macro_chief_default():
+    """Bug #30: Fällt der ganze Macro-Chief aus (keine Datenbasis), darf der Default
+    NICHT das bullische EXPANSION sein — das erzeugt nachgelagert aktionable
+    'buy Tech'-Empfehlungen ohne reale Daten. Stattdessen defensives SLOWDOWN +
+    niedrige Confidence ('kein Vertrauen, keine Datenbasis')."""
     result = MacroChiefAgent.default()
     assert isinstance(result, MacroChiefResult)
-    assert result.regime == MarketRegime.EXPANSION
+    assert result.regime == MarketRegime.SLOWDOWN
+    assert result.regime_confidence <= 0.3
 
 
 def test_equity_chief_result_fields():
