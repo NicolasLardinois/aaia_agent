@@ -8,6 +8,7 @@ _RISK_ON  = {MarketRegime.BOOM, MarketRegime.EXPANSION, MarketRegime.RECOVERY}
 _RISK_OFF = {MarketRegime.SLOWDOWN, MarketRegime.RECESSION, MarketRegime.DEPRESSION}
 _BASE = {"distress": 0.60, "broken_growth": 0.62, "secular_decline": 0.58}
 _THRESHOLD = 0.50
+_SHORT_PLUS_MIN_PROFIT_PCT = 5.0   # SHORT+ nur in einen klaren Gewinner-Short (Kurs ~5 %+ unter Einstand)
 
 
 def _regime_effect(cockpit) -> str:
@@ -33,11 +34,16 @@ def _anomaly_boost(rep) -> float:
     return {"high": 0.10, "medium": 0.05}.get(getattr(rep, "severity", "none"), 0.0)
 
 
-def _action(pos, confidence) -> ShortAction:
+def _action(pos, confidence, pnl_pct=None, squeeze="low") -> ShortAction:
     if pos == PositionState.LONG:
         return ShortAction.NONE
     if pos == PositionState.SHORT:
-        return ShortAction.HOLD if confidence >= _THRESHOLD else ShortAction.COVER
+        if confidence < _THRESHOLD:
+            return ShortAction.COVER          # These gebrochen
+        # These gilt weiter — nur in einen Gewinner nachlegen, nie in einen Squeeze:
+        if pnl_pct is not None and pnl_pct >= _SHORT_PLUS_MIN_PROFIT_PCT and squeeze != "high":
+            return ShortAction.SHORT_PLUS
+        return ShortAction.HOLD
     return ShortAction.SHORT if confidence >= _THRESHOLD else ShortAction.NONE
 
 
@@ -49,7 +55,8 @@ def _mk(asset_class, action, conf, archetypes, flags, regime, squeeze, htb, size
 
 
 def derive_short_assessment(bottom_up, cockpit, current_position,
-                            top_down_available, bu_anomaly, td_anomaly) -> ShortAssessment:
+                            top_down_available, bu_anomaly, td_anomaly,
+                            position_pnl_pct=None) -> ShortAssessment:
     asset_class = getattr(bottom_up, "asset_class", "equity")
     regime = _regime_effect(cockpit)
     squeeze, htb, dtc = _squeeze(getattr(bottom_up, "short_interest", None))
@@ -102,11 +109,13 @@ def derive_short_assessment(bottom_up, cockpit, current_position,
         conf = min(conf, 0.70)
     conf = max(0.10, min(1.0, conf))
 
-    action = _action(current_position, conf)
+    action = _action(current_position, conf, position_pnl_pct, squeeze)
     size = None
     if action == ShortAction.SHORT:
         size = round(_position_size_pct(conf) * 0.5, 1)
         if squeeze == "high":
             size = round(size * 0.5, 1)
+    elif action == ShortAction.SHORT_PLUS:
+        size = round(_position_size_pct(conf) * 0.25, 1)   # konservativer Top-up
     stop = 10.0 if squeeze == "high" else 15.0
     return _mk(asset_class, action, conf, archetypes, details, regime, squeeze, htb, size, stop)
