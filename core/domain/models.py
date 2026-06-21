@@ -18,6 +18,18 @@ class Signal(str, Enum):
     NEUTRAL = "neutral"
 
 
+class RiskAffinity(str, Enum):
+    KONSERVATIV   = "konservativ"
+    NEUTRAL       = "neutral"
+    RISIKOFREUDIG = "risikofreudig"
+
+
+class CreditBand(str, Enum):
+    SICHER  = "sicher"
+    MITTEL  = "mittel"
+    RISKANT = "riskant"
+
+
 class SignalStatus(str, Enum):
     AVAILABLE   = "available"
     UNAVAILABLE = "unavailable"
