@@ -12,7 +12,7 @@ import asyncio
 import sys
 
 from config.settings import FRED_API_KEY, ANTHROPIC_API_KEY, FINNHUB_API_KEY
-from core.domain.models import PositionState
+from core.domain.models import PositionState, RiskAffinity
 from core.domain.portfolio import PortfolioError
 from adapters.persistence.json_portfolio import JsonPortfolioProvider
 from adapters.data.fred_api import FredDataProvider
@@ -27,6 +27,30 @@ from adapters.cache.result_cache import ResultCache
 from orchestrators.top_down_orchestrator import TopDownOrchestrator
 from orchestrators.bottom_up_orchestrator import BottomUpOrchestrator
 from orchestrators.judgment_orchestrator import JudgmentOrchestrator
+
+
+def _parse_risk_affinity(args: list[str], asset_class: str) -> "RiskAffinity | None":
+    """Liest --risk-affinity aus der Argument-Liste.
+
+    Für Anleihen (asset_class=='bond') ist der Parameter Pflicht;
+    fehlt er oder ist er ungültig, wird mit Exit-Code 1 abgebrochen.
+    Für alle anderen Asset-Klassen wird None zurückgegeben.
+    """
+    val = None
+    if "--risk-affinity" in args:
+        i = args.index("--risk-affinity")
+        if i + 1 < len(args):
+            val = args[i + 1]
+    if asset_class != "bond":
+        return None
+    if val is None:
+        print("Fehler: Anleihe-Analyse erfordert --risk-affinity {konservativ|neutral|risikofreudig}")
+        sys.exit(1)
+    try:
+        return RiskAffinity(val)
+    except ValueError:
+        print(f"Fehler: ungültige --risk-affinity {val!r}. Erlaubt: konservativ|neutral|risikofreudig")
+        sys.exit(1)
 
 
 async def run_dashboard() -> None:
@@ -71,6 +95,7 @@ async def run_bottom_up(
     sector: str = "default",
     bond_type: str = "government",
     rate_direction: str = "stable",
+    risk_affinity: "RiskAffinity | None" = None,
 ) -> None:
     print(f"\n=== MODUS 2: BOTTOM-UP ANALYSE — {ticker.upper()} ===\n")
     bus  = InMemoryEventBus()
@@ -85,6 +110,7 @@ async def run_bottom_up(
     result = await orch.run(
         ticker.upper(), asset_class=asset_class, sector=sector,
         bond_type=bond_type, rate_direction=rate_direction,
+        risk_affinity=risk_affinity,
     )
     ResultCache().save_bottom_up(result)
 
@@ -169,12 +195,19 @@ def main() -> None:
     if not args or args[0] == "dashboard":
         asyncio.run(run_dashboard())
     elif args[0] == "bottomup" and len(args) >= 2:
-        asset_class    = args[2] if len(args) >= 3 else "equity"
-        sector         = args[3] if len(args) >= 4 else "default"
-        bond_type      = args[4] if len(args) >= 5 else "government"
-        rate_direction = args[5] if len(args) >= 6 else "stable"
-        asyncio.run(run_bottom_up(args[1], asset_class=asset_class, sector=sector,
-                                  bond_type=bond_type, rate_direction=rate_direction))
+        # --risk-affinity <wert> herausziehen, damit es das Positions-Parsing nicht stört
+        pos = list(args)
+        if "--risk-affinity" in pos:
+            i = pos.index("--risk-affinity")
+            del pos[i:i + 2]
+        asset_class    = pos[2] if len(pos) >= 3 else "equity"
+        sector         = pos[3] if len(pos) >= 4 else "default"
+        bond_type      = pos[4] if len(pos) >= 5 else "government"
+        rate_direction = pos[5] if len(pos) >= 6 else "stable"
+        risk_affinity  = _parse_risk_affinity(args, asset_class)
+        asyncio.run(run_bottom_up(pos[1], asset_class=asset_class, sector=sector,
+                                  bond_type=bond_type, rate_direction=rate_direction,
+                                  risk_affinity=risk_affinity))
     elif args[0] == "judge" and len(args) >= 2:
         market = args[2] if len(args) >= 3 else "USA"
         asyncio.run(run_judgment(args[1], market=market))

@@ -1,6 +1,6 @@
 import asyncio
 from core.domain.events import BondMetricsReady
-from core.domain.models import BondMetricsSnapshot, Signal
+from core.domain.models import BondMetricsSnapshot, Signal, SignalStatus
 from core.ports.data_provider import FundamentalsProvider, MacroDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.bond_math import ytm as _ytm, yield_to_worst
@@ -10,7 +10,7 @@ _DEFAULT = BondMetricsSnapshot(
     bond_type="government", current_price=None, coupon=None, maturity_years=None,
     ytm=None, ytc=None, current_yield=None, real_yield=None,
     country=None, breakeven_inflation=None, issuer=None, sector=None,
-    signal=Signal.NEUTRAL,
+    signal=Signal.NEUTRAL, status=SignalStatus.UNAVAILABLE,
 )
 
 
@@ -106,6 +106,9 @@ class BondMetricsAgent:
             issuer=data.get("issuer") if bond_type == "corporate" else None,
             sector=data.get("sector") if bond_type == "corporate" else None,
             signal=_signal(real_yield),
+            # Signal speist sich aus der Realrendite; ohne sie ist die Komponente
+            # uninformativ → UNAVAILABLE (§3.4), nicht als neutrale Stimme zählen.
+            status=SignalStatus.AVAILABLE if real_yield is not None else SignalStatus.UNAVAILABLE,
         )
         self.bus.publish(BondMetricsReady(source="bond_metrics_agent",
                                           payload={"ticker": ticker, "ytm": ytm_val, "ytw": ytw}))

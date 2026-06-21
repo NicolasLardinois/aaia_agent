@@ -1,12 +1,12 @@
 import asyncio
 from core.domain.events import BondSpreadReady
-from core.domain.models import BondSpreadSnapshot, Signal
+from core.domain.models import BondSpreadSnapshot, Signal, SignalStatus
 from core.ports.data_provider import FundamentalsProvider
 from core.ports.event_bus import EventBus
 
 _DEFAULT = BondSpreadSnapshot(
     spread_bps=None, oas=None, z_spread=None, spread_trend="stable",
-    signal=Signal.NEUTRAL,
+    signal=Signal.NEUTRAL, status=SignalStatus.UNAVAILABLE,
 )
 
 
@@ -70,6 +70,8 @@ class BondSpreadAgent:
         result = BondSpreadSnapshot(
             spread_bps=spread_bps, oas=oas, z_spread=z_spread,
             spread_trend=trend, signal=_signal(spread_bps, trend, level),
+            # Ohne Spread-Level ist die Komponente unverfügbar (§3.4).
+            status=SignalStatus.AVAILABLE if spread_bps is not None else SignalStatus.UNAVAILABLE,
         )
         self.bus.publish(BondSpreadReady(source="bond_spread_agent", payload={
             "ticker": ticker, "spread_bps": spread_bps, "trend": trend,

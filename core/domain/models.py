@@ -18,6 +18,18 @@ class Signal(str, Enum):
     NEUTRAL = "neutral"
 
 
+class RiskAffinity(str, Enum):
+    KONSERVATIV   = "konservativ"
+    NEUTRAL       = "neutral"
+    RISIKOFREUDIG = "risikofreudig"
+
+
+class CreditBand(str, Enum):
+    SICHER  = "sicher"
+    MITTEL  = "mittel"
+    RISKANT = "riskant"
+
+
 class SignalStatus(str, Enum):
     AVAILABLE   = "available"
     UNAVAILABLE = "unavailable"
@@ -504,6 +516,9 @@ class BondMetricsSnapshot:
     issuer: Optional[str]         # corporate only
     sector: Optional[str]         # corporate only
     signal: Signal
+    # Verfügbarkeit der Signal-treibenden Daten (§3.4): UNAVAILABLE → aus der
+    # Bond-Aggregation ausgeschlossen statt als neutrale 0-Stimme mitgezählt.
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -513,6 +528,7 @@ class BondDurationSnapshot:
     convexity: Optional[float]
     dv01: Optional[float]
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -533,6 +549,7 @@ class BondSpreadSnapshot:
     z_spread: Optional[float]
     spread_trend: str             # "tightening" | "stable" | "widening"
     signal: Signal
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 @dataclass
@@ -543,6 +560,10 @@ class BondResult:
     duration: BondDurationSnapshot
     credit: BondCreditSnapshot
     spread: BondSpreadSnapshot
+    overall_signal: Signal = Signal.NEUTRAL
+    confidence: float = 0.0
+    risk_affinity: "RiskAffinity | None" = None
+    credit_band: "CreditBand | None" = None
 
 
 # ─────────────────────────────────────────────

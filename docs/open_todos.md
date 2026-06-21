@@ -276,6 +276,26 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   Falls nicht: Gewichte in `INDICATOR_WEIGHTS` oder Schwellenwerte in `_regime_from` anpassen.
   Echter Lernkreislauf: Vorhersage → Realität → Kalibrierung.
 
+### PM: periodische + manuelle Komplett-Neuanalyse von Portfolio-Positionen (Idee 2026-06-21, eigener Spec später)
+- [ ] **Im Portfolio-Manager pro Position eine volle Deep-Dive-Neuanalyse anstoßen — manuell (1-Klick) und automatisch im Hintergrund (~alle 30 Tage).**
+  Querschnittlich (alle Anlageklassen) + braucht **Scheduling** (Hintergrundlauf) → **eigenes Feature mit eigenem Spec**, NICHT Teil des Bond-Risikoaffinität-Specs.
+  **Abgrenzung:** Das ist die *volle* Neuanalyse (frische Markt-/Rating-Daten + ganzer Pipeline-Lauf) — zu unterscheiden vom *billigen Recompute* (nur Affinität ändern → Gesamtsignal aus gespeicherten Bausteinen neu rechnen), der im Bond-Spec steckt.
+  **Fundament schon da nach Bond-Spec:** gespeicherte Recompute-Bausteine + persistierte Risikoaffinität pro Position/Analyse.
+  **Ansatz später:** Trigger-Port (manuell + Scheduler), reuse des bestehenden Analyse-Pfads je Position; Ergebnis in History/Position aktualisieren. Spec: `docs/superpowers/specs/`.
+  *(Entstanden aus dem Bond-Risikoaffinität-Brainstorm — siehe `docs/superpowers/specs/2026-06-21-bond-risikoaffinitaet-design.md` §8.)*
+
+- [ ] **PM-Recompute-Trigger verdrahten (billiger Affinitäts-Wechsel)** — *Folge aus Bond-Risikoaffinität (Final-Review 2026-06-21).*
+  Die reine Funktion `core/utils/bond_recompute.recompute_bond_signal(blocks, new_affinity)` ist gebaut + getestet, aber **noch nirgends im PM aufgerufen**. Spec §4.8 verlangt: im PM die Affinität einer Anleihe-Position ändern → Gesamtsignal sofort aus den gespeicherten Bausteinen neu rechnen → gespeicherte Affinität + Signal aktualisieren.
+  **Offen:** der PM-Schreibpfad (Positions-Mutation + Persistenz-Update der zuletzt gespeicherten Analyse). **Ansatz:** `risk_affinity` einer Position setzen → letzte Analyse-Bausteine aus `analysis_memory` laden → `recompute_bond_signal` → `recommendation`/`risk_affinity` der Position/History aktualisieren. Verwandt mit dem PM-Komplett-Neuanalyse-Eintrag direkt darüber (billiger Recompute ≠ volle Neuanalyse).
+
+- [x] **PR #19 Review-Nachbesserungen (Bond-Risikoaffinität) — erledigt 2026-06-21.** Befunde aus dem zweiten Blick auf PR #19 behoben:
+  1. **Judgment-Verdrahtung:** `judgment_agent` baute `all_signals` nur aus Equity-Bausteinen → für Anleihen alle `None` → das neue `BondResult.overall_signal` trieb keine Empfehlung. Neu: `_bottom_up_signals()` nimmt das Anleihe-Gesamtsignal als 7. Slot mit (defensiv via `getattr`); Bond-Signal erscheint zudem im Urteils-/XAI-Prompt.
+  2. **Cache-Round-Trip:** `result_cache._bond_result_out/_load_bond_result` verlor `overall_signal/confidence/risk_affinity/credit_band` → jetzt serialisiert + wiederhergestellt (None bleibt None).
+  3. **Verfügbarkeit (§3.4):** Bond-Sub-Snapshots haben jetzt `status: SignalStatus`; metrics/duration/spread setzen `UNAVAILABLE` ohne Signal-treibende Daten. `bond_chief` schließt UNAVAILABLE-Komponenten aus der Aggregation aus; `save_analysis` lässt sie weg → **Live- und Recompute-Pfad konsistent**.
+  4. **Typsicherheit:** `Position.risk_affinity` ist jetzt `RiskAffinity`-Enum (Spec §4.1), Provider wandelt um; Monitor gibt am Rand `.value` aus.
+  5. **Aufräumen:** toter `AGGRESSIVE_ASSET_CLASSES`-Code in `recommendation.py` entfernt (nirgends referenziert; irreführender Name).
+  *(TDD; Gesamtsuite grün. Der PM-Recompute-Trigger oben bleibt die offene Folge-Aufgabe.)*
+
 ---
 
 ## 6. TEST-LÜCKEN
@@ -389,10 +409,10 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 
 > **Status: am 2026-06-21 mit dem Nutzer entschieden** (Details im Frontend-Konzept `docs/superpowers/specs/2026-06-21-frontend-konzept.md` §6).
 
-- [x] **Buffett-Widget:** Tabelle (Default) + Karte als Tab + **Drill-down** (10-J-Zeitreihe). *(2026-06-21, §6.3 — deckt „Karte vs. Tabelle" + „Drill-down" ab.)*
+- [x] **Buffett-Widget:** Tabelle (Default) + Karte als Tab + **Drill-down** (10-J-Zeitreihe). *(2026-06-21, §6.3 — deckt die früheren Punkte „Karte vs. Tabelle" + „Drill-down" ab.)*
 - [x] **Big-Mac-Refresh:** **automatischer Abruf** (geplanter CSV-Pull vom Economist-GitHub, Rückfall auf zuletzt gespeicherte Version; keine offizielle API). *(2026-06-21, §6.5.)*
 - [x] **Bildschirm:** **Desktop-first**, responsive. *(2026-06-21, §6.2.)*
-- [x] **Framework:** **React**. *(2026-06-21, §6.1 — überstimmt SvelteKit-Empfehlung; Begründung: chart-lastig + KI-gestützt.)*
+- [x] **Framework:** **React**. *(2026-06-21, §6.1 — überstimmt SvelteKit-Empfehlung; Begründung: chart-lastig + KI-gestützt → größtes Ökosystem + zuverlässigste KI-Codegenerierung.)*
 - [x] **Echtzeit-Refresh:** **WebSocket (live)** von Anfang an; Server pollt die (abruf-basierten) Quellen und pusht an den Browser. *(2026-06-21, §6.4 — überstimmt Polling-zuerst.)*
 - [x] **Daten-Health-Indikator** (x/y Quellen aktiv im Header, Klick → Quellenliste live/Stub/Fehler; pro Analyse „Datenbasis x/y Bausteine"). *(2026-06-21 aufgenommen, §6.6.)*
 

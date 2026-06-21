@@ -135,7 +135,8 @@ def test_build_snapshot_logs_warning_instead_of_silent_swallow(caplog):
 def test_save_analysis_bottom_up_block_is_granular(monkeypatch):
     """short_interest bricht, darf aber fundamentals/insider nicht mitreißen."""
     params = _save_and_capture(_result_with_bu(_bu_without_short_interest()), monkeypatch=monkeypatch)
-    indicators = json.loads(params[-1])
+    # params[-1] = risk_affinity_val (neu); params[-2] = indicators_snapshot (JSON)
+    indicators = json.loads(params[-2])
     assert indicators.get("pe_ratio") == 15.0
     assert indicators.get("insider_transactions") == 3
 
@@ -206,6 +207,56 @@ def test_save_portfolio_snapshot_persists_metrics(monkeypatch):
     assert decoded["net_beta"] == {"USA": -8000.0}
     assert decoded["net_exposure"] == 300.0
     assert decoded["portfolio_volatility"] == 0.0424
+
+
+# ---------------------------------------------------------------------------
+# Task 8: risk_affinity-Spalte + Bond-Recompute-Bausteine im indicators_snapshot
+# ---------------------------------------------------------------------------
+
+def test_save_analysis_persistiert_bond_risk_affinity(monkeypatch):
+    from types import SimpleNamespace
+    from core.domain.models import Signal, RiskAffinity, CreditBand
+    bond = SimpleNamespace(
+        risk_affinity=RiskAffinity.NEUTRAL, credit_band=CreditBand.MITTEL,
+        metrics=SimpleNamespace(signal=Signal.BULLISH),
+        duration=SimpleNamespace(signal=Signal.NEUTRAL),
+        spread=SimpleNamespace(signal=Signal.NEUTRAL),
+    )
+    # result.bottom_up ist ein BU-Namespace; result.bottom_up.bond enthält den Bond-Stub.
+    bu = SimpleNamespace(
+        valuation_range=None, index=None, precious_metals=None, commodity_deep=None,
+        fundamentals=None, short_interest=None, insider=None,
+        bond=bond,
+    )
+    params = _save_and_capture(_result_with_bu(bu), monkeypatch=monkeypatch)
+    assert "neutral" in params           # risk_affinity-Spalte (params[-1])
+    import json as _j
+    snap = _j.loads(params[-2])          # params[-2] = indicators_snapshot (JSON)
+    assert snap.get("bond_credit_band") == "mittel"
+    assert snap.get("bond_metrics_signal") == "bullish"
+
+
+def test_save_analysis_laesst_unverfuegbaren_baustein_weg(monkeypatch):
+    """§3.4-Konsistenz: ein UNAVAILABLE-Baustein wird NICHT persistiert, damit der
+    Recompute (blocks.get → None) ihn genauso ausschließt wie der Live-Pfad."""
+    from types import SimpleNamespace
+    from core.domain.models import Signal, SignalStatus, RiskAffinity, CreditBand
+    bond = SimpleNamespace(
+        risk_affinity=RiskAffinity.NEUTRAL, credit_band=CreditBand.MITTEL,
+        metrics=SimpleNamespace(signal=Signal.BULLISH, status=SignalStatus.AVAILABLE),
+        duration=SimpleNamespace(signal=Signal.NEUTRAL, status=SignalStatus.UNAVAILABLE),
+        spread=SimpleNamespace(signal=Signal.NEUTRAL, status=SignalStatus.AVAILABLE),
+    )
+    bu = SimpleNamespace(
+        valuation_range=None, index=None, precious_metals=None, commodity_deep=None,
+        fundamentals=None, short_interest=None, insider=None, bond=bond,
+    )
+    params = _save_and_capture(_result_with_bu(bu), monkeypatch=monkeypatch)
+    import json as _j
+    snap = _j.loads(params[-2])
+    assert snap.get("bond_metrics_signal") == "bullish"   # verfügbar → persistiert
+    assert snap.get("bond_spread_signal") == "neutral"    # verfügbar → persistiert
+    assert "bond_duration_signal" not in snap             # UNAVAILABLE → weggelassen
 
 
 def test_load_portfolio_snapshot_unpacks_metrics(monkeypatch):

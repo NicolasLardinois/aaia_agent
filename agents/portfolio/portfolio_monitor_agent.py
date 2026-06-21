@@ -172,6 +172,7 @@ class PortfolioMonitorAgent:
                 "portfolio_max_drawdown":  0.0,
                 "net_beta":                {},
                 "net_beta_pct":            {},
+                "bond_risk_affinities":    [],
             }
 
         # Datenzugriff je Position: vorab parallel geholte Werte (market_data) bevorzugen,
@@ -305,6 +306,13 @@ class PortfolioMonitorAgent:
             for r in net_beta if equity_gross.get(r, 0.0) > 0
         }
 
+        # Am Snapshot-Rand den primitiven Wert ausgeben (sauberes Print/JSON);
+        # str-Enum würde sonst als "RiskAffinity.NEUTRAL" formatiert.
+        bond_risk_affinities = [
+            {"ticker": p.ticker, "risk_affinity": p.risk_affinity.value}
+            for p in positions if p.asset_class == "bond" and p.risk_affinity is not None
+        ]
+
         return {
             "total_positions":         len(positions),
             "total_value_usd":         round(total_value, 2),
@@ -320,6 +328,7 @@ class PortfolioMonitorAgent:
             "portfolio_max_drawdown":  port_mdd,
             "net_beta":                net_beta,
             "net_beta_pct":            net_beta_pct,
+            "bond_risk_affinities":    bond_risk_affinities,
         }
 
     async def run(self) -> None:
@@ -351,5 +360,7 @@ class PortfolioMonitorAgent:
             pct = (snapshot.get("net_beta_pct") or {}).get(region)
             suffix = f" ({pct:+.0%} Brutto)" if pct is not None else ""
             print(f"  net-β {region}: ${v:,.0f}{suffix}")
+        for e in snapshot.get("bond_risk_affinities", []):
+            print(f"  Anleihe {e['ticker']}: Risikoaffinität = {e['risk_affinity']}")
         for alert in snapshot["alerts"]:
             print(f"  ⚠ {alert}")

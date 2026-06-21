@@ -29,7 +29,6 @@ SHORT_WARNINGS = {
 }
 
 ETF_ASSET_CLASSES       = {"etf", "index"}
-AGGRESSIVE_ASSET_CLASSES = {"equity", "precious_metal", "commodity", "bond"}
 
 _SEVERITY_DEDUCTION = {"none": 0.0, "low": -0.05, "medium": -0.15, "high": -0.25}
 _SEVERITY_ORDER = {"none": 0, "low": 1, "medium": 2, "high": 3}

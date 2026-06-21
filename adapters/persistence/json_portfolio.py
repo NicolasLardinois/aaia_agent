@@ -1,12 +1,14 @@
 import json
 import os
 
-from core.domain.models import PositionState
+from core.domain.models import PositionState, RiskAffinity
 from core.domain.portfolio import Position, PortfolioError
 from core.ports.portfolio_port import PortfolioPort
 
 _DEFAULT_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "portfolio.json")
 _VALID_DIR = {"long", "short"}
+# Aus dem Enum abgeleitet, damit die Whitelist bei einer Erweiterung nicht driftet.
+_VALID_AFFINITY = {a.value for a in RiskAffinity}
 
 
 class JsonPortfolioProvider(PortfolioPort):
@@ -34,13 +36,22 @@ class JsonPortfolioProvider(PortfolioPort):
                     raise PortfolioError(
                         f"Position {ticker}: Pflichtfeld {feld!r} fehlt — "
                         f"'shares' und 'buy_price' sind erforderlich.")
+            risk_affinity = d.get("risk_affinity")
+            if d.get("asset_class", "equity") == "bond":
+                if risk_affinity not in _VALID_AFFINITY:
+                    raise PortfolioError(
+                        f"Position {ticker}: Anleihe braucht 'risk_affinity' "
+                        f"(konservativ|neutral|risikofreudig), war {risk_affinity!r}.")
+            # In die Domäne als Enum (Typsicherheit, Spec §4.1); ungültig/fehlend → None.
+            affinity = RiskAffinity(risk_affinity) if risk_affinity in _VALID_AFFINITY else None
             out.append(Position(
                 ticker=ticker, shares=d["shares"], entry_price=d["buy_price"],
                 direction=direction, currency=d.get("currency", "USD"),
                 current_price=d.get("current_price"),
                 sector=d.get("sector", "Unbekannt"),
                 asset_class=d.get("asset_class", "equity"),
-                country=d.get("country", "Unbekannt")))
+                country=d.get("country", "Unbekannt"),
+                risk_affinity=affinity))
         return out
 
     def position_state_for(self, ticker: str) -> PositionState:
