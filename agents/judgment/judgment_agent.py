@@ -65,6 +65,33 @@ def _dominant_signal(signals: list[Signal]) -> Signal:
     return Signal.NEUTRAL
 
 
+def _bottom_up_signals(bottom_up) -> list[Signal | None]:
+    """Bottom-Up-Signale für Alignment + dominantes Signal sammeln.
+
+    Equity liefert seine Signale aus den Sub-Bausteinen (Fundamentals … Bewertung).
+    Eine Anleihe trägt diese Bausteine nicht — ihr bereits aggregiertes Gesamtsignal
+    steckt im `BondResult.overall_signal` (PR #19). Ohne den letzten Slot bliebe jede
+    Anleihe-Empfehlung NEUTRAL, weil alle sechs Equity-Bausteine `None` sind.
+    Die ersten sechs Positionen bleiben index-gleich zu `_ALIGNMENT_WEIGHTS`.
+    """
+    fu  = bottom_up.fundamentals
+    si  = bottom_up.short_interest
+    ins = bottom_up.insider
+    et  = bottom_up.earnings_trend
+    mo  = bottom_up.moat
+    vr  = bottom_up.valuation_range
+    bond = getattr(bottom_up, "bond", None)   # defensiv: Test-Doubles tragen evtl. kein Bond-Feld
+    return [
+        fu.signal  if fu  else None,
+        si.signal  if si  else None,
+        ins.signal if ins else None,
+        et.signal  if et  else None,
+        mo.signal  if mo  else None,
+        vr.signal  if vr  else None,
+        bond.overall_signal if bond else None,
+    ]
+
+
 def _backtester_summary(context: dict) -> str:
     if not context:
         return "Noch kein Backtesting-Report verfügbar (System läuft erst seit Kurzem)."
@@ -106,14 +133,7 @@ class JudgmentAgent:
         mo  = bottom_up.moat
         vr  = bottom_up.valuation_range
 
-        all_signals = [
-            fu.signal  if fu  else None,
-            si.signal  if si  else None,
-            ins.signal if ins else None,
-            et.signal  if et  else None,
-            mo.signal  if mo  else None,
-            vr.signal  if vr  else None,
-        ]
+        all_signals = _bottom_up_signals(bottom_up)
         alignment        = _derive_alignment(all_signals)
         dominant_sig     = _dominant_signal(all_signals)
 
@@ -123,6 +143,16 @@ class JudgmentAgent:
         et_line  = f"- Earnings: Beat={et.beat_rate}, Revision={et.estimate_revision} → {et.signal.value}" if et  else "- Earnings: n/v"
         mo_line  = f"- Burggraben: {mo.overall} (Score {mo.total_score}/10) → {mo.signal.value}" if mo  else "- Burggraben: n/v"
         vr_line  = f"- Bewertung: {vr.position} [{vr.combined_low:.0f}–{vr.combined_high:.0f}] → {vr.signal.value}" if vr  else "- Bewertung: n/v"
+        # Anleihen tragen keine Equity-Bausteine; ihr aggregiertes Gesamtsignal (PR #19)
+        # gehört in den Prompt, sonst sähe der LLM nur "n/v" trotz bullishem Alignment.
+        bond = getattr(bottom_up, "bond", None)
+        bond_line = (
+            f"- Anleihe-Gesamtsignal: {bond.overall_signal.value} "
+            f"(Credit-Band: {bond.credit_band.value if bond.credit_band else 'n/v'}, "
+            f"Risikoaffinität: {bond.risk_affinity.value if bond.risk_affinity else 'n/v'})"
+        ) if bond else None
+        bottom_up_block = "\n".join(
+            ln for ln in [fu_line, si_line, ins_line, et_line, mo_line, vr_line, bond_line] if ln)
 
         prompt = f"""Aktie: {ticker} | Markt: {market} | Asset-Klasse: {bottom_up.asset_class}
 
@@ -130,12 +160,7 @@ TOP-DOWN KONTEXT:
 {top_down_context}
 
 BOTTOM-UP SIGNALE:
-{fu_line}
-{si_line}
-{ins_line}
-{et_line}
-{mo_line}
-{vr_line}
+{bottom_up_block}
 
 ALIGNMENT: {alignment}
 
@@ -187,12 +212,7 @@ TOP-DOWN KONTEXT:
 {top_down_context}
 
 BOTTOM-UP SIGNALE:
-{fu_line}
-{si_line}
-{ins_line}
-{et_line}
-{mo_line}
-{vr_line}
+{bottom_up_block}
 
 ALIGNMENT: {alignment}
 
