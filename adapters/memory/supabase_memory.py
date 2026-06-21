@@ -122,6 +122,20 @@ class SupabaseMemory(MemoryPort):
             _put(indicators, "insider_transactions",
                  lambda: bu.insider.recent_transactions if bu.insider else None)
 
+        # Bond-Recompute-Bausteine: defensiv einsammeln (ein fehlendes Feld überspringt nur sich selbst).
+        bond = getattr(bu, "bond", None) if bu else None
+        risk_affinity_val = None
+        if bond is not None:
+            ra = getattr(bond, "risk_affinity", None)
+            risk_affinity_val = ra.value if ra is not None else None
+            cb = getattr(bond, "credit_band", None)
+            if cb is not None:
+                indicators["bond_credit_band"] = cb.value
+            for feld, attr in (("bond_metrics_signal", "metrics"),
+                               ("bond_duration_signal", "duration"),
+                               ("bond_spread_signal", "spread")):
+                _put(indicators, feld, lambda a=attr: getattr(bond, a).signal.value)
+
         if getattr(result, "conflict_resolution", None):
             indicators["conflict_verdict"] = result.conflict_resolution.verdict
             indicators["conflict_reasoning"] = result.conflict_resolution.reasoning
@@ -147,9 +161,10 @@ class SupabaseMemory(MemoryPort):
                         short_action,
                         confidence, xai_explanation, price_at_analysis,
                         top_down_anomaly_severity, bottom_up_anomaly_severity,
-                        indicators_snapshot
+                        indicators_snapshot,
+                        risk_affinity
                     ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     """,
                     (
@@ -172,6 +187,9 @@ class SupabaseMemory(MemoryPort):
                         result.top_down_anomaly.severity if result.top_down_anomaly else "none",
                         result.bottom_up_anomaly.severity if result.bottom_up_anomaly else "none",
                         json.dumps(indicators),
+                        # Bond-Risikoaffinität separat persistieren: ermöglicht direktes Filtern/Sortieren
+                        # nach Risikoaffinität im Monitor ohne JSON-Parsing des indicators_snapshot.
+                        risk_affinity_val,
                     ),
                 )
             conn.commit()
