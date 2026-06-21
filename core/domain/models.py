@@ -555,6 +555,10 @@ class BondResult:
     duration: BondDurationSnapshot
     credit: BondCreditSnapshot
     spread: BondSpreadSnapshot
+    overall_signal: Signal = Signal.NEUTRAL
+    confidence: float = 0.0
+    risk_affinity: "RiskAffinity | None" = None
+    credit_band: "CreditBand | None" = None
 
 
 # ─────────────────────────────────────────────
