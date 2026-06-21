@@ -110,9 +110,16 @@ class MacroChiefAgent:
 
     @staticmethod
     def default() -> MacroChiefResult:
+        # Bug #30: Fällt der ganze Macro-Chief aus, gibt es KEINE Datenbasis.
+        # EXPANSION (bullisch) wäre hier gefährlich — nachgelagerte Agenten leiten
+        # daraus aktionable "buy Tech"-Empfehlungen ab, obwohl gar keine Makro-Daten
+        # vorliegen. Der Fehler ist asymmetrisch teuer: ein falsch-positives Risk-on
+        # ist schlimmer als ein zu vorsichtiges Regime. Daher defensives SLOWDOWN
+        # (neutralstes vorhandenes Regime, konsistent zum run()-Pfad bei leerem State)
+        # + niedrige Confidence, die "kein Vertrauen / keine Daten" signalisiert.
         return MacroChiefResult(
-            regime=MarketRegime.EXPANSION,
-            regime_confidence=0.5,
+            regime=MarketRegime.SLOWDOWN,
+            regime_confidence=0.2,
             inflation=InflationAgent.default(),
             money_supply=MoneySupplyAgent.default(),
             interest_rate=InterestRateAgent.default(),
