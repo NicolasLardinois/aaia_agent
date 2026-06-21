@@ -67,10 +67,12 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
   Ein Markt im Kollaps erzeugt dasselbe Signal wie einer, der leicht unterbewertet ist.
   **✅ Audit 2026-06-20 BEHOBEN (durch Umbau):** Der Agent existiert nicht mehr; CAPE ist heute eine reine Mathe-Funktion ohne Signal (`core/utils/valuation_math.py:101`). Das Nachfolge-Signal in `index_valuation_agent.py` ist **beidseitig** begrenzt (ERP-Cutoffs + symmetrischer PE-Puffer) und durch `test_index_valuation_agent.py` (`test_signal_buffers_are_symmetric` u.a.) abgesichert.
 
-- [ ] **Bug #30** — `agents/market_cockpit/macro_chief_agent.py:82`
+- [x] **Bug #30** — `agents/market_cockpit/macro_chief_agent.py:82`
   `EXPANSION` als Default-Regime wenn alle Provider ausfallen.
   Nachgelagerte Agenten generieren aktionabel wirkende "buy Tech" Empfehlungen ohne reale Datenbasis.
   **Lösung:** Default auf `NEUTRAL` oder `UNKNOWN` setzen.
+  **✅ Audit 2026-06-20 → behoben (TDD).** Befund: Der gefährliche Laufpfad (`run()` bei Provider-Ausfall) war schon entschärft; offen war nur der statische `MacroChiefAgent.default()` (regime `EXPANSION`, confidence `0.5`), genutzt als Fallback in `top_down_orchestrator.py:44`. **Wichtig:** Enum `MarketRegime` hat **kein** `NEUTRAL`/`UNKNOWN` → die Logbuch-Lösung war nicht 1:1 möglich. **Umgesetzt:** `default()` → `MarketRegime.SLOWDOWN` (neutralstes vorhandenes, defensives Regime, konsistent zum `run()`-Pfad bei leerem State) + `regime_confidence=0.2` (signalisiert „keine Datenbasis"). Fachlich: ein falsch-positives Risk-on ist asymmetrisch teurer als ein zu vorsichtiges Regime. Festnagelnder Test (`test_macro_chief_default`) auf SLOWDOWN + niedrige Confidence angepasst; die übrigen `EXPANSION`-Stellen in Tests sind Beispiel-Eingaben (unberührt). Gesamtsuite **737 grün**.
+  **PR-Protokoll (§5): PR #17 am 2026-06-21 gemergt** (Merge-Commit `18f35db`). Review (gemeinsam): Diff statisch gegen `master` verifiziert — Regime-Detektor (SLOWDOWN gewinnt bei `composite=0.0`), Orchestrator-Fallback (`top_down_orchestrator.py:44`), Downstream-Konsumenten; die Default-Confidence `0.2 < 0.4` greift korrekt in `recommendation.py:105` (−0.10). Gesamtsuite **737 grün** unabhängig im isolierten Worktree bestätigt. Branch `fix/bug30-macro-default-regime` gelöscht. *(Dieser Vermerk: bewusste Direkt-auf-`master`-Ausnahme — er braucht den Merge-Commit-Hash, kann also nicht mehr in den bereits gemergten PR.)*
 
 - [x] **Bug #34** — `agents/stock_deep_dive/bond/bond_metrics_agent.py:47`
   `if ytm and inflation` schlägt für Zero-Coupon-Anleihen (`ytm=0.0`) fehl.
@@ -83,9 +85,10 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
   Gesamte Signallogik ist toter Code.
   **✅ Audit 2026-06-20 BEHOBEN:** `supply_demand_agent.py:75` ruft `signal=_signal(pct)` im AVAILABLE-Zweig real auf; hartes NEUTRAL nur noch im legitimen `_DEFAULT`/UNAVAILABLE-Pfad (kein Provider/keine Daten). Tests (`test_low/high/normal_inventory`, `test_run_available_with_inventory`) beweisen echtes BULLISH.
 
-- [ ] **Bug #42** — `agents/stock_deep_dive/index/index_price_agent.py:61-62`
+- [x] **Bug #42** — `agents/stock_deep_dive/index/index_price_agent.py:61-62`
   `close.index.searchsorted(f"{datetime.utcnow().year}-01-01")` wirft `TypeError` bei timezone-aware Index.
   Ausserdem: wenn Jahresanfang nicht im 5-Jahres-Fenster liegt, wird YTD falsch berechnet.
+  **✅ Audit 2026-06-20 → behoben (TDD).** Teil 1 (tz-aware-Crash) war bereits gefixt (`datetime.now(timezone.utc)` + String-`searchsorted`, durch `test_ytd_uses_timezone_aware_now` abgesichert). **Offener Rest (dieser PR):** liegt der 1.1. **vor** dem ersten Datenpunkt (Index erst seit z. B. März gelistet), liefert `searchsorted` `0` und `iloc[0]` (ein Mid-Year-Kurs) wurde fälschlich als Jahresanfangs-Basis genommen → verzerrte YTD. **Lösung:** Guard `if 0 < ytd_idx < len(close)` — bei `ytd_idx == 0` (kein Datenpunkt vor dem 1.1.) ist YTD jetzt `None` statt einer Scheinzahl; oberer Rand (`>= len`) wie zuvor None. 2 neue Tests (März-Start → None; über-Jahreswechsel → gesetzt), Jahr dynamisch (zeitstabil). Gesamtsuite **739 grün**. *(PR: `fix/bug42-index-ytd-window`.)* **PR #16 am 2026-06-21 gemergt** (Merge-Commit `c5ae98e`). Im Review noch 3 Punkte ergänzt (kein Verhalten geändert): YTD-Basis-Konvention im Code-Kommentar erläutert **und** als Folge-Aufgabe §4 protokolliert (erster Handelstag des Jahres vs. gebräuchlicherer Vorjahres-Schlusskurs), Edge-Case „1.1. == erster Datenpunkt" (Börsenfeiertag) vermerkt, `datetime`-Import an den Test-Modulkopf gezogen.
 
 - [x] **Bug #44** — `agents/stock_deep_dive/equity/fundamentals_agent.py`, `insider_agent.py`, `short_interest_agent.py`
   Keine Exception-Guard auf Provider-Response (kein `if isinstance(data, Exception)`).
@@ -216,6 +219,11 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 ### agents/stock_deep_dive/index/index_valuation_agent.py (Zeile 59)
 - [x] Shiller CAPE — **implementiert** (2026-06-19 verifiziert): `earnings_yield`/`equity_risk_premium`/`shiller_cape` im Agenten, zinsabhängiges ERP-Signal.
   Offen ist nur noch die **Datenquelle 10J-Real-EPS** (FMP) anzubinden, damit `cape` real befüllt wird statt `None` → siehe §2 (Datenadapter).
+
+### agents/stock_deep_dive/index/index_price_agent.py (Zeile 78–79) — YTD-Basis-Konvention
+- [ ] **YTD-Anker prüfen: erster Handelstag des Jahres vs. Vorjahres-Schlusskurs** *(Folge aus Bug #42, Review 2026-06-21)*
+  Aktuell ist die YTD-Basis `close.iloc[ytd_idx]` = **erster Handelstag des laufenden Jahres** (z. B. 2.1.). Die in der Praxis gebräuchlichere YTD-Definition nimmt den **Schlusskurs des letzten Handelstags des Vorjahres** (`close.iloc[ytd_idx-1]`, 31.12.) — konsistent auch mit `_ago(...)`, das bewusst `idx-1` verwendet. Differenz = Kursbewegung über den Jahreswechsel (klein, aber ≠ 0; eine *stille* Abweichung im gemeldeten YTD).
+  **Ansatz:** Erst fachlich entscheiden, welche Konvention gelten soll (ggf. Provider-Vergleich). Falls Vorjahres-Schluss: Basis auf `close.iloc[ytd_idx-1]` umstellen — der Guard `0 < ytd_idx < len` bleibt gültig (bei `ytd_idx==0` gibt es keinen Vorjahrespunkt → weiterhin None). TDD: Test ergänzen, der den **exakten** Basiskurs pinnt (nicht nur `is not None`), damit die Konvention festgeschrieben ist.
 
 ### agents/stock_deep_dive/commodity/commodity_valuation_range_agent.py (Zeile 64)
 - [ ] Commodity-spezifische Kostenmodelle (`production_cost_low/high=None`)
@@ -529,6 +537,7 @@ Jede Analyse gibt pro Linse genau eine Aktion. **HOLD vs NONE:** HOLD = Position
 - [ ] **Asset-Klassen-Shorts** — Rohstoff (Roll-Yield/Carry, Cost-Curve-Boden), Anleihe (Carry/Duration/Credit-Asymmetrie), Edelmetall. Je eigener Block.
 - [ ] **Futures-Einbau via Taxonomie-Redesign (`underlying` × `wrapper`)** — Scope/Brainstorming **am 2026-06-21 abgeschlossen**; Design + Impact + Frontend-Konzept geschrieben. Statt einer „6. Klasse" ersetzen zwei Felder die `asset_class`: `underlying` (equity/equity_index/bond/commodity/precious_metal) wählt die Engine, `wrapper` (single/fund/future/physical_etc) schaltet eine Schicht zu. **Futures = `wrapper`, keine eigene Klasse.** Umfang Stufe 1: Rohstoff-/Edelmetall-Futures + physische Metall-ETCs.
   Specs: `docs/superpowers/specs/2026-06-21-anlageklassen-taxonomie-design.md` (Design + §13-Entscheidungen) · `…-impact.md` · `…-frontend-konzept.md`.
+  **PR-Protokoll (§5):** Spec-PR **PR #18 am 2026-06-21 gemergt** (Merge-Commit `a32433b`). Review (zweiter Blick): alle Code-Verweise gegen `master` verifiziert (stimmen), Finanz-Formeln nachgerechnet (korrekt). Im Review nachgebessert (Commit `9793a16`): (1) Frontend §1 an die §6-Entscheidungen angeglichen (React/WebSocket-live/automatischer Big-Mac statt der veralteten Svelte/Polling/manuell-Empfehlung); (2) „Mispricing"-Reste in Design §6.4/§11 auf die §13.4-Entscheidung (implizite Convenience-Yield vs. eigene Historie) korrigiert; (3) §11 klargestellt, dass die Phase-1-Regression nur für `wrapper ∈ {single, fund}` verhaltens-erhaltend ist und der `etf`-Reklassifizierungstest das **neue** Index-Ergebnis prüft. **Eintrag bleibt offen** — nur das Design ist gemergt, die 3 Umsetzungs-Phasen stehen noch aus.
   **Reihenfolge: erst Equity-Short fertig, dann Phase 1.** Umsetzung in 3 Phasen (je Spec→Plan→PR, TDD):
   - [ ] **Phase 1 — Taxonomie-Fundament** (verhaltens-erhaltend): `Underlying`/`Wrapper`-Enums; `BottomUpResult`, Orchestrator-Dispatch, `recommendation` (`_short_type`/Mengen + vollständige Aggressiv/Defensiv-Matrix), `short_assessment`-Weiche, `top_down_context`, `Position`, CLI; `index`→`equity_index`; XLE→`equity_index`, Rohstoff-/Minenaktien→`equity`; `etf`-Durchfall behoben.
   - [ ] **Phase 2 — Wrapper-Schichten + Daten-Ports (Long):** `FuturesCurveProvider` (+ Stub) → Kurve/Roll/Carry/Basis/Hebel/Verfall (Hebel-Deckel ≤ 10 % Nominal); `FundInfoProvider` (+ Stub) → TER + Tracking-Error (braucht Benchmark-Zuordnung); implizite Convenience-Yield aus Preisen (kein „Mispricing").

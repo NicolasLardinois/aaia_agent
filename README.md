@@ -27,9 +27,15 @@ Die Makroanalyse umfasst dabei unter anderem den **Buffett-Indikator** (Verhält
 
 ### Modus 2 — Bottom-Up: Stock Deep Dive
 
-Wird ein konkretes Asset angegeben (z.B. "AAPL", "SPY", "GC=F"), startet eine Tiefenanalyse. Das System erkennt automatisch die Asset-Klasse (Aktie, Anleihe, Index, Rohstoff oder Edelmetall) und aktiviert den entsprechenden Analyse-Pfad.
+Wird ein konkretes Asset angegeben (z.B. "AAPL", "SPY", "GC=F"), startet eine Tiefenanalyse. Anhand der angegebenen Asset-Klasse (heute ein einzelnes Feld `asset_class`) wählt das System den richtigen Analyse-Pfad und aktiviert die passende Engine. Aktuell gibt es **fünf** Asset-Klassen mit je eigener Engine: **Aktie, Index, Rohstoff, Edelmetall, Anleihe**.
 
-Für Aktien bedeutet das: Fundamentalanalyse (KGV, EV/EBITDA, DCF-Bewertung), Qualitätsprüfung (Margen, ROIC, Altman-Z), Analyse des Short-Interesses, Insider-Aktivitäten, Gewinntrends, Burggraben-Bewertung nach Warren Buffetts Moat-Konzept und eine Bandbreiten-Bewertung über mehrere Methoden hinweg.
+- **Aktie:** Fundamentalanalyse (KGV, EV/EBITDA, DCF-Bewertung), Qualitätsprüfung (Margen, ROIC, Altman-Z), Short-Interesse, Insider-Aktivitäten, Gewinntrends, Burggraben-Bewertung nach Warren Buffetts Moat-Konzept und eine Bandbreiten-Bewertung über mehrere Methoden.
+- **Index:** Preis, Bewertung (Earnings Yield / ERP / Shiller-CAPE), Breadth, Momentum, Sektorkomposition und Bandbreiten-Bewertung.
+- **Rohstoff:** Angebot/Nachfrage, Saisonalität, COT (Commitment of Traders) und Bewertungs-Bandbreite.
+- **Edelmetall:** Preisanalyse, Cross-Metal-Ratios (z.B. Gold/Silber) und Realzins-Anker-Bewertung.
+- **Anleihe:** Kennzahlen, Duration, Credit-Rating und Spread.
+
+Jede Analyse erzeugt **zwei** Urteile: ein **Long-Urteil** (`derive_recommendation` → BUY / BUY+ / SELL / HOLD / NONE) und ein **Short-Urteil** (`derive_short_assessment` → SHORT / COVER / HOLD / NONE). Die Short-Seite ist heute nur für **Aktien** voll ausgebaut; die übrigen Klassen fallen aktuell auf einen neutralen Short-Default zurück (Ausbau geplant, siehe [Roadmap](#roadmap--in-planung)).
 
 ---
 
@@ -46,8 +52,8 @@ Orchestratoren  →  ChiefAgents  →  Sub-Agents
 Orchestratoren sind die oberste Koordinationsebene. Sie starten die Analyse und delegieren sofort an ChiefAgents. Es gibt drei:
 
 - **TopDownOrchestrator** — koordiniert das Market Cockpit (5 ChiefAgents parallel)
-- **BottomUpOrchestrator** — erkennt die Asset-Klasse und aktiviert den richtigen ChiefAgent
-- **JudgmentOrchestrator** — verbindet Top-Down- und Bottom-Up-Ergebnisse zu einem Urteil
+- **BottomUpOrchestrator** — wählt anhand der Asset-Klasse (`asset_class`) den richtigen ChiefAgent und aktiviert dessen Engine
+- **JudgmentOrchestrator** — verbindet Top-Down- und Bottom-Up-Ergebnisse zu einem Urteil (inkl. eines Konflikt-Verdikts, wenn die ursprüngliche These gekippt ist)
 
 ### Schicht 2 — ChiefAgents
 
@@ -79,7 +85,8 @@ ChiefAgents sind Domain-Koordinatoren. Jeder ChiefAgent ist für genau eine fach
 |---|---|
 | `AnomalyChiefAgent` | Erkennt statistische Ausreisser und widersprüchliche Signale (Z-Score-basiert) |
 | `BacktesterChiefAgent` | Lädt vergangene Analysen und bewertet die bisherige Treffsicherheit des Systems |
-| `JudgmentChiefAgent` | Synthetisiert alles zu einer finalen Empfehlung (BUY / HOLD / SELL / SHORT) mit Konfidenz und XAI-Begründung |
+| `JudgmentChiefAgent` | Synthetisiert alles zu einer finalen Empfehlung mit Konfidenz und XAI-Begründung — Long-Linse (BUY / BUY+ / SELL / HOLD / NONE) **und** Short-Linse (SHORT / COVER / HOLD / NONE) |
+| `ConflictAgent` | Liefert ein **beratendes** Verdikt (EXIT / HOLD / REVERSE), wenn die ursprüngliche These einer gehaltenen Position gekippt ist (LLM-gestützt) |
 
 ### Schicht 3 — Sub-Agents
 
@@ -98,6 +105,8 @@ AAIA ist darauf ausgelegt, auch bei partiellen Ausfällen immer ein vollständig
 **Ebene 2 — ChiefAgent fällt aus:** Der Orchestrator fängt den Fehler ab und ersetzt das Ergebnis mit einem neutralen Fallback. Die anderen ChiefAgents laufen ungestört weiter.
 
 Das System gibt niemals einen Hard-Crash zurück. Stattdessen enthält das Ergebnis in einem Fehlerfall neutrale Werte, und die Gesamtkonfidenz des Urteils sinkt entsprechend.
+
+> **Hinweis zum aktuellen Stand:** Mehrere Datenquellen sind heute bewusst noch **Stubs** und liefern `UNAVAILABLE`/`None` (u.a. COT, Angebot/Nachfrage, CNN Fear & Greed, Bond-Rohdaten, Index-Holdings). Die **Logik** dieser Agenten ist fertig gebaut und getestet; sie schalten automatisch auf echte Signale um, sobald der jeweilige Daten-Adapter angebunden ist — ohne Änderung am Agenten-Code. Bewusst so: ein ehrliches „keine Daten" ist besser als erfundene Zahlen.
 
 ---
 
@@ -152,7 +161,17 @@ Täglich um 08:00 Uhr läuft ein **Background-Runner** (Windows Task Scheduler),
 
 Die Treffsicherheits-Statistiken fliessen direkt in die Konfidenzberechnung der nächsten Analyse ein. Das System verbessert sich damit kontinuierlich selbst.
 
-Zusätzlich überwacht der `PortfolioMonitorAgent` täglich das Portfolio auf Klumpenrisiken (Sektor, Asset-Klasse, Geographie) und offene Verlustpositionen.
+Zusätzlich überwacht der `PortfolioMonitorAgent` täglich das Portfolio auf Klumpenrisiken (Sektor, Asset-Klasse, Geographie) und offene Verlustpositionen. Der Monitor unterscheidet Long-/Short-Positionen und weist Netto-/Brutto-Exposure sowie ein aktien-bezogenes `net_beta` aus.
+
+---
+
+## Roadmap / In Planung
+
+> Die folgenden Punkte sind **konzipiert, aber noch nicht implementiert** (Design-Dokumente unter `docs/superpowers/specs/`).
+
+**Anlageklassen-Taxonomie — Zwei-Etiketten-Modell.** Das heutige einzelne `asset_class`-Feld wird durch **zwei** Felder ersetzt: `underlying` (Basiswert: equity / equity_index / bond / commodity / precious_metal) wählt die Analyse-Engine, `wrapper` (Hülle: single / fund / future / physical_etc) schaltet eine Zusatz-Schicht zu. **Futures werden damit zur Hülle (`wrapper`), keine eigene Anlageklasse.** Erste Ausbaustufe: Rohstoff- und Edelmetall-Futures sowie physisch hinterlegte Metall-ETCs, mit einer neuen Futures-Mechanik-Schicht (Terminkurve/Contango–Backwardation, Roll-Yield/Carry, Hebel/Margin, Verfall). VIX folgt später als **Hedge-Instrument**, nicht als eigenständige Anlage.
+
+Specs: [Design](docs/superpowers/specs/2026-06-21-anlageklassen-taxonomie-design.md) · [Auswirkungen](docs/superpowers/specs/2026-06-21-anlageklassen-taxonomie-impact.md) · [Frontend-Konzept](docs/superpowers/specs/2026-06-21-frontend-konzept.md).
 
 ---
 
