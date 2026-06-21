@@ -64,8 +64,19 @@ class IndexPriceAgent:
         dist_high = _pct(now, high_52w)
         p3m, p1y = _pct(now, _ago(90)), _pct(now, _ago(365))
 
+        # YTD-Basis = erster Handelstag des laufenden Jahres (close.iloc[ytd_idx]) — bewusste
+        # Price-Return-Konvention (vgl. oben). Alternative wäre der Vorjahres-Schlusskurs
+        # (close.iloc[ytd_idx-1], der gebräuchlichere YTD-Anker) → als Folge-Aufgabe in
+        # docs/open_todos.md (§4) notiert, bewusst nicht in diesem schlanken Bugfix geändert.
+        # Guard, damit das Fenster den 1.1. wirklich überspannt:
+        #   ytd_idx == 0   → 1.1. liegt vor (bzw. genau auf) allen Daten (z. B. erst seit März
+        #                    gelistet) → kein echter Jahresanfangs-Kurs → None (statt iloc[0],
+        #                    das einen Mid-Year-Kurs als „Jahresanfang" missdeuten würde).
+        #                    Sub-Fall „1.1. == erster Datenpunkt" (iloc[0] wäre legitim) ist bei
+        #                    Aktienindizes praktisch ausgeschlossen — 1.1. ist Börsenfeiertag.
+        #   ytd_idx >= len → 1.1. liegt nach dem letzten Kurs (veraltete Daten) → None.
         ytd_idx = close.index.searchsorted(f"{datetime.now(timezone.utc).year}-01-01")
-        ytd_price = float(close.iloc[ytd_idx]) if ytd_idx < len(close) else None
+        ytd_price = float(close.iloc[ytd_idx]) if 0 < ytd_idx < len(close) else None
 
         result = IndexPriceSnapshot(
             current_price=round(now, 2),

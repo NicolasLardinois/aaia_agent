@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -82,3 +83,39 @@ def test_ytd_uses_timezone_aware_now():
     # Kein TypeError, kein Crash — Ergebnis ist AVAILABLE oder UNAVAILABLE, nie Exception
     result = asyncio.run(agent.run("^GSPC"))
     assert result.status in (SignalStatus.AVAILABLE, SignalStatus.UNAVAILABLE)
+
+
+# ── Bug #42: YTD-Basis nur bei echtem Jahresanfangs-Kurs ───────────────────
+# Liegt der 1.1. VOR dem ersten Datenpunkt (searchsorted == 0), gibt es keinen
+# echten Jahresanfangs-Kurs; iloc[0] wäre ein Mid-Year-Kurs → verzerrte YTD.
+# Das Jahr wird dynamisch berechnet, damit die Tests zeitstabil bleiben.
+
+def _agent_with_history(idx):
+    provider = MagicMock()
+    provider.get_price_history.return_value = pd.DataFrame(
+        {"Close": pd.Series([float(100 + i) for i in range(len(idx))], index=idx)}
+    )
+    provider.get_info.return_value = {}
+    return IndexPriceAgent(provider, MagicMock())
+
+
+def test_ytd_none_when_history_starts_after_year_begin():
+    """Historie beginnt erst im März des laufenden Jahres → kein Jahresanfangs-Kurs
+    → perf_ytd muss None sein (nicht iloc[0], ein Mid-Year-Kurs, als Basis nehmen)."""
+    year = datetime.now(timezone.utc).year
+    idx = pd.date_range(f"{year}-03-01", periods=80, freq="B")  # 1.1. liegt vor allen Daten
+    result = asyncio.run(_agent_with_history(idx).run("^IDX"))
+    assert result.status == SignalStatus.AVAILABLE
+    assert result.perf_ytd is None, (
+        f"Ohne Jahresanfangs-Basis muss YTD None sein, war {result.perf_ytd}"
+    )
+
+
+def test_ytd_computed_when_history_spans_year_begin():
+    """Positiv-Guard: Historie reicht über den Jahreswechsel → echter Jahresanfangs-Kurs
+    → YTD wird gesetzt (der Fix darf den Normalfall nicht kaputtmachen)."""
+    year = datetime.now(timezone.utc).year
+    idx = pd.date_range(f"{year - 1}-06-02", periods=280, freq="B")  # Vorjahr → laufendes Jahr
+    result = asyncio.run(_agent_with_history(idx).run("^IDX"))
+    assert result.status == SignalStatus.AVAILABLE
+    assert result.perf_ytd is not None, "YTD muss bei vorhandenem Jahresanfangs-Kurs gesetzt sein"
