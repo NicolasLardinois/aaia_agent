@@ -256,6 +256,14 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   Falls nicht: Gewichte in `INDICATOR_WEIGHTS` oder Schwellenwerte in `_regime_from` anpassen.
   Echter Lernkreislauf: Vorhersage → Realität → Kalibrierung.
 
+### PM: periodische + manuelle Komplett-Neuanalyse von Portfolio-Positionen (Idee 2026-06-21, eigener Spec später)
+- [ ] **Im Portfolio-Manager pro Position eine volle Deep-Dive-Neuanalyse anstoßen — manuell (1-Klick) und automatisch im Hintergrund (~alle 30 Tage).**
+  Querschnittlich (alle Anlageklassen) + braucht **Scheduling** (Hintergrundlauf) → **eigenes Feature mit eigenem Spec**, NICHT Teil des Bond-Risikoaffinität-Specs.
+  **Abgrenzung:** Das ist die *volle* Neuanalyse (frische Markt-/Rating-Daten + ganzer Pipeline-Lauf) — zu unterscheiden vom *billigen Recompute* (nur Affinität ändern → Gesamtsignal aus gespeicherten Bausteinen neu rechnen), der im Bond-Spec steckt.
+  **Fundament schon da nach Bond-Spec:** gespeicherte Recompute-Bausteine + persistierte Risikoaffinität pro Position/Analyse.
+  **Ansatz später:** Trigger-Port (manuell + Scheduler), reuse des bestehenden Analyse-Pfads je Position; Ergebnis in History/Position aktualisieren. Spec: `docs/superpowers/specs/`.
+  *(Entstanden aus dem Bond-Risikoaffinität-Brainstorm — siehe `docs/superpowers/specs/2026-06-21-bond-risikoaffinitaet-design.md` §8.)*
+
 ---
 
 ## 6. TEST-LÜCKEN
