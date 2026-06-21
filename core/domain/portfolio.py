@@ -13,6 +13,7 @@ class Position:
     sector: str = "Unbekannt"
     asset_class: str = "equity"
     country: str = "Unbekannt"
+    risk_affinity: Optional[str] = None   # nur Anleihen; "konservativ"|"neutral"|"risikofreudig"
 
 
 class PortfolioError(Exception):

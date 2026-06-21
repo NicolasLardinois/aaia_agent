@@ -34,13 +34,20 @@ class JsonPortfolioProvider(PortfolioPort):
                     raise PortfolioError(
                         f"Position {ticker}: Pflichtfeld {feld!r} fehlt — "
                         f"'shares' und 'buy_price' sind erforderlich.")
+            risk_affinity = d.get("risk_affinity")
+            if d.get("asset_class", "equity") == "bond":
+                if risk_affinity not in {"konservativ", "neutral", "risikofreudig"}:
+                    raise PortfolioError(
+                        f"Position {ticker}: Anleihe braucht 'risk_affinity' "
+                        f"(konservativ|neutral|risikofreudig), war {risk_affinity!r}.")
             out.append(Position(
                 ticker=ticker, shares=d["shares"], entry_price=d["buy_price"],
                 direction=direction, currency=d.get("currency", "USD"),
                 current_price=d.get("current_price"),
                 sector=d.get("sector", "Unbekannt"),
                 asset_class=d.get("asset_class", "equity"),
-                country=d.get("country", "Unbekannt")))
+                country=d.get("country", "Unbekannt"),
+                risk_affinity=risk_affinity))
         return out
 
     def position_state_for(self, ticker: str) -> PositionState:
