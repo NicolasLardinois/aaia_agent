@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -101,7 +102,6 @@ def _agent_with_history(idx):
 def test_ytd_none_when_history_starts_after_year_begin():
     """Historie beginnt erst im März des laufenden Jahres → kein Jahresanfangs-Kurs
     → perf_ytd muss None sein (nicht iloc[0], ein Mid-Year-Kurs, als Basis nehmen)."""
-    from datetime import datetime, timezone
     year = datetime.now(timezone.utc).year
     idx = pd.date_range(f"{year}-03-01", periods=80, freq="B")  # 1.1. liegt vor allen Daten
     result = asyncio.run(_agent_with_history(idx).run("^IDX"))
@@ -114,7 +114,6 @@ def test_ytd_none_when_history_starts_after_year_begin():
 def test_ytd_computed_when_history_spans_year_begin():
     """Positiv-Guard: Historie reicht über den Jahreswechsel → echter Jahresanfangs-Kurs
     → YTD wird gesetzt (der Fix darf den Normalfall nicht kaputtmachen)."""
-    from datetime import datetime, timezone
     year = datetime.now(timezone.utc).year
     idx = pd.date_range(f"{year - 1}-06-02", periods=280, freq="B")  # Vorjahr → laufendes Jahr
     result = asyncio.run(_agent_with_history(idx).run("^IDX"))
