@@ -83,9 +83,10 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
   Gesamte Signallogik ist toter Code.
   **✅ Audit 2026-06-20 BEHOBEN:** `supply_demand_agent.py:75` ruft `signal=_signal(pct)` im AVAILABLE-Zweig real auf; hartes NEUTRAL nur noch im legitimen `_DEFAULT`/UNAVAILABLE-Pfad (kein Provider/keine Daten). Tests (`test_low/high/normal_inventory`, `test_run_available_with_inventory`) beweisen echtes BULLISH.
 
-- [ ] **Bug #42** — `agents/stock_deep_dive/index/index_price_agent.py:61-62`
+- [x] **Bug #42** — `agents/stock_deep_dive/index/index_price_agent.py:61-62`
   `close.index.searchsorted(f"{datetime.utcnow().year}-01-01")` wirft `TypeError` bei timezone-aware Index.
   Ausserdem: wenn Jahresanfang nicht im 5-Jahres-Fenster liegt, wird YTD falsch berechnet.
+  **✅ Audit 2026-06-20 → behoben (TDD).** Teil 1 (tz-aware-Crash) war bereits gefixt (`datetime.now(timezone.utc)` + String-`searchsorted`, durch `test_ytd_uses_timezone_aware_now` abgesichert). **Offener Rest (dieser PR):** liegt der 1.1. **vor** dem ersten Datenpunkt (Index erst seit z. B. März gelistet), liefert `searchsorted` `0` und `iloc[0]` (ein Mid-Year-Kurs) wurde fälschlich als Jahresanfangs-Basis genommen → verzerrte YTD. **Lösung:** Guard `if 0 < ytd_idx < len(close)` — bei `ytd_idx == 0` (kein Datenpunkt vor dem 1.1.) ist YTD jetzt `None` statt einer Scheinzahl; oberer Rand (`>= len`) wie zuvor None. 2 neue Tests (März-Start → None; über-Jahreswechsel → gesetzt), Jahr dynamisch (zeitstabil). Gesamtsuite **739 grün**. *(PR: `fix/bug42-index-ytd-window`.)*
 
 - [x] **Bug #44** — `agents/stock_deep_dive/equity/fundamentals_agent.py`, `insider_agent.py`, `short_interest_agent.py`
   Keine Exception-Guard auf Provider-Response (kein `if isinstance(data, Exception)`).
