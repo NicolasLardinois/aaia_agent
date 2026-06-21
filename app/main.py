@@ -137,7 +137,7 @@ async def run_judgment(ticker: str, market: str = "USA") -> None:
     bus    = InMemoryEventBus()
     llm    = ClaudeAdapter(ANTHROPIC_API_KEY)
     memory = SupabaseMemory()
-    orch   = JudgmentOrchestrator(llm, bus, memory)
+    orch   = JudgmentOrchestrator(llm, bus, memory, portfolio_port=JsonPortfolioProvider())
     result = await orch.run(
         cockpit=cockpit,
         bottom_up=bottom_up,

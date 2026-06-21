@@ -6,9 +6,9 @@ from core.ports.llm_provider import LLMProvider
 
 
 class JudgmentChiefAgent:
-    def __init__(self, llm: LLMProvider, bus: EventBus):
+    def __init__(self, llm: LLMProvider, bus: EventBus, portfolio_port=None):
         self.bus = bus
-        self.judgment_agent = JudgmentAgent(llm, bus)
+        self.judgment_agent = JudgmentAgent(llm, bus, portfolio_port)
 
     async def run(
         self,

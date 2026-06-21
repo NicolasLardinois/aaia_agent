@@ -237,3 +237,21 @@ def test_backtester_chief_run_calls_all_agents():
     chief.bu_backtester.run.assert_called_once()
     chief.j_backtester.run.assert_called_once()
     bus.publish.assert_called_once()
+
+
+# ─────────────────────────────────────────────
+# Task 3: PortfolioPort-Verdrahtung durch die Kette
+# ─────────────────────────────────────────────
+
+def test_portfolio_port_wired_chief_to_agent():
+    from agents.judgment_chief_agent import JudgmentChiefAgent
+    sentinel = object()
+    chief = JudgmentChiefAgent(NS(), NS(), portfolio_port=sentinel)
+    assert chief.judgment_agent.portfolio_port is sentinel
+
+
+def test_portfolio_port_wired_orchestrator_to_agent():
+    from orchestrators.judgment_orchestrator import JudgmentOrchestrator
+    sentinel = object()
+    orch = JudgmentOrchestrator(NS(), NS(), NS(), portfolio_port=sentinel)
+    assert orch.judgment_chief.judgment_agent.portfolio_port is sentinel
