@@ -88,6 +88,6 @@ CREATE TABLE IF NOT EXISTS portfolio_snapshots (
 -- 2026-06-20  portfolio_snapshots: Spalte metrics ergänzt (PR #11 / F4a-Review — Risiko-Kennzahlen).
 --             ALTER TABLE portfolio_snapshots ADD COLUMN IF NOT EXISTS metrics jsonb DEFAULT '{}'::jsonb;
 -- 2026-06-21  analysis_memory: Spalte risk_affinity ergänzt (feat/bond-risikoaffinitaet — Bond-Recompute-Bausteine).
---             ALTER TABLE analysis_memory ADD COLUMN risk_affinity text;
+--             ALTER TABLE analysis_memory ADD COLUMN IF NOT EXISTS risk_affinity text;
 -- ⚠️ DEPLOY: vor Merge einmalig auf Supabase ausführen:
---             ALTER TABLE analysis_memory ADD COLUMN risk_affinity text;
+--             ALTER TABLE analysis_memory ADD COLUMN IF NOT EXISTS risk_affinity text;
