@@ -89,7 +89,7 @@ def test_equity_chief_default():
 from agents.stock_deep_dive.bond_chief_agent import BondChiefAgent
 from core.domain.models import (
     BondResult, BondMetricsSnapshot, BondDurationSnapshot,
-    BondCreditSnapshot, BondSpreadSnapshot,
+    BondCreditSnapshot, BondSpreadSnapshot, RiskAffinity,
 )
 
 def _neutral_bond_metrics():
@@ -120,7 +120,7 @@ def test_bond_chief_returns_result():
     chief.bond_credit_agent.run    = AsyncMock(return_value=_neutral_bond_credit())
     chief.bond_spread_agent.run    = AsyncMock(return_value=_neutral_bond_spread())
 
-    result = asyncio.run(chief.run("US10Y", "government", "stable"))
+    result = asyncio.run(chief.run("US10Y", "government", "stable", RiskAffinity.NEUTRAL))
     assert isinstance(result, BondResult)
     bus.publish.assert_called_once()
 
@@ -135,7 +135,7 @@ def test_bond_chief_resilience():
     chief.bond_credit_agent.run    = AsyncMock(return_value=_neutral_bond_credit())
     chief.bond_spread_agent.run    = AsyncMock(return_value=_neutral_bond_spread())
 
-    result = asyncio.run(chief.run("US10Y", "government", "stable"))
+    result = asyncio.run(chief.run("US10Y", "government", "stable", RiskAffinity.NEUTRAL))
     assert isinstance(result, BondResult)
 
 

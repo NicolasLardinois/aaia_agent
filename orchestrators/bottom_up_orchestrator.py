@@ -3,7 +3,7 @@ from agents.stock_deep_dive.bond_chief_agent import BondChiefAgent
 from agents.stock_deep_dive.index_chief_agent import IndexChiefAgent
 from agents.stock_deep_dive.commodity_chief_agent_mikro import CommodityChiefAgentMikro
 from agents.stock_deep_dive.precious_metals_chief_agent import PreciousMetalsChiefAgent
-from core.domain.models import BottomUpResult
+from core.domain.models import BottomUpResult, RiskAffinity
 from core.ports.data_provider import FundamentalsProvider, MacroDataProvider, MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
@@ -36,11 +36,12 @@ class BottomUpOrchestrator:
         sector: str = "default",
         bond_type: str = "government",
         rate_direction: str = "stable",
+        risk_affinity: "RiskAffinity | None" = None,
     ) -> BottomUpResult:
         if asset_class == "precious_metal":
             return await self._run_precious_metals(ticker)
         if asset_class == "bond":
-            return await self._run_bond(ticker, bond_type, rate_direction)
+            return await self._run_bond(ticker, bond_type, rate_direction, risk_affinity)
         if asset_class == "index":
             return await self._run_index(ticker)
         if asset_class == "commodity":
@@ -64,9 +65,10 @@ class BottomUpOrchestrator:
             precious_metals=None, bond=None, index=None, commodity_deep=None,
         )
 
-    async def _run_bond(self, ticker: str, bond_type: str, rate_direction: str) -> BottomUpResult:
+    async def _run_bond(self, ticker: str, bond_type: str, rate_direction: str,
+                        risk_affinity: "RiskAffinity | None") -> BottomUpResult:
         try:
-            bond_result = await self.bond_chief.run(ticker, bond_type, rate_direction)
+            bond_result = await self.bond_chief.run(ticker, bond_type, rate_direction, risk_affinity)
         except Exception:
             bond_result = BondChiefAgent.default(ticker, bond_type)
         return BottomUpResult(
