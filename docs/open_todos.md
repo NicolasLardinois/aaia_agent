@@ -218,7 +218,7 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - [x] Shiller CAPE — **implementiert** (2026-06-19 verifiziert): `earnings_yield`/`equity_risk_premium`/`shiller_cape` im Agenten, zinsabhängiges ERP-Signal.
   Offen ist nur noch die **Datenquelle 10J-Real-EPS** (FMP) anzubinden, damit `cape` real befüllt wird statt `None` → siehe §2 (Datenadapter).
 
-### agents/stock_deep_dive/index/index_price_agent.py (Zeile 72–73) — YTD-Basis-Konvention
+### agents/stock_deep_dive/index/index_price_agent.py (Zeile 78–79) — YTD-Basis-Konvention
 - [ ] **YTD-Anker prüfen: erster Handelstag des Jahres vs. Vorjahres-Schlusskurs** *(Folge aus Bug #42, Review 2026-06-21)*
   Aktuell ist die YTD-Basis `close.iloc[ytd_idx]` = **erster Handelstag des laufenden Jahres** (z. B. 2.1.). Die in der Praxis gebräuchlichere YTD-Definition nimmt den **Schlusskurs des letzten Handelstags des Vorjahres** (`close.iloc[ytd_idx-1]`, 31.12.) — konsistent auch mit `_ago(...)`, das bewusst `idx-1` verwendet. Differenz = Kursbewegung über den Jahreswechsel (klein, aber ≠ 0; eine *stille* Abweichung im gemeldeten YTD).
   **Ansatz:** Erst fachlich entscheiden, welche Konvention gelten soll (ggf. Provider-Vergleich). Falls Vorjahres-Schluss: Basis auf `close.iloc[ytd_idx-1]` umstellen — der Guard `0 < ytd_idx < len` bleibt gültig (bei `ytd_idx==0` gibt es keinen Vorjahrespunkt → weiterhin None). TDD: Test ergänzen, der den **exakten** Basiskurs pinnt (nicht nur `is not None`), damit die Konvention festgeschrieben ist.
