@@ -696,6 +696,8 @@ class CommodityBottomUpResult:
     seasonality: SeasonalitySnapshot
     cot: COTSnapshot
     valuation_range: CommodityValuationRangeSnapshot
+    overall_signal: Signal = Signal.NEUTRAL
+    confidence: float = 0.0
 
 
 # ─────────────────────────────────────────────
