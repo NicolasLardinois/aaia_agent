@@ -167,6 +167,52 @@ def test_judgment_chief_short_action_none_when_none():
 
 from agents.backtester_chief_agent import BacktesterChiefAgent
 
+# ─────────────────────────────────────────────
+# Task 2: _short_position_pnl_pct (P&L-Helfer)
+# ─────────────────────────────────────────────
+
+from types import SimpleNamespace as NS
+from core.domain.portfolio import PortfolioError
+from agents.judgment.judgment_agent import _short_position_pnl_pct
+
+
+def _port(positions):
+    return NS(get_positions=lambda: positions)
+
+
+def _bu_price(cur):
+    return NS(valuation_range=NS(current_price=cur))
+
+
+def test_pnl_short_in_profit():
+    port = _port([NS(ticker="AAPL", direction="short", entry_price=100.0)])
+    assert _short_position_pnl_pct(port, "AAPL", PositionState.SHORT, _bu_price(90.0)) == 10.0
+
+
+def test_pnl_none_when_not_short():
+    port = _port([NS(ticker="AAPL", direction="short", entry_price=100.0)])
+    assert _short_position_pnl_pct(port, "AAPL", PositionState.NONE, _bu_price(90.0)) is None
+
+
+def test_pnl_none_when_no_port():
+    assert _short_position_pnl_pct(None, "AAPL", PositionState.SHORT, _bu_price(90.0)) is None
+
+
+def test_pnl_none_when_ticker_absent():
+    port = _port([NS(ticker="MSFT", direction="short", entry_price=100.0)])
+    assert _short_position_pnl_pct(port, "AAPL", PositionState.SHORT, _bu_price(90.0)) is None
+
+
+def test_pnl_none_when_no_current_price():
+    port = _port([NS(ticker="AAPL", direction="short", entry_price=100.0)])
+    assert _short_position_pnl_pct(port, "AAPL", PositionState.SHORT, NS(valuation_range=None)) is None
+
+
+def test_pnl_none_on_portfolio_error():
+    def _raise():
+        raise PortfolioError("bad")
+    assert _short_position_pnl_pct(NS(get_positions=_raise), "AAPL", PositionState.SHORT, _bu_price(90.0)) is None
+
 
 def test_backtester_chief_load_context_empty():
     bus = MagicMock()

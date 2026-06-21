@@ -4,10 +4,12 @@ from core.domain.events import DeepDiveResultReady
 from core.domain.models import (
     AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult, PositionState, Signal,
 )
+from core.domain.portfolio import PortfolioError
 from core.domain.recommendation import compute_confidence, derive_recommendation, detect_conflict
 from core.domain.short_assessment import derive_short_assessment
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
+from core.ports.portfolio_port import PortfolioPort
 
 SYSTEM_PROMPT = """Du bist ein erfahrener Aktienanalyst.
 Du kombinierst makroökonomischen Top-Down-Kontext mit Bottom-Up-Fundamentalanalyse.
@@ -81,10 +83,32 @@ def _backtester_summary(context: dict) -> str:
     return notes or "Backtesting-Daten vorhanden."
 
 
+def _short_position_pnl_pct(port, ticker: str, position: PositionState, bottom_up) -> float | None:
+    """P&L-% einer gehaltenen Short-Position (Gewinn, wenn der Kurs unter den Einstand fällt).
+    Formel: (Einstand - aktueller Kurs) / Einstand * 100
+    Defensiv: fehlt Port/Position/Einstand/Kurs oder wirft das Depot einen Fehler → None (→ kein SHORT+)."""
+    if position != PositionState.SHORT or port is None:
+        return None
+    # Aktuellen Kurs aus dem Bewertungsbereich lesen
+    vr = getattr(bottom_up, "valuation_range", None)
+    cur = getattr(vr, "current_price", None) if vr else None
+    if cur is None:
+        return None
+    try:
+        for p in port.get_positions():
+            if p.ticker == ticker and p.direction == "short" and p.entry_price > 0:
+                # Positiver Wert = Short im Gewinn (Kurs unter Einstand gefallen)
+                return (p.entry_price - cur) / p.entry_price * 100
+    except PortfolioError:
+        return None
+    return None
+
+
 class JudgmentAgent:
-    def __init__(self, llm: LLMProvider, bus: EventBus):
+    def __init__(self, llm: LLMProvider, bus: EventBus, portfolio_port: PortfolioPort | None = None):
         self.llm = llm
         self.bus = bus
+        self.portfolio_port = portfolio_port
 
     async def run(
         self,
@@ -174,9 +198,11 @@ Kombiniere Top-Down und Bottom-Up zu einem klaren Urteil. Gibt es Widersprüche?
             top_down_available=top_down_available,
             confidence=confidence,
         )
+        position_pnl_pct = _short_position_pnl_pct(
+            self.portfolio_port, ticker, current_position, bottom_up)
         short_assessment = derive_short_assessment(
             bottom_up, cockpit, current_position, top_down_available,
-            bottom_up_anomaly, top_down_anomaly)
+            bottom_up_anomaly, top_down_anomaly, position_pnl_pct=position_pnl_pct)
         conflict, conflict_reason = detect_conflict(
             current_position, alignment, dominant_sig, short_assessment, confidence)
 
