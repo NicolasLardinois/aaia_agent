@@ -375,18 +375,20 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 
 ## 8. DESIGN-ENTSCHEIDUNGEN (Frontend — docs/frontend_notes.md)
 
-- [ ] Weltkarte vs. Tabelle für Buffett-Indikator-Widget
-- [ ] Drill-down: Einzelland-Zeitreihe (10 Jahre) im Buffett-Widget
-- [ ] Big Mac Index: Halbjährliche Daten-Refresh-Strategie (manuelle Pflege vs. API)
-- [ ] Mobile-first oder Desktop-first
-- [ ] Framework-Wahl: React / Vue / Svelte (noch nicht entschieden)
-- [ ] Echtzeit-Refresh: WebSocket oder Polling für Dashboard-Updates
+> **Status: am 2026-06-21 mit dem Nutzer entschieden** (Details im Frontend-Konzept `docs/superpowers/specs/2026-06-21-frontend-konzept.md` §6).
+
+- [x] **Buffett-Widget:** Tabelle (Default) + Karte als Tab + **Drill-down** (10-J-Zeitreihe). *(2026-06-21, §6.3 — deckt „Karte vs. Tabelle" + „Drill-down" ab.)*
+- [x] **Big-Mac-Refresh:** **automatischer Abruf** (geplanter CSV-Pull vom Economist-GitHub, Rückfall auf zuletzt gespeicherte Version; keine offizielle API). *(2026-06-21, §6.5.)*
+- [x] **Bildschirm:** **Desktop-first**, responsive. *(2026-06-21, §6.2.)*
+- [x] **Framework:** **React**. *(2026-06-21, §6.1 — überstimmt SvelteKit-Empfehlung; Begründung: chart-lastig + KI-gestützt.)*
+- [x] **Echtzeit-Refresh:** **WebSocket (live)** von Anfang an; Server pollt die (abruf-basierten) Quellen und pusht an den Browser. *(2026-06-21, §6.4 — überstimmt Polling-zuerst.)*
+- [x] **Daten-Health-Indikator** (x/y Quellen aktiv im Header, Klick → Quellenliste live/Stub/Fehler; pro Analyse „Datenbasis x/y Bausteine"). *(2026-06-21 aufgenommen, §6.6.)*
 
 ### Eingabe-/Ticker-Auflösung — fehlt komplett (Stand 2026-06-19)
 
 - [ ] **Nutzer-Eingabe robust zu einem kanonischen Tickersymbol auflösen.**
   Heute nur `ticker.upper()` in `app/main.py` (CLI) → „apple"/„APPL" scheitern (nur „AAPL" funktioniert); keine Namens-/Fuzzy-Auflösung, kein Frontend.
-  **Ansatz (Tool-Wahl wichtig):** Kern-Auflösung über eine **Symbol-Such-API** (Finnhub `/search`, FMP `/search`, Yahoo Symbol-Lookup) — deterministisch, liefert kanonisches Symbol + Börse. **KEIN LLM für die reine Auflösung** (Halluzinations-Risiko: falsches Symbol = falsche Analyse). Optional eine **LLM-Schicht nur für natürliche Absicht** („wie riskant ist apple gerade?" → Entität + Analyse-Modus extrahieren), die dann die Such-API füttert. Sauber als Port `SymbolSearchProvider` modellieren, Adapter dahinter (Hexagonal).
+  **Ansatz (Tool-Wahl wichtig):** Kern-Auflösung über eine **Symbol-Such-API** (Finnhub `/search`, FMP `/search`, Yahoo Symbol-Lookup) — deterministisch, liefert kanonisches Symbol + Börse. **KEIN LLM für die reine Auflösung** (Halluzinations-Risiko: falsches Symbol = falsche Analyse). Optional eine **LLM-Schicht nur für natürliche Absicht** („wie riskant ist apple gerade?" → Entität + Analyse-Modus extrahieren), die dann die Such-API füttert. Sauber als Port `SymbolSearchProvider` modellieren, Adapter dahinter (Hexagonal). *(Erweiterung fürs Futures-Redesign (§9): zusätzlich Hülle/Basiswert erkennen — „gold future" → `(precious_metal, future, GC)`.)*
 
 ---
 
@@ -513,7 +515,14 @@ Jede Analyse gibt pro Linse genau eine Aktion. **HOLD vs NONE:** HOLD = Position
 - [ ] **Track B — `ShortThesisAgent` (LLM)** — Fließtext-These + XAI auf der Engine.
 - [ ] **Equity-Momentum-Agent (long + short)** — `MomentumSnapshot` (analog Index), aktiviert die dormanten Momentum-Flags. *(Equity hat noch keinen Momentum-Agenten.)*
 - [ ] **Asset-Klassen-Shorts** — Rohstoff (Roll-Yield/Carry, Cost-Curve-Boden), Anleihe (Carry/Duration/Credit-Asymmetrie), Edelmetall. Je eigener Block.
-- [ ] **Futures als neue Anlageklasse** (long + short) — eigener Scope-/Brainstorming-Entscheid **vor** Umsetzung.
+- [ ] **Futures-Einbau via Taxonomie-Redesign (`underlying` × `wrapper`)** — Scope/Brainstorming **am 2026-06-21 abgeschlossen**; Design + Impact + Frontend-Konzept geschrieben. Statt einer „6. Klasse" ersetzen zwei Felder die `asset_class`: `underlying` (equity/equity_index/bond/commodity/precious_metal) wählt die Engine, `wrapper` (single/fund/future/physical_etc) schaltet eine Schicht zu. **Futures = `wrapper`, keine eigene Klasse.** Umfang Stufe 1: Rohstoff-/Edelmetall-Futures + physische Metall-ETCs.
+  Specs: `docs/superpowers/specs/2026-06-21-anlageklassen-taxonomie-design.md` (Design + §13-Entscheidungen) · `…-impact.md` · `…-frontend-konzept.md`.
+  **Reihenfolge: erst Equity-Short fertig, dann Phase 1.** Umsetzung in 3 Phasen (je Spec→Plan→PR, TDD):
+  - [ ] **Phase 1 — Taxonomie-Fundament** (verhaltens-erhaltend): `Underlying`/`Wrapper`-Enums; `BottomUpResult`, Orchestrator-Dispatch, `recommendation` (`_short_type`/Mengen + vollständige Aggressiv/Defensiv-Matrix), `short_assessment`-Weiche, `top_down_context`, `Position`, CLI; `index`→`equity_index`; XLE→`equity_index`, Rohstoff-/Minenaktien→`equity`; `etf`-Durchfall behoben.
+  - [ ] **Phase 2 — Wrapper-Schichten + Daten-Ports (Long):** `FuturesCurveProvider` (+ Stub) → Kurve/Roll/Carry/Basis/Hebel/Verfall (Hebel-Deckel ≤ 10 % Nominal); `FundInfoProvider` (+ Stub) → TER + Tracking-Error (braucht Benchmark-Zuordnung); implizite Convenience-Yield aus Preisen (kein „Mispricing").
+  - [ ] **Phase 3 — Long/Short-Feinschliff:** eigener Short-Zweig für `wrapper=future` (kein Borrow/Squeeze; Roll-Yield für Short; Cost-Curve-Boden als Deckel).
+- [ ] **⚠️ Risiko-Kennzahlen auf Nominal umstellen — VOR Track-B-Hedge-Dimensionierung.** Futures-Hebel + physische ETCs verfälschen `net_exposure`/`net_beta` (rechnen heute mit Kapitaleinsatz statt Nominal); ein gehebeltes Buch sähe fälschlich „sicherer" aus. Exposure muss `wrapper`-abhängig auf den **Nominalwert** rechnen. *(Befund Impact-Analyse 2026-06-21; hängt mit der Risiko-Kennzahlen-Verfeinerung F4 oben zusammen.)*
+- [ ] **NL-Resolver für Eingaben** („gold future" → `(precious_metal, future, GC)`) — erweitert die Ticker-Auflösung (§8) um Hüllen-/Basiswert-Erkennung; Such-API, kein LLM-Raten. Frontend-/Eingangsschicht, Folge-Aufgabe.
 - [ ] **Borrow-Rate manuell** — optionales Eingabefeld als Ergänzung zum Hard-to-borrow-Proxy-Flag.
 
 ---
