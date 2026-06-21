@@ -1,6 +1,6 @@
 import asyncio
 from core.domain.events import BondDurationReady
-from core.domain.models import BondDurationSnapshot, Signal
+from core.domain.models import BondDurationSnapshot, Signal, SignalStatus
 from core.ports.data_provider import FundamentalsProvider
 from core.ports.event_bus import EventBus
 from core.utils.bond_math import (
@@ -10,7 +10,7 @@ from core.utils.bond_math import (
 
 _DEFAULT = BondDurationSnapshot(
     macaulay_duration=None, modified_duration=None, convexity=None, dv01=None,
-    signal=Signal.NEUTRAL,
+    signal=Signal.NEUTRAL, status=SignalStatus.UNAVAILABLE,
 )
 
 # angenommene Yield-Bewegung je Richtung (50 bp) für die Signal-Schätzung
@@ -80,6 +80,10 @@ class BondDurationAgent:
         result = BondDurationSnapshot(
             macaulay_duration=mac, modified_duration=mod, convexity=conv, dv01=dv,
             signal=_signal(mod, conv, rate_direction),
+            # Signal braucht Modified Duration + Konvexität; fehlen sie, ist die
+            # Komponente unverfügbar (§3.4) statt eine neutrale 0-Stimme.
+            status=(SignalStatus.AVAILABLE if mod is not None and conv is not None
+                    else SignalStatus.UNAVAILABLE),
         )
         self.bus.publish(BondDurationReady(source="bond_duration_agent",
                                            payload={"ticker": ticker, "modified_duration": mod}))

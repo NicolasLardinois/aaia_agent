@@ -268,6 +268,14 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   Die reine Funktion `core/utils/bond_recompute.recompute_bond_signal(blocks, new_affinity)` ist gebaut + getestet, aber **noch nirgends im PM aufgerufen**. Spec §4.8 verlangt: im PM die Affinität einer Anleihe-Position ändern → Gesamtsignal sofort aus den gespeicherten Bausteinen neu rechnen → gespeicherte Affinität + Signal aktualisieren.
   **Offen:** der PM-Schreibpfad (Positions-Mutation + Persistenz-Update der zuletzt gespeicherten Analyse). **Ansatz:** `risk_affinity` einer Position setzen → letzte Analyse-Bausteine aus `analysis_memory` laden → `recompute_bond_signal` → `recommendation`/`risk_affinity` der Position/History aktualisieren. Verwandt mit dem PM-Komplett-Neuanalyse-Eintrag direkt darüber (billiger Recompute ≠ volle Neuanalyse).
 
+- [x] **PR #19 Review-Nachbesserungen (Bond-Risikoaffinität) — erledigt 2026-06-21.** Befunde aus dem zweiten Blick auf PR #19 behoben:
+  1. **Judgment-Verdrahtung:** `judgment_agent` baute `all_signals` nur aus Equity-Bausteinen → für Anleihen alle `None` → das neue `BondResult.overall_signal` trieb keine Empfehlung. Neu: `_bottom_up_signals()` nimmt das Anleihe-Gesamtsignal als 7. Slot mit (defensiv via `getattr`); Bond-Signal erscheint zudem im Urteils-/XAI-Prompt.
+  2. **Cache-Round-Trip:** `result_cache._bond_result_out/_load_bond_result` verlor `overall_signal/confidence/risk_affinity/credit_band` → jetzt serialisiert + wiederhergestellt (None bleibt None).
+  3. **Verfügbarkeit (§3.4):** Bond-Sub-Snapshots haben jetzt `status: SignalStatus`; metrics/duration/spread setzen `UNAVAILABLE` ohne Signal-treibende Daten. `bond_chief` schließt UNAVAILABLE-Komponenten aus der Aggregation aus; `save_analysis` lässt sie weg → **Live- und Recompute-Pfad konsistent**.
+  4. **Typsicherheit:** `Position.risk_affinity` ist jetzt `RiskAffinity`-Enum (Spec §4.1), Provider wandelt um; Monitor gibt am Rand `.value` aus.
+  5. **Aufräumen:** toter `AGGRESSIVE_ASSET_CLASSES`-Code in `recommendation.py` entfernt (nirgends referenziert; irreführender Name).
+  *(TDD; Gesamtsuite grün. Der PM-Recompute-Trigger oben bleibt die offene Folge-Aufgabe.)*
+
 ---
 
 ## 6. TEST-LÜCKEN

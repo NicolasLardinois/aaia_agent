@@ -5,7 +5,7 @@ from agents.stock_deep_dive.bond.bond_duration_agent import BondDurationAgent
 from agents.stock_deep_dive.bond.bond_credit_agent import BondCreditAgent
 from agents.stock_deep_dive.bond.bond_spread_agent import BondSpreadAgent
 from core.domain.events import BondChiefReady
-from core.domain.models import BondResult, Signal, RiskAffinity, CreditBand
+from core.domain.models import BondResult, Signal, RiskAffinity, CreditBand, SignalStatus
 from core.ports.data_provider import FundamentalsProvider, MacroDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.bond_risk import rating_to_band, aggregate_bond_signal
@@ -47,9 +47,14 @@ class BondChiefAgent:
         credit   = _safe(results[2], BondCreditAgent.default())
         spread   = _safe(results[3], BondSpreadAgent.default())
 
+        # §3.4: Eine Komponente ohne verfügbare Daten (UNAVAILABLE) wird als None
+        # weitergereicht → aggregate_bond_signal lässt sie weg und re-normalisiert,
+        # statt sie als neutrale 0-Stimme mitzuzählen.
+        def _avail(snap): return snap.signal if snap.status == SignalStatus.AVAILABLE else None
+
         credit_band = rating_to_band(credit.sp)
         overall, confidence = aggregate_bond_signal(
-            metrics.signal, duration.signal, spread.signal, credit_band, risk_affinity,
+            _avail(metrics), _avail(duration), _avail(spread), credit_band, risk_affinity,
         )
         self.bus.publish(BondChiefReady(source="bond_chief_agent", payload={
             "ticker": ticker, "overall_signal": overall.value,

@@ -236,6 +236,29 @@ def test_save_analysis_persistiert_bond_risk_affinity(monkeypatch):
     assert snap.get("bond_metrics_signal") == "bullish"
 
 
+def test_save_analysis_laesst_unverfuegbaren_baustein_weg(monkeypatch):
+    """§3.4-Konsistenz: ein UNAVAILABLE-Baustein wird NICHT persistiert, damit der
+    Recompute (blocks.get → None) ihn genauso ausschließt wie der Live-Pfad."""
+    from types import SimpleNamespace
+    from core.domain.models import Signal, SignalStatus, RiskAffinity, CreditBand
+    bond = SimpleNamespace(
+        risk_affinity=RiskAffinity.NEUTRAL, credit_band=CreditBand.MITTEL,
+        metrics=SimpleNamespace(signal=Signal.BULLISH, status=SignalStatus.AVAILABLE),
+        duration=SimpleNamespace(signal=Signal.NEUTRAL, status=SignalStatus.UNAVAILABLE),
+        spread=SimpleNamespace(signal=Signal.NEUTRAL, status=SignalStatus.AVAILABLE),
+    )
+    bu = SimpleNamespace(
+        valuation_range=None, index=None, precious_metals=None, commodity_deep=None,
+        fundamentals=None, short_interest=None, insider=None, bond=bond,
+    )
+    params = _save_and_capture(_result_with_bu(bu), monkeypatch=monkeypatch)
+    import json as _j
+    snap = _j.loads(params[-2])
+    assert snap.get("bond_metrics_signal") == "bullish"   # verfügbar → persistiert
+    assert snap.get("bond_spread_signal") == "neutral"    # verfügbar → persistiert
+    assert "bond_duration_signal" not in snap             # UNAVAILABLE → weggelassen
+
+
 def test_load_portfolio_snapshot_unpacks_metrics(monkeypatch):
     """Beim Laden wird die metrics-Spalte wieder ins Top-Level entpackt, damit
     Konsumenten die Snapshot-Form sehen (snap["net_beta"], nicht snap["metrics"]["net_beta"])."""

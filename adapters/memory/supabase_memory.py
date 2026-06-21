@@ -10,6 +10,7 @@ from typing import Optional
 import psycopg2
 import psycopg2.extras
 
+from core.domain.models import SignalStatus
 from core.ports.memory_port import MemoryPort
 
 _log = logging.getLogger(__name__)
@@ -131,10 +132,18 @@ class SupabaseMemory(MemoryPort):
             cb = getattr(bond, "credit_band", None)
             if cb is not None:
                 indicators["bond_credit_band"] = cb.value
+            # §3.4: Nur verfügbare Bausteine persistieren. Ein UNAVAILABLE-Baustein
+            # wird weggelassen → der Recompute (blocks.get → None) schließt ihn aus,
+            # exakt wie der Live-Pfad im bond_chief. So bleiben beide Pfade konsistent.
+            def _bond_signal_if_available(attr):
+                snap = getattr(bond, attr)
+                if getattr(snap, "status", SignalStatus.AVAILABLE) != SignalStatus.AVAILABLE:
+                    return None
+                return snap.signal.value
             for feld, attr in (("bond_metrics_signal", "metrics"),
                                ("bond_duration_signal", "duration"),
                                ("bond_spread_signal", "spread")):
-                _put(indicators, feld, lambda a=attr: getattr(bond, a).signal.value)
+                _put(indicators, feld, lambda a=attr: _bond_signal_if_available(a))
 
         if getattr(result, "conflict_resolution", None):
             indicators["conflict_verdict"] = result.conflict_resolution.verdict
