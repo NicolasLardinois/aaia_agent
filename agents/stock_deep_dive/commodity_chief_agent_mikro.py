@@ -50,7 +50,7 @@ class CommodityChiefAgentMikro:
         ])
 
         self.bus.publish(CommodityBottomUpChiefReady(source="commodity_chief_agent", payload={
-            "ticker": ticker, "overall_signal": overall.value,
+            "ticker": ticker, "overall_signal": overall.value, "confidence": round(confidence, 3),
         }))
 
         return CommodityBottomUpResult(

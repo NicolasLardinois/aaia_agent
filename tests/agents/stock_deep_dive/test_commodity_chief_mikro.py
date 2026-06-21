@@ -2,6 +2,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 from agents.stock_deep_dive.commodity_chief_agent_mikro import CommodityChiefAgentMikro
+from core.domain.events import CommodityBottomUpChiefReady
 from core.domain.models import (
     Signal, SignalStatus,
     SupplyDemandSnapshot, SeasonalitySnapshot, COTSnapshot, CommodityValuationRangeSnapshot,
@@ -69,3 +70,16 @@ def test_unavailable_wird_ignoriert():
     )
     res = asyncio.run(chief.run("CL=F"))
     assert res.overall_signal == Signal.BEARISH
+
+
+def test_event_traegt_confidence():
+    """Das Chief-Ready-Event muss neben overall_signal auch confidence (gerundet) tragen
+    — analog equity/index, damit Event-Consumer die Sicherheit des Urteils kennen, ohne
+    es selbst nachzurechnen."""
+    chief = _chief(_sd(Signal.BULLISH), _seas(Signal.BULLISH), _cot(Signal.BULLISH), _vr(Signal.BULLISH))
+    res = asyncio.run(chief.run("CL=F"))
+    events = [c.args[0] for c in chief.bus.publish.call_args_list
+              if isinstance(c.args[0], CommodityBottomUpChiefReady)]
+    assert len(events) == 1
+    assert events[0].payload["confidence"] == round(res.confidence, 3)
+    assert events[0].payload["confidence"] > 0.0

@@ -107,8 +107,14 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
   **⚠️ Audit 2026-06-20 → in drei Teilen abgearbeitet (Eintrag bleibt offen bis beide PRs gemergt):**
   (a) `equity_chief` aggregierte bereits via `weighted_signal` (vor dem Audit erledigt).
   (b) `bond_chief` (eigenes Credit-Voting+Veto) → bewusst durch ein **Risikoaffinität-Modell** ersetzt (Veto entfiel) → **PR #19** (`feat/bond-risikoaffinitaet`).
-  (c) `commodity_chief_agent_mikro` aggregierte **gar nicht** → **dieser PR**: `weighted_signal` über die 4 Sub-Signale (Supply/Demand 0.35, Bewertung 0.30, COT 0.20, Saisonalität 0.15 — Saisonalität bewusst am niedrigsten; `UNAVAILABLE` re-normalisiert), `overall_signal`+`confidence` im `CommodityBottomUpResult` + Event. 3 Tests; Suite 742 grün. *(PR: `fix/bug47-commodity-mikro-aggregation`.)*
+  (c) `commodity_chief_agent_mikro` aggregierte **gar nicht** → **dieser PR**: `weighted_signal` über die 4 Sub-Signale (Supply/Demand 0.35, Bewertung 0.30, COT 0.20, Saisonalität 0.15 — Saisonalität bewusst am niedrigsten; `UNAVAILABLE` re-normalisiert), `overall_signal`+`confidence` im `CommodityBottomUpResult` + Event. 4 Tests; Suite 743 grün. *(PR: `fix/bug47-commodity-mikro-aggregation`.)*
+  **Review-Feinschliff 2026-06-21:** Event-Payload trägt jetzt zusätzlich `confidence` (gerundet, analog `equity_chief`/`index_chief`) — Event-Consumer kennen die Urteilssicherheit, ohne sie nachzurechnen.
   → **Abhaken**, sobald PR #19 **und** diese PR gemergt sind.
+
+- [ ] **Folge-Aufgabe (aus Review PR #20, 2026-06-21)** — effektive Gewichtung im Produktions-Normalfall
+  `commodity_chief_agent_mikro`: Ohne Supply-/COT-Adapter liefern beide Agenten `UNAVAILABLE` (0.35 + 0.20 fallen weg). Nach Re-Normalisierung bestimmen dann allein Bewertung (0.30) und Saisonalität (0.15) das Signal → **effektiv 67 % Bewertung / 33 % Saisonalität**. Damit trägt die bewusst niedrigst gewichtete, als „verrauscht" markierte Saisonalität im realen Default ein Drittel des Urteils. Mathematik korrekt, aber die austarierte Gewichts-Leiter kollabiert teilweise (Datenrealität, AGENTS.md §3).
+  *Lösungsansatz (fachliche Entscheidung des Users nötig):* z. B. `confidence` deckeln, wenn alle **fundamentalen** Inputs (Supply/Demand + Bewertung) `UNAVAILABLE` sind, oder Saisonalitäts-Beitrag absolut begrenzen statt nur relativ. Vor Umsetzung mit User abstimmen.
+  *Sekundär:* Event-Payload-Keys projektweit vereinheitlichen — equity/index nutzen `"signal"`, bond/commodity `"overall_signal"`. Eigener kleiner Aufräum-PR.
 
 ---
 
