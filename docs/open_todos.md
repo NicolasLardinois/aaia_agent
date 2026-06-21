@@ -109,7 +109,8 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
   (b) `bond_chief` (eigenes Credit-Voting+Veto) → bewusst durch ein **Risikoaffinität-Modell** ersetzt (Veto entfiel) → **PR #19** (`feat/bond-risikoaffinitaet`).
   (c) `commodity_chief_agent_mikro` aggregierte **gar nicht** → **dieser PR**: `weighted_signal` über die 4 Sub-Signale (Supply/Demand 0.35, Bewertung 0.30, COT 0.20, Saisonalität 0.15 — Saisonalität bewusst am niedrigsten; `UNAVAILABLE` re-normalisiert), `overall_signal`+`confidence` im `CommodityBottomUpResult` + Event. 4 Tests; Suite 743 grün. *(PR: `fix/bug47-commodity-mikro-aggregation`.)*
   **Review-Feinschliff 2026-06-21:** Event-Payload trägt jetzt zusätzlich `confidence` (gerundet, analog `equity_chief`/`index_chief`) — Event-Consumer kennen die Urteilssicherheit, ohne sie nachzurechnen.
-  → **Abhaken**, sobald PR #19 **und** diese PR gemergt sind.
+  **✅ Teil (c): PR #20 am 2026-06-21 gemergt** (Review ohne blockierende Mängel; im Review nur `confidence` ins Event ergänzt — siehe oben).
+  → **Abhaken**, sobald **auch PR #19** (Teil b) gemergt ist — dann ist Bug #47 vollständig erledigt.
 
 - [ ] **Folge-Aufgabe (aus Review PR #20, 2026-06-21)** — effektive Gewichtung im Produktions-Normalfall
   `commodity_chief_agent_mikro`: Ohne Supply-/COT-Adapter liefern beide Agenten `UNAVAILABLE` (0.35 + 0.20 fallen weg). Nach Re-Normalisierung bestimmen dann allein Bewertung (0.30) und Saisonalität (0.15) das Signal → **effektiv 67 % Bewertung / 33 % Saisonalität**. Damit trägt die bewusst niedrigst gewichtete, als „verrauscht" markierte Saisonalität im realen Default ein Drittel des Urteils. Mathematik korrekt, aber die austarierte Gewichts-Leiter kollabiert teilweise (Datenrealität, AGENTS.md §3).
