@@ -157,6 +157,12 @@ def _bond_result_out(br) -> Optional[dict]:
         "duration":  _bond_duration_out(br.duration),
         "credit":    _bond_credit_out(br.credit),
         "spread":    _bond_spread_out(br.spread),
+        # Risikoaffinitäts-Aggregation (PR #19): das Gesamtsignal + die Affinität dürfen
+        # den Cache-Round-Trip überleben, sonst fielen sie auf NEUTRAL/None zurück.
+        "overall_signal": _sv(br.overall_signal),
+        "confidence":     br.confidence,
+        "risk_affinity":  _sv(br.risk_affinity),
+        "credit_band":    _sv(br.credit_band),
     }
 
 
@@ -400,12 +406,14 @@ def _load_bond_result(d):
         return None
     from core.domain.models import (
         BondResult, BondMetricsSnapshot, BondDurationSnapshot,
-        BondCreditSnapshot, BondSpreadSnapshot,
+        BondCreditSnapshot, BondSpreadSnapshot, RiskAffinity, CreditBand,
     )
     m = d.get("metrics") or {}
     dur = d.get("duration") or {}
     cr = d.get("credit") or {}
     sp = d.get("spread") or {}
+    ra = d.get("risk_affinity")
+    cb = d.get("credit_band")
     return BondResult(
         ticker=d["ticker"],
         bond_type=d["bond_type"],
@@ -447,6 +455,11 @@ def _load_bond_result(d):
             spread_trend=sp.get("spread_trend", "stable"),
             signal=_sig(sp.get("signal")),
         ),
+        # PR #19: Gesamtsignal + Affinität wiederherstellen (None bleibt None).
+        overall_signal=_sig(d.get("overall_signal")),
+        confidence=d.get("confidence", 0.0),
+        risk_affinity=RiskAffinity(ra) if ra else None,
+        credit_band=CreditBand(cb) if cb else None,
     )
 
 
