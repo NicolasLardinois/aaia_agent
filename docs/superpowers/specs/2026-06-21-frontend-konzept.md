@@ -19,7 +19,7 @@ Das Frontend wird um **fünf Leitideen** herum gebaut:
 4. **UNAVAILABLE ist ein eigener Zustand.** Viele Datenquellen sind aktuell Stubs. Fehlende Daten werden **nie als 0 oder neutral verfälscht**, sondern explizit als „nicht verfügbar" markiert und aus Aggregationen/Konfidenz ausgenommen.
 5. **Portfolio als Risikolinse.** Das Tool ist nicht nur ein Einzeltitel-Analyzer, sondern kennt long/short-Positionen, Netto-/Brutto-Exposure, `net_beta`, Klumpen-Warnungen und Track-B-Hedge-Vorschläge — plus eine **Konflikt-Inbox**, wenn eine gehaltene These kippt.
 
-**Empfehlungen für die offenen Fragen (alle „noch zu entscheiden"):** Framework → **Svelte/SvelteKit** (leichtgewichtig, datenlastige Dashboards, kleiner Build); Layout → **Desktop-first mit responsivem Tablet-Fallback**; Updates → **Polling (60–120 s) zum Start, WebSocket später** für die Konflikt-Inbox; Buffett-Widget → **Tabelle als Default, Weltkarte als optionaler Tab**; Big-Mac-Refresh → **manuelle halbjährliche Pflege via versioniertem Datensatz**. Details + Begründung in Abschnitt 6.
+**Entscheidungen (am 2026-06-21 mit dem Nutzer getroffen — Details + Begründung in Abschnitt 6):** Framework → **React** (überstimmt die ursprüngliche Svelte-Empfehlung; chart-/tabellen-lastig + KI-gestützt); Layout → **Desktop-first mit responsivem Tablet-Fallback**; Updates → **WebSocket (live) von Anfang an** (überstimmt Polling-zuerst; der Server pollt die abruf-basierten Quellen und pusht an den Browser); Buffett-Widget → **Tabelle als Default, Weltkarte als optionaler Tab, Einzelland-10-J-Drill-down**; Big-Mac-Refresh → **automatischer Abruf (geplanter CSV-Pull, Rückfall auf zuletzt gespeicherte Version)** (überstimmt manuelle Pflege).
 
 ---
 

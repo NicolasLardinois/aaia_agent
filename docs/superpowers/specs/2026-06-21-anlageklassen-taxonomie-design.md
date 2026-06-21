@@ -282,7 +282,7 @@ Für jedes Konzept: *was es ist*, *warum es zählt*, *Datenbedarf*, *vorgeschlag
 
 #### 6.4 Aggregation der Futures-Schicht zu einem Signal
 
-Defensive Aggregation (AGENTS.md §2): Richtungssignale aus (a) Kurve und (b) Roll-Yield bilden den **Kern** (sie sind dasselbe Phänomen → **nicht** doppelt zählen, sondern als *ein* gewichteter Beitrag führen). (c) Cost-of-Carry-Mispricing und (g) COT sind **Verstärker/Kontext**. (d) Basis ist Sanity-Check. (e) Hebel und (f) Verfall wirken auf **Sizing/Timing**, nicht auf die Richtung. Fällt die Quelle aus → `FuturesMechanicsAgent.default()` ⇒ **UNAVAILABLE**, neutraler Beitrag, Gesamtanalyse läuft weiter.
+Defensive Aggregation (AGENTS.md §2): Richtungssignale aus (a) Kurve und (b) Roll-Yield bilden den **Kern** (sie sind dasselbe Phänomen → **nicht** doppelt zählen, sondern als *ein* gewichteter Beitrag führen). (c) implizite Convenience-Yield (§6.3c, Niveau/Trend gegen die eigene Historie — **kein** Mispricing) und (g) COT sind **Verstärker/Kontext**. (d) Basis ist Sanity-Check. (e) Hebel und (f) Verfall wirken auf **Sizing/Timing**, nicht auf die Richtung. Fällt die Quelle aus → `FuturesMechanicsAgent.default()` ⇒ **UNAVAILABLE**, neutraler Beitrag, Gesamtanalyse läuft weiter.
 
 #### 6.5 `physical_etc` — explizit ohne Futures-Schicht
 
@@ -421,12 +421,12 @@ Damit beim Umbau **keine** Kombination unklassifiziert bleibt (lückenlos, AGENT
 ## 11. Teststrategie (TDD verpflichtend, AGENTS.md §4)
 
 - **Reihenfolge je Einheit:** erst Test (Rot) → implementieren bis Grün → aufräumen. Kein Code ohne vorher fehlschlagenden Test.
-- **Schwellen-Grenzfälle** (für jede Signal-Funktion in §6.3): genau **auf** der Schwelle, knapp darüber/darunter, `None`, negative Werte. Konkret: Kurvenneigung bei exakt ±5 %, Mispricing bei exakt 3 %, Verfall bei exakt 5 Tagen, leere/einpunktige Kurve.
+- **Schwellen-Grenzfälle** (für jede Signal-Funktion in §6.3): genau **auf** der Schwelle, knapp darüber/darunter, `None`, negative Werte. Konkret: Kurvenneigung bei exakt ±5 %, implizite Convenience-Yield exakt am Perzentil-Schwellwert (oberes/unteres Perzentil der eigenen Historie, §6.3c), Verfall bei exakt 5 Tagen, leere/einpunktige Kurve.
 - **Lückenlosigkeit** (AGENTS.md §2): Property-/Tabellentest, dass **jeder** Slope-Wert in genau eine Klasse fällt (keine Lücke zwischen `<` und `<=`).
 - **Fehlerpfade → neutraler Default:** `FuturesCurveProvider` wirft / liefert `None` ⇒ `FuturesMechanicsAgent.default()` ⇒ UNAVAILABLE, Gesamtanalyse läuft weiter.
 - **Dispatch-Tests:** jeder `underlying` routet zur richtigen Engine; `wrapper=future` aktiviert die Schicht, `physical_etc`/`single`/`fund` **nicht**.
 - **Reklassifizierung:** XLE ⇒ Index-Engine; Exxon ⇒ Equity; Gold-Future vs. Gold-physisch-ETC ⇒ gleiche PM-Engine, Schicht nur beim Future.
-- **Regression (Phase 1):** Snapshot-Vergleich der 5 Bestands-Engines vor/nach dem Schema-Wechsel (verhaltens-erhaltend).
+- **Regression (Phase 1):** Snapshot-Vergleich der 5 Bestands-Engines vor/nach dem Schema-Wechsel (verhaltens-erhaltend) — **gilt nur für `wrapper ∈ {single, fund}` auf gleichen Eingaben**. **Ausnahme `etf`:** Das ist eine **gewollte** Verhaltensänderung (XLE: Equity- → Index-Engine); der Test muss hier das **neue** Index-Ergebnis als Soll prüfen, **nicht** das alte (falsche) Equity-Ergebnis festschreiben — sonst zementiert die Regression den behobenen Durchfall-Bug.
 - **Bestehender Test:** `tests/test_short_assessment_engine.py` (prüft Nicht-equity-Fallback) entsprechend anpassen.
 - **Vor jedem „fertig":** `python -m pytest -q` laufen lassen, Ergebnis nennen.
 
