@@ -42,6 +42,8 @@ class JsonPortfolioProvider(PortfolioPort):
                     raise PortfolioError(
                         f"Position {ticker}: Anleihe braucht 'risk_affinity' "
                         f"(konservativ|neutral|risikofreudig), war {risk_affinity!r}.")
+            # In die Domäne als Enum (Typsicherheit, Spec §4.1); ungültig/fehlend → None.
+            affinity = RiskAffinity(risk_affinity) if risk_affinity in _VALID_AFFINITY else None
             out.append(Position(
                 ticker=ticker, shares=d["shares"], entry_price=d["buy_price"],
                 direction=direction, currency=d.get("currency", "USD"),
@@ -49,7 +51,7 @@ class JsonPortfolioProvider(PortfolioPort):
                 sector=d.get("sector", "Unbekannt"),
                 asset_class=d.get("asset_class", "equity"),
                 country=d.get("country", "Unbekannt"),
-                risk_affinity=risk_affinity))
+                risk_affinity=affinity))
         return out
 
     def position_state_for(self, ticker: str) -> PositionState:

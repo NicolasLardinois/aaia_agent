@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Optional
 
+from core.domain.models import RiskAffinity
+
 
 @dataclass(frozen=True)
 class Position:
@@ -13,7 +15,7 @@ class Position:
     sector: str = "Unbekannt"
     asset_class: str = "equity"
     country: str = "Unbekannt"
-    risk_affinity: Optional[str] = None   # nur Anleihen; "konservativ"|"neutral"|"risikofreudig"
+    risk_affinity: Optional[RiskAffinity] = None   # nur Anleihen (konservativ/neutral/risikofreudig)
 
 
 class PortfolioError(Exception):

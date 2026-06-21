@@ -2,6 +2,7 @@ import json
 import pytest
 from adapters.persistence.json_portfolio import JsonPortfolioProvider
 from core.domain.portfolio import PortfolioError
+from core.domain.models import RiskAffinity
 
 
 def _write(tmp_path, positions):
@@ -14,7 +15,8 @@ def test_bond_position_traegt_risk_affinity(tmp_path):
     path = _write(tmp_path, [{"ticker": "TLT", "shares": 10, "buy_price": 90,
         "direction": "long", "asset_class": "bond", "risk_affinity": "neutral"}])
     pos = JsonPortfolioProvider(path).get_positions()[0]
-    assert pos.risk_affinity == "neutral"
+    # Domäne trägt das Enum (Typsicherheit), nicht den rohen String (Spec §4.1).
+    assert pos.risk_affinity is RiskAffinity.NEUTRAL
 
 
 def test_bond_ohne_risk_affinity_failt(tmp_path):

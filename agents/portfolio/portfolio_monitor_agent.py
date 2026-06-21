@@ -306,8 +306,10 @@ class PortfolioMonitorAgent:
             for r in net_beta if equity_gross.get(r, 0.0) > 0
         }
 
+        # Am Snapshot-Rand den primitiven Wert ausgeben (sauberes Print/JSON);
+        # str-Enum würde sonst als "RiskAffinity.NEUTRAL" formatiert.
         bond_risk_affinities = [
-            {"ticker": p.ticker, "risk_affinity": p.risk_affinity}
+            {"ticker": p.ticker, "risk_affinity": p.risk_affinity.value}
             for p in positions if p.asset_class == "bond" and p.risk_affinity is not None
         ]
 

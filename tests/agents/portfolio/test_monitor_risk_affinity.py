@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 from agents.portfolio.portfolio_monitor_agent import PortfolioMonitorAgent
 from core.domain.portfolio import Position
+from core.domain.models import RiskAffinity
 
 
 def _agent():
@@ -10,7 +11,7 @@ def _agent():
 def test_snapshot_listet_bond_affinitaeten():
     positions = [
         Position(ticker="TLT", shares=10, entry_price=90, direction="long",
-                 asset_class="bond", risk_affinity="neutral"),
+                 asset_class="bond", risk_affinity=RiskAffinity.NEUTRAL),
         Position(ticker="AAPL", shares=5, entry_price=100, direction="long",
                  asset_class="equity"),
     ]
