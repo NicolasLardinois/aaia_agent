@@ -51,3 +51,15 @@ def test_composite_in_urteil_stimmt_mit_detect_ueberein():
         ecb_factory=lambda d: EcbStubProvider(), snb_factory=lambda d: SnbStubProvider(),
     )
     assert urteile[0]["composite"] == round(evidence["composite"], 4)
+
+
+def test_urteil_enthaelt_trend():
+    stichtage = [date(2000, 1, 1), date(2000, 2, 1), date(2000, 3, 1)]
+    urteile = run_replay(lambda d: _FakeProvider(d), stichtage)
+    # erster/zweiter Stichtag: noch nicht genug Historie → Trend None; dritter: berechenbar
+    assert "trend" in urteile[0]
+    assert "trend" in urteile[1]
+    assert "trend" in urteile[2]
+    assert urteile[0]["trend"] is None
+    assert urteile[1]["trend"] is None
+    assert urteile[2]["trend"] is not None

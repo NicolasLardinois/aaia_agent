@@ -79,6 +79,7 @@ def run_replay(provider_factory, stichtage: list, bus=None,
             "regime": regime,
             "confidence": confidence,
             "composite": round(composite, 4),
+            "trend": evidence.get("trend"),
             "data_quality": getattr(provider, "quality", "unbekannt"),
         })
     return urteile
