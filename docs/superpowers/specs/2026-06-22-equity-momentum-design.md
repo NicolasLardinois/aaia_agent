@@ -14,7 +14,7 @@ Equity hat heute **keinen** Momentum-Agenten (nur der Index hat einen). `short.m
 
 1. **Umfang:** beide Seiten (long + short).
 2. **Short-Natur:** **Verstärker** (Bestätigung), kein eigener Kern-Archetyp — konsistent mit der Kern-These-Pflicht (`short.md §4`).
-3. **RS-Benchmark:** **Heimatmarkt je Region** (USA→`^GSPC`, CH→`^SSMI`, Eurozone→`^STOXX50E`; Default USA).
+3. **RS-Benchmark:** **Heimatmarkt je Region** (USA→`^GSPC`, CH→`^SSMI`, Eurozone→`^STOXX50E`; Default `^GSPC`), **aus dem Ticker abgeleitet** via `get_info(ticker).country` — der Bottom-Up läuft in Modus 2 ohne Markt, Modus 3 nutzt den Cache, daher **keine** Markt-Durchreichung (§3.3).
 4. **Momentum-Gewicht:** **leicht/sekundär** — Equity-Chief `_W_MOMENTUM = 0.10`, Alignment `0.5`. Bestätigt, dominiert nie die Fundamentaldaten.
 5. **Short-Flags:** **zwei** Verstärker — `momentum_breakdown` (Trend bearish) + `relative_weakness` (rs < 0).
 6. **Index-Momentum-Benchmark** (heute fix `URTH`) wird hier **nicht** angefasst → Folge-Aufgabe im Logbuch.
@@ -36,20 +36,17 @@ class MomentumSnapshot:
 *(Eigenes Modell statt das Index-benannte wiederverwenden — semantische Klarheit; die Rechen-Helfer werden über `core.utils.scoring` geteilt.)*
 
 ### 3.2 `EquityMomentumAgent` (`agents/stock_deep_dive/equity/momentum_agent.py`)
-Spiegelt `IndexMomentumAgent` (gleiche Mathematik), aber **Benchmark = Heimatmarkt**:
-- **Benchmark-Map** (Modul-Konstante): `_BENCHMARK = {"USA": "^GSPC", "CH": "^SSMI"}`; alle Eurozone-Märkte (`_EUROZONE_MARKETS` aus `core/domain/recommendation.py`) → `^STOXX50E`; sonst Default `^GSPC`.
-- `run(self, ticker: str, market: str = "USA") -> MomentumSnapshot`:
-  - Benchmark via Map; `get_price_history(ticker, "2y")` **und** `get_price_history(benchmark, "2y")` parallel (`asyncio.to_thread` + `gather`, `return_exceptions=True`).
+Spiegelt `IndexMomentumAgent` (gleiche Mathematik), aber **Benchmark = Heimatmarkt, aus dem Ticker abgeleitet** (selbst-enthalten, keine Markt-Durchreichung):
+- **Benchmark aus `country`** (Modul-Map `_BENCHMARK_BY_COUNTRY`): `country = (market_provider.get_info(ticker) or {}).get("country")`; `"United States"→"^GSPC"`, `"Switzerland"→"^SSMI"`, Eurozone-Länder (`"Germany"`, `"France"`, `"Italy"`, `"Spain"`, `"Netherlands"`, `"Austria"`, `"Belgium"`, `"Portugal"`, `"Finland"`, `"Ireland"`, `"Greece"`, …)→`"^STOXX50E"`; sonst/Fehler/kein `country` → Default `"^GSPC"`.
+- `run(self, ticker: str) -> MomentumSnapshot`:
+  - Benchmark via `country`-Map; `get_price_history(ticker, "2y")` **und** `get_price_history(benchmark, "2y")` parallel (`asyncio.to_thread` + `gather`, `return_exceptions=True`).
   - `rsi_14 = wilder_rsi(close, 14)`; `ma50/ma200` = rollende Mittel; `golden_cross = _detect_crossover(ma50_series, ma200_series)`; `relative_strength = ticker_ret − bench_ret` (Total Return über die Periode; benchmarkfehlend → `None`).
   - `signal = _signal(ma50, ma200, rsi)` — **identische Logik** wie Index: Aufwärtstrend (ma50>ma200) + nicht überkauft → BULLISH; Abwärtstrend + nicht überverkauft → BEARISH; Extreme/None → NEUTRAL.
   - `default()` → alle `None`, `signal=NEUTRAL` (defensiv; fehlende/teilweise Daten brechen die Analyse nie ab).
 - Reine Helfer (`_signal`, `_detect_crossover`) als pure functions; gemeinsame Mathematik mit dem Index-Agenten via `core.utils.scoring` (kein Duplikat — wo der Index schon `wilder_rsi` nutzt, nutzt Equity es auch).
 
-### 3.3 Markt-Durchreichung (neue Verdrahtung)
-Der Markt erreicht den Equity-Chief heute **nicht**. Optionaler Parameter `market: str = "USA"` wird durchgereicht:
-- `orchestrators/bottom_up_orchestrator.py` — `run(..., market="USA")` + `_run_equity(ticker, asset_class, sector, market)`.
-- `agents/stock_deep_dive/equity_chief_agent.py` — `run(self, ticker, sector="default", market="USA")` → an `EquityMomentumAgent.run(ticker, market)`.
-- **Aufrufer:** Modus 3 (Judgment-Pfad) reicht den bereits bekannten `market` durch; Modus 2 (`app/main.py bottomup`) hat keinen Markt → Default `"USA"`. (Exakte Aufrufstellen im Plan gepinnt.)
+### 3.3 Markt-Quelle (selbst-enthalten — keine Verdrahtung)
+**Befund:** Der Bottom-Up läuft in **Modus 2** (`bottomup`, **ohne** Markt-Arg); **Modus 3** lädt den Bottom-Up aus dem **Cache** (`cache.load_bottom_up`). Eine „Markt-Durchreichung" erreicht den Agenten daher nicht. → Der Agent leitet den Markt **selbst aus dem Ticker** ab (`get_info(ticker).country`, §3.2). **Keine** Signatur-Änderung an `bottom_up_orchestrator.run` / `equity_chief.run`, **keine** CLI-Änderung. (`EquityMomentumAgent` bekommt im Chief-`__init__` den vorhandenen `market`-Provider — wie `valuation_range_agent`.)
 
 ### 3.4 Long-Integration
 - **`EquityChiefResult.momentum`** + **`BottomUpResult.momentum`** Slots (`models.py`).
@@ -69,9 +66,9 @@ Accessor `def _mom(bu): return getattr(bu, "momentum", None)` + zwei **Verstärk
 ## 4. Datenfluss
 
 ```
-bottom_up_orchestrator.run(ticker, asset_class, sector, market)
-      └─ _run_equity → equity_chief.run(ticker, sector, market)
-            ├─ EquityMomentumAgent.run(ticker, market)  → MomentumSnapshot
+bottom_up_orchestrator.run(ticker, asset_class, sector)        # Signaturen unverändert
+      └─ _run_equity → equity_chief.run(ticker, sector)
+            ├─ EquityMomentumAgent.run(ticker)  → (get_info.country → Benchmark) → MomentumSnapshot
             ├─ _aggregate_signal(..., momentum_sig @0.10) → EquityChiefResult.signal
             └─ EquityChiefResult.momentum
       → BottomUpResult.momentum
@@ -88,7 +85,7 @@ bottom_up_orchestrator.run(ticker, asset_class, sector, market)
 
 ## 6. Phasen (je eigener PR-tauglicher Abschnitt, TDD)
 
-- **P1 — Agent + Snapshot + Verdrahtung (verhaltens-erhaltend):** `MomentumSnapshot`, `EquityMomentumAgent`, Markt-Durchreichung, `EquityChiefResult.momentum` + `BottomUpResult.momentum` befüllt — **noch nicht konsumiert** (kein Aggregat-/Alignment-/Flag-Effekt). Bestehende Tests bleiben grün.
+- **P1 — Agent + Snapshot + Verdrahtung (verhaltens-erhaltend):** `MomentumSnapshot`, `EquityMomentumAgent` (Benchmark aus `get_info.country`), `EquityChiefResult.momentum` + `BottomUpResult.momentum` befüllt — **noch nicht konsumiert** (kein Aggregat-/Alignment-/Flag-Effekt). Bestehende Tests bleiben grün.
 - **P2 — Short-Flags:** `momentum_breakdown` + `relative_weakness` in `short_flags.py`.
 - **P3 — Long-Integration:** `_W_MOMENTUM` in `_aggregate_signal`, `_bottom_up_signals` + `_ALIGNMENT_WEIGHTS`. Gesamt-Regression.
 
@@ -102,7 +99,7 @@ bottom_up_orchestrator.run(ticker, asset_class, sector, market)
 ## 8. Akzeptanzkriterien
 
 1. `EquityMomentumAgent` liefert `MomentumSnapshot` (RSI/MA/Cross/RS/Signal), Benchmark = Heimatmarkt, defensiv `default()`.
-2. `market` erreicht den Agenten (durchgereicht; Modus 2 → Default USA).
+2. Der Agent leitet den Benchmark selbst aus `get_info(ticker).country` ab (kein Markt-Threading, keine Signatur-/CLI-Änderung); unbekannt/Fehler → Default `^GSPC`.
 3. Long: Momentum-Signal fließt sekundär in Equity-Aggregat (`0.10`) **und** Alignment (`0.5`); Bond-Alignment unverändert.
 4. Short: zwei Verstärker-Flags (`momentum_breakdown`, `relative_weakness`) boosten die Konfidenz, kippen nie allein die Richtung; bei `momentum=None` inaktiv.
 5. Nicht-Equity/Bond verhaltens-erhaltend.
