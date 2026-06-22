@@ -469,6 +469,9 @@ class EquityChiefResult:
     earnings_trend: EarningsTrendSnapshot
     moat: MoatSnapshot
     valuation_range: ValuationRangeSnapshot
+    # Trailing Optional — bestehende Konstruktionen ohne momentum-Argument bleiben gültig.
+    # Wird in Task 5 ins Signal-Aggregat aufgenommen (jetzt: befüllt, aber ungenutzt).
+    momentum: Optional["MomentumSnapshot"] = None
 
 
 # ─────────────────────────────────────────────
@@ -750,6 +753,9 @@ class BottomUpResult:
     bond: Optional[BondResult]
     index: Optional[IndexResult]
     commodity_deep: Optional[CommodityBottomUpResult]
+    # Trailing Optional — bestehende Konstruktionen ohne momentum-Argument bleiben gültig.
+    # Wird vom EquityChiefAgent befüllt; in Task 5 im Judgment genutzt.
+    momentum: Optional["MomentumSnapshot"] = None
 
 
 # ─────────────────────────────────────────────

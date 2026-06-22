@@ -6,7 +6,7 @@ from core.domain.models import (
     Signal, SignalStatus,
     FundamentalsSnapshot, QualitySnapshot, MoatSnapshot, MoatScore,
     EarningsTrendSnapshot, InsiderSnapshot, ShortInterestSnapshot,
-    ValuationRangeSnapshot,
+    ValuationRangeSnapshot, MomentumSnapshot,
 )
 
 
@@ -93,3 +93,31 @@ def _earnings_default():
 
 def _val_default():
     return ValuationRangeSnapshot([], 0.0, 0.0, None, "unknown", Signal.NEUTRAL)
+
+
+# ── momentum-Slot befüllt (Task 3 — Verdrahtung, noch kein Signal-Effekt) ─────
+
+def test_equity_chief_populates_momentum():
+    """EquityChiefResult.momentum muss nach run() ein MomentumSnapshot sein."""
+    fundamentals = MagicMock(); market = MagicMock(); llm = MagicMock(); bus = MagicMock()
+    chief = EquityChiefAgent(fundamentals, market, llm, bus)
+
+    chief.fundamentals_agent.run    = MagicMock(return_value=_afut(FundamentalsAgentDefault()))
+    chief.quality_agent.run         = MagicMock(return_value=_afut(QualityAgentDefault()))
+    chief.short_agent.run           = MagicMock(return_value=_afut(_short_default()))
+    chief.insider_agent.run         = MagicMock(return_value=_afut(_insider_default()))
+    chief.earnings_agent.run        = MagicMock(return_value=_afut(_earnings_default()))
+    chief.moat_agent.run            = MagicMock(return_value=_afut(_moat_default()))
+    chief.valuation_range_agent.run = MagicMock(return_value=_afut(_val_default()))
+    chief.momentum_agent.run        = MagicMock(return_value=_afut(_momentum_default()))
+
+    result = asyncio.run(chief.run("AAPL"))
+    assert isinstance(result.momentum, MomentumSnapshot)
+
+
+def _momentum_default():
+    return MomentumSnapshot(
+        rsi_14=None, ma50=None, ma200=None,
+        golden_cross=None, relative_strength=None,
+        signal=Signal.NEUTRAL,
+    )

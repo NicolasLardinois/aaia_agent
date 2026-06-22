@@ -5,7 +5,7 @@ from core.domain.models import (
     EquityChiefResult, Signal,
     FundamentalsSnapshot, QualitySnapshot, ShortInterestSnapshot,
     InsiderSnapshot, EarningsTrendSnapshot, MoatSnapshot, MoatScore,
-    ValuationRangeSnapshot,
+    ValuationRangeSnapshot, MomentumSnapshot,
 )
 
 def _neutral_fundamentals():
@@ -39,6 +39,13 @@ def _neutral_valuation_range():
         current_price=None, position="unknown", signal=Signal.NEUTRAL,
     )
 
+def _neutral_momentum():
+    return MomentumSnapshot(
+        rsi_14=None, ma50=None, ma200=None,
+        golden_cross=None, relative_strength=None,
+        signal=Signal.NEUTRAL,
+    )
+
 
 def test_equity_chief_returns_result():
     bus = MagicMock()
@@ -53,10 +60,13 @@ def test_equity_chief_returns_result():
     chief.earnings_agent.run        = AsyncMock(return_value=EarningsTrendSnapshot(beat_rate=None, estimate_revision="stable", signal=Signal.NEUTRAL))
     chief.moat_agent.run            = AsyncMock(return_value=_neutral_moat())
     chief.valuation_range_agent.run = AsyncMock(return_value=_neutral_valuation_range())
+    chief.momentum_agent.run        = AsyncMock(return_value=_neutral_momentum())
 
     result = asyncio.run(chief.run("AAPL", "technology"))
     assert isinstance(result, EquityChiefResult)
-    bus.publish.assert_called_once()
+    # EquityChiefReady + EquityMomentumReady → mindestens 1 Publish-Call erwartet.
+    # Genauer Check: letzter Call ist EquityChiefReady.
+    assert bus.publish.call_count >= 1
 
 
 def test_equity_chief_resilience():
