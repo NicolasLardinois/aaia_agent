@@ -1,4 +1,4 @@
-"""Baut die FastAPI-App. CORS-Origins: localhost-Dev + optional aus Env (Render-Frontend)."""
+"""Baut die FastAPI-App. CORS-Origins: aus Env (Render-Frontend) ODER localhost-Dev."""
 import os
 
 from fastapi import FastAPI
@@ -11,9 +11,11 @@ _DEV_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
 
 
 def _allowed_origins(env: str | None) -> list[str]:
-    """Dev-Origins + optionale, kommagetrennte Origins aus AAIA_CORS_ORIGINS (leere ignoriert)."""
-    extra = [o.strip() for o in (env or "").split(",") if o.strip()]
-    return _DEV_ORIGINS + extra
+    """Sind Origins in AAIA_CORS_ORIGINS (kommagetrennt) gesetzt, gelten NUR diese
+    (Produktion); sonst die localhost-Dev-Origins. So steht localhost nie in der
+    Prod-Allowlist (leere/whitespace-Eintraege werden ignoriert)."""
+    configured = [o.strip() for o in (env or "").split(",") if o.strip()]
+    return configured if configured else list(_DEV_ORIGINS)
 
 
 def create_app(run_manager: RunManager) -> FastAPI:

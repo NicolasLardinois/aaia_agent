@@ -7,12 +7,12 @@ def test_default_origins_are_localhost_dev():
     assert "http://localhost:3000" in origins
 
 
-def test_env_origins_are_appended_and_trimmed():
+def test_env_origins_replace_dev_origins_in_production():
+    # Sind Origins gesetzt (Produktion), gelten NUR diese (getrimmt) -> localhost
+    # steht NICHT in der Prod-Allowlist (Hygiene; Review PR #27).
     origins = _allowed_origins("https://dash.onrender.com, https://x.example.com")
-    assert "https://dash.onrender.com" in origins
-    assert "https://x.example.com" in origins
-    # Dev-Origins bleiben erhalten
-    assert "http://localhost:5173" in origins
+    assert origins == ["https://dash.onrender.com", "https://x.example.com"]
+    assert "http://localhost:5173" not in origins
 
 
 def test_blank_env_is_ignored():
