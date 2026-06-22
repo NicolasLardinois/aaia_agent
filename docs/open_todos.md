@@ -317,6 +317,7 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - [ ] **Entscheiden, ob/wann die Publish-only-EDA einen echten Subscriber bekommt.**
   ~40 Agenten publishen Fertig-Events (`*Ready`), aber **kein Code `subscribe`d** → der Bus liefert heute **keinen** Mehrwert (Daten fließen über Rückgabewerte/`result`/Persistenz). Hexagonal (Ports/Adapter) ist davon unberührt und trägt sich. Risiko: sieht event-getrieben aus, verhält sich wie Direktaufrufe (YAGNI).
   **Ansatz:** Entweder **einen** ersten echten Zuhörer bauen, damit EDA sich verdient — natürlicher Erst-Kandidat: **Frontend-Fortschritts-Stream** oder ein **Audit-/Erklärungs-Log**; ggf. **Redis-Bus** für verteilten Lauf (`adapters/event_bus/redis_bus.py`-Stub existiert) — ODER bewusst dokumentieren, dass die Publish-Seite reine Vorbereitung ist. **Nicht** rausreißen (billig zu behalten, teuer über 40 Agenten zu entfernen).
+  > **Teilerfüllung (2026-06-22, Branch `feat/api-bridge-cockpit`):** Mit der API-Brücke (Cockpit-Flow) existiert jetzt **der erste echte Subscriber**: `InMemoryEventBus.subscribe_all(handler)` wird vom `WebSocketBroadcaster` genutzt, um alle `*Ready`-Events live an verbundene WebSocket-Clients zu streamen — der Bus liefert damit zum ersten Mal echten Mehrwert. **Verbleibend:** Redis-Bus für verteilte/Multi-Prozess-Szenarien (`adapters/event_bus/redis_bus.py`-Stub) + weitere Subscriber (Audit-Log, Kalibrierungs-Stream). Der Eintrag bleibt offen bis Redis-Bus und weitere Subscriber stehen.
 
 ### Aus Plan 0 (Review 2026-06-16 — bewusst zurückgestellte Minor-Robustheit, niedrige Prio)
 
@@ -382,6 +383,32 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - **Total-Return-Historie: bewusst NICHT umgesetzt** (2026-06-18). Für die Schweizer Sicht ist Price Return (steuerfreier Kapitalgewinn) der passende Default; TR unterstellt steuerfreie Dividenden-Reinvestition (idealisierte Brutto-Benchmark, ignoriert Steuern). Der tote Haken (`get_total_return_history` im Port + TR-Vorzugslogik im `index_price_agent`) wurde entfernt.
 - [ ] `core/domain/events.py` (+ `adapters/cache/result_cache.py`, `adapters/data/fred_api.py`): `datetime.utcnow()` → `datetime.now(timezone.utc)` (DeprecationWarning unter Python 3.12). *(Minor, Aufräumen.)*
 - [ ] I3-Test trennscharf machen (`tests/agents/stock_deep_dive/precious_metals/test_precious_metal_price_agent.py::test_negative_real_yield_correlation_when_inverse`): monoton gegenläufige Daten nutzen, sodass Level-Korr ≈ −1, Return-Korr ≈ 0 — damit eine Regression auf Level-Korrelation den Test bricht. *(Minor, Testqualität.)*
+
+### Frontend / API-Brücke (Cockpit-Flow) — v1 (2026-06-22)
+
+**✅ Umgesetzt (Branch `feat/api-bridge-cockpit`):**
+v1 der Web-API-Schicht für den Cockpit-Flow:
+- `adapters/api/` + `app/server.py`: drei Endpunkte — `GET /api/cockpit` (letztes Ergebnis; `204` wenn noch keines), `POST /api/cockpit/run` (202 + `run_id`, startet Hintergrund-Task), `WS /ws/cockpit` (Live-Event-Stream während des Laufs).
+- Eigene Serialisierung (`cockpit_to_dict`, `event_to_dict`); pro-Domäne-`status` (`"ok"` / `"unavailable"`) als UNAVAILABLE-Kontrakt für das Frontend (Chief gecrasht/Default → `status="unavailable"`).
+- `subscribe_all` am `InMemoryEventBus` (erster echter Subscriber — siehe EDA-Eintrag oben).
+- Spec: `docs/superpowers/specs/2026-06-22-api-bridge-cockpit-design.md`, Plan: `docs/superpowers/plans/2026-06-22-api-bridge-cockpit.md`.
+- TDD vollständig (Serialisierung, Event-Dict, subscribe_all, Broadcaster/Run, Endpunkte via TestClient).
+
+**Offene Folge-Aufgaben:**
+
+- [ ] **Kein Lock auf parallele Läufe (bewusste v1-Grenze):** ein zweiter `POST /api/cockpit/run` startet sofort einen weiteren Analysedurchlauf parallel.
+  *Ansatz:* bei Bedarf `409 Conflict` zurückgeben, solange ein Lauf aktiv ist — Lauf-Status und `run_id` im `RunManager` halten, sodass `POST` prüfen kann ob bereits ein Lauf läuft.
+
+- [ ] **Keine Persistenz des letzten Ergebnisses:** `GET /api/cockpit` gibt nach Server-Neustart `204` zurück (Ergebnis-Cache liegt nur im Arbeitsspeicher).
+  *Ansatz:* reiches API-Snapshot-JSON nach jedem Lauf auf Disk ablegen und beim Start laden (analog zu `JsonDatedHistory`); optional Supabase-Persistenz.
+
+- [ ] **Pro-Domäne-Konfidenz & feineres UNAVAILABLE:** `status` markiert heute nur „Chief gecrasht/Default"; die Tiles zeigen noch keine Konfidenz pro Domäne (commodity-Chief berechnet eine Konfidenz in `weighted_signal`, verwirft sie aber vor der Serialisierung).
+  *Ansatz:* `confidence` + datenbasierten `status` (nicht nur Crash-Flag, sondern auch „wie viele Quellen tatsächlich verfügbar") pro Chief-Result mitführen und in `cockpit_to_dict` weitergeben.
+
+- [ ] **Folgeschnitte — `bottomup`/`judge`-Endpunkte:** `GET /api/bottomup`, `POST /api/bottomup/run`, `WS /ws/bottomup` (inkl. Ticker-Parameter) nach demselben Muster wie der Cockpit-Flow; danach reiche Widget-Daten (Buffett, Big-Mac) als eigene Endpunkte.
+  *Ansatz:* `RunManager`-Abstraktion ist bereits generisch gehalten; neuer Router je Flow, gleiche Broadcaster-/subscribe_all-Verdrahtung.
+
+- [ ] **Minor-Aufräumen (aus Reviews, niedrige Prio):** `cockpit_to_dict`/`event_to_dict` mit `-> dict[str, Any]` statt bloßem `dict` annotieren; Docstring-Verweis auf §7 EDA-Eintrag in `subscribe_all` ergänzen; CORS-Konfiguration mit Kommentar versehen (heute bewusst credential-frei; falls später Auth, `allow_credentials=True` + Origins einschränken).
 
 ---
 
