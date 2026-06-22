@@ -70,9 +70,12 @@ class EquityMomentumAgent:
         self.bus    = bus
 
     async def run(self, ticker: str) -> MomentumSnapshot:
-        # Defensiv: get_info-Fehler → country = None → Fallback-Benchmark
+        # Defensiv: get_info-Fehler → country = None → Fallback-Benchmark.
+        # get_info ist ein blockierender Netz-Call (yf.Ticker(...).info) → in
+        # asyncio.to_thread auslagern, sonst blockiert er die Event-Loop und
+        # serialisiert die parallel laufenden Equity-Sub-Agenten (AGENTS.md §2).
         try:
-            info    = self.market.get_info(ticker) or {}
+            info    = await asyncio.to_thread(self.market.get_info, ticker) or {}
             country = info.get("country")
         except Exception:
             country = None
@@ -105,16 +108,28 @@ class EquityMomentumAgent:
             ma200 = None if math.isnan(_ma200_raw) else round(_ma200_raw, 2)
 
             rsi    = wilder_rsi(close)
+            # golden_cross ist ein Diagnose-/Anzeigefeld (Golden/Death Cross der
+            # letzten Tage). Es fliesst BEWUSST NICHT ins Signal — das nutzt den
+            # Trend-STATUS (ma50 vs ma200) + RSI. Den Cross-EVENT zusaetzlich zu
+            # gewichten waere eine eigene fachliche Entscheidung (eigene Spec).
             golden = detect_crossover(ma50_s, ma200_s)
 
-            # Relative Stärke: Titel-Return − Benchmark-Return (Dezimal).
+            # Relative Stärke: Titel-Return − Benchmark-Return als DEZIMAL
+            # (0.10 = +10 %, NICHT Prozent wie IndexMomentumSnapshot.relative_strength).
             # Positiv = Titel schlägt seinen Heimatmarkt; negativ = Underperformance.
+            # Auf dem GEMEINSAMEN Datumsbereich rechnen: Titel- und Benchmark-
+            # Historie haben oft versetzte Startdaten/Handelstage (anderer Börsen-
+            # kalender, junges Listing) — sonst verglichen wir versetzte Fenster.
             rs = None
             if not isinstance(bench, Exception):
-                bc        = bench["Close"]
-                t_ret     = (close.iloc[-1] - close.iloc[0]) / close.iloc[0]
-                b_ret     = (bc.iloc[-1]    - bc.iloc[0])    / bc.iloc[0]
-                rs = round(float(t_ret - b_ret), 4)
+                bc     = bench["Close"]
+                common = close.index.intersection(bc.index).sort_values()
+                if len(common) >= 2:
+                    tc        = close.loc[common]
+                    bcc       = bc.loc[common]
+                    t_ret     = (tc.iloc[-1]  - tc.iloc[0])  / tc.iloc[0]
+                    b_ret     = (bcc.iloc[-1] - bcc.iloc[0]) / bcc.iloc[0]
+                    rs = round(float(t_ret - b_ret), 4)
 
             result = MomentumSnapshot(
                 rsi_14=rsi, ma50=ma50, ma200=ma200,

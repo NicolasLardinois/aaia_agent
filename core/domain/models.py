@@ -456,7 +456,10 @@ class MomentumSnapshot:
     ma50: Optional[float]
     ma200: Optional[float]
     golden_cross: Optional[bool]
-    relative_strength: Optional[float]   # Titel-Return − Heimatmarkt-Return (rs<0 = schwächer)
+    # Titel-Return − Heimatmarkt-Return als DEZIMAL (0.10 = +10 %, rs<0 = schwächer).
+    # Achtung: IndexMomentumSnapshot.relative_strength ist in PROZENT (10.0 = +10 %) —
+    # bei der geplanten Dedup beider Agenten die Einheit angleichen (Logbuch-Folgeaufgabe).
+    relative_strength: Optional[float]
     signal: Signal
 
 
