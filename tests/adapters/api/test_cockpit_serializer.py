@@ -77,3 +77,17 @@ def test_unavailable_domain_is_excluded_from_active_and_marked():
     assert all(e["status"] == "unavailable" for e in d["domains"])
     assert d["sources_active"] == 0
     assert d["sources_total"] == 5
+
+
+def test_partial_availability_excludes_only_the_unavailable_domain():
+    # Mischzustand: eine Domaene faellt aus -> sie zaehlt NICHT in sources_active,
+    # die uebrigen schon. Faengt ein Off-by-One in der Zaehllogik ab, das die
+    # beiden Extrem-Tests (alle/keine verfuegbar) nicht falsifizieren koennten.
+    result = _available_cockpit()
+    result.commodities.status = SignalStatus.UNAVAILABLE
+    d = cockpit_to_dict(result)
+    by_key = {e["key"]: e for e in d["domains"]}
+    assert by_key["commodities"]["status"] == "unavailable"
+    assert by_key["sentiment"]["status"] == "available"
+    assert d["sources_total"] == 5
+    assert d["sources_active"] == 4   # Macro + 3 Sub-Domaenen verfuegbar
