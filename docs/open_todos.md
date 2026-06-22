@@ -276,6 +276,18 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   Falls nicht: Gewichte in `INDICATOR_WEIGHTS` oder Schwellenwerte in `_regime_from` anpassen.
   Echter Lernkreislauf: Vorhersage → Realität → Kalibrierung.
 
+#### Folge-Aufgaben aus Review PR #26 (Regime-Replay-Backtest Stufe 1, 2026-06-22)
+- [ ] **Mean-Forward-Return je Richtung in `evaluate_market` ergänzen (Spec §3.1).** Spec nennt als
+  Plausibilitätscheck den „mittleren Forward-Return der bullish- vs. bearish-Calls"; aktuell liefert
+  `evaluate_market` nur Hit-Rate + Wilson-CI. **Ansatz:** je Horizont die Returns nach Richtung
+  (`regime_direction`) summieren/mitteln → `mean_ret_bullish`/`mean_ret_bearish` ins Report-Dict +
+  `build_report_md`; ein bullisch-treffender Motor sollte bullish-Mittel > bearish-Mittel zeigen.
+- [ ] **Voll-Lauf-Performance: FRED-Serien einmalig laden statt pro Stichtag (Spec §9).** Der
+  Default-Loader ruft `get_series_as_of_date` pro Serie **pro Stichtag**, plus die 4 Sub-Signal-Agenten
+  ziehen weitere FRED-Serien je Stichtag → grob mehrere tausend API-Calls für 1960→heute. **Ansatz:**
+  je Serie einmal die volle (Vintage-)Reihe laden und lokal pro `as_of` schneiden (Caching im
+  `HistoricalFredProvider` oder ein vorgelagerter Serien-Cache). Niedrige Prio (v1 läuft, nur langsam).
+
 ### PM: periodische + manuelle Komplett-Neuanalyse von Portfolio-Positionen (Idee 2026-06-21, eigener Spec später)
 - [ ] **Im Portfolio-Manager pro Position eine volle Deep-Dive-Neuanalyse anstoßen — manuell (1-Klick) und automatisch im Hintergrund (~alle 30 Tage).**
   Querschnittlich (alle Anlageklassen) + braucht **Scheduling** (Hintergrundlauf) → **eigenes Feature mit eigenem Spec**, NICHT Teil des Bond-Risikoaffinität-Specs.

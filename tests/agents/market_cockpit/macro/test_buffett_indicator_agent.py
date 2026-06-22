@@ -1,4 +1,5 @@
-from agents.market_cockpit.macro.buffett_indicator_agent import _signal_from_z
+import asyncio
+from agents.market_cockpit.macro.buffett_indicator_agent import _signal_from_z, BuffettIndicatorAgent
 from core.domain.models import Signal
 
 
@@ -22,3 +23,29 @@ def test_mid_z_is_neutral():
 def test_swiss_high_ratio_with_normal_z_is_neutral():
     # CH bei 230% aber z≈0 (für CH normal) → NICHT BEARISH (kein 135%-Fix mehr)
     assert _signal_from_z(0.1) == Signal.NEUTRAL
+
+
+class _FakeBus:
+    def publish(self, event): pass
+
+
+class _FakeMacro:
+    def get_buffett_data(self):
+        # Wilshire/GDP → Ratio 150 %
+        return {"market_cap_bn": 30000.0, "gdp_bn": 20000.0}
+    def get_buffett_history(self, years=10):
+        # genug Historie für z-Score (>= 8), Mittel ~100 → 150 ist deutlich darüber
+        return [90.0, 95.0, 100.0, 105.0, 110.0, 98.0, 102.0, 99.0, 101.0]
+
+
+def test_wb_fetch_injizierbar_kein_netz():
+    """Injizierter No-Op-WB-Fetch → kein Netz; USA-Signal entsteht aus FRED-Daten."""
+    called = {"n": 0}
+    def _noop_wb():
+        called["n"] += 1
+        return {}
+    agent = BuffettIndicatorAgent(_FakeMacro(), _FakeBus(), wb_fetch=_noop_wb)
+    result = asyncio.run(agent.run())
+    assert called["n"] == 1                       # der injizierte Fetch wurde benutzt
+    assert "USA" in result.countries             # USA aus FRED trotz leerer Weltbank
+    assert result.signal in (Signal.BULLISH, Signal.BEARISH, Signal.NEUTRAL)

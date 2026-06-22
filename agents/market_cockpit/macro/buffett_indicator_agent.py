@@ -109,14 +109,15 @@ def _fetch_world_bank() -> dict[str, tuple[float, int, list[float]]]:
 
 
 class BuffettIndicatorAgent:
-    def __init__(self, macro: MacroDataProvider, bus: EventBus):
+    def __init__(self, macro: MacroDataProvider, bus: EventBus, wb_fetch=_fetch_world_bank):
         self.macro = macro
         self.bus   = bus
+        self._wb_fetch = wb_fetch  # Injizierbar: erlaubt netzfreien Replay/Backtest
 
     async def run(self) -> BuffettIndicatorSnapshot:
         fred_data, wb_data, fred_history = await asyncio.gather(
             asyncio.to_thread(self.macro.get_buffett_data),
-            asyncio.to_thread(_fetch_world_bank),
+            asyncio.to_thread(self._wb_fetch),
             asyncio.to_thread(self.macro.get_buffett_history, 10),
             return_exceptions=True,
         )
