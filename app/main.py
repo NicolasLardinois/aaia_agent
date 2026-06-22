@@ -3,6 +3,8 @@ Verwendung:
   python -m app.main dashboard                              → Modus 1: Market Dashboard
   python -m app.main bottomup AAPL [asset_class] [sector]  → Modus 2: Bottom-Up Analyse
   python -m app.main judge AAPL [market]                   → Modus 3: Kombinations-Urteil
+  python -m app.main conflicts                             → Modus 4: Offene Konflikte auflisten
+  python -m app.main resolve <id> <held|closed>            → Modus 5: Konflikt-Entscheidung protokollieren (kein Trade)
 
 asset_class:  equity | bond | commodity | precious_metal | etf  (default: equity)
 market:       USA | CH | ISO-2 (DE/FR/IT/ES/NL/AT/BE/PT/FI/IE/GR/...)  (default: USA)
@@ -24,6 +26,7 @@ from adapters.event_bus.redis_bus import InMemoryEventBus
 from adapters.llm.claude_adapter import ClaudeAdapter
 from adapters.memory.supabase_memory import SupabaseMemory
 from adapters.cache.result_cache import ResultCache
+from adapters.persistence.supabase_conflict_store import SupabaseConflictStore
 from orchestrators.top_down_orchestrator import TopDownOrchestrator
 from orchestrators.bottom_up_orchestrator import BottomUpOrchestrator
 from orchestrators.judgment_orchestrator import JudgmentOrchestrator
@@ -142,6 +145,34 @@ async def run_bottom_up(
         print(f"Bond Rating:    {bo.credit.moodys}/{bo.credit.sp}/{bo.credit.fitch}  Trend={bo.credit.trend}  → {bo.credit.signal.value}")
 
 
+def run_conflicts(store) -> None:
+    """Listet alle offenen Konflikte aus dem Store.
+
+    Kein Trade wird ausgeführt — reine Anzeige-Funktion.
+    """
+    items = store.load_open()
+    if not items:
+        print("Keine offenen Konflikte.")
+        return
+    print(f"\nOFFENE KONFLIKTE ({len(items)}):")
+    for c in items:
+        print(f"  #{c.id}  {c.ticker} ({c.direction})  {c.verdict} — {c.reason}")
+    print("\n→ entscheiden mit:  python -m app.main resolve <id> <held|closed>")
+
+
+def run_resolve(store, conflict_id: str, decision: str) -> None:
+    """Protokolliert die Nutzer-Entscheidung zu einem Konflikt.
+
+    Erlaubte Entscheidungen: 'held' (Position gehalten) oder 'closed' (Position geschlossen).
+    Bei ungültiger Entscheidung wird nichts geschrieben — kein Trade ausgeführt.
+    """
+    if decision not in ("held", "closed"):
+        print("Nutzung: resolve <id> <held|closed>")
+        return
+    store.resolve(int(conflict_id), decision)
+    print(f"✓ Konflikt #{conflict_id} als '{decision}' protokolliert (kein Trade ausgeführt).")
+
+
 async def run_judgment(ticker: str, market: str = "USA") -> None:
     try:
         current_position = JsonPortfolioProvider().position_state_for(ticker)
@@ -163,7 +194,9 @@ async def run_judgment(ticker: str, market: str = "USA") -> None:
     bus    = InMemoryEventBus()
     llm    = ClaudeAdapter(ANTHROPIC_API_KEY)
     memory = SupabaseMemory()
-    orch   = JudgmentOrchestrator(llm, bus, memory, portfolio_port=JsonPortfolioProvider())
+    # Konflikt-Store: persistiert erkannte Konflikte on-demand in der DB
+    orch   = JudgmentOrchestrator(llm, bus, memory, portfolio_port=JsonPortfolioProvider(),
+                                  conflict_store=SupabaseConflictStore())
     result = await orch.run(
         cockpit=cockpit,
         bottom_up=bottom_up,
@@ -213,6 +246,10 @@ def main() -> None:
     elif args[0] == "judge" and len(args) >= 2:
         market = args[2] if len(args) >= 3 else "USA"
         asyncio.run(run_judgment(args[1], market=market))
+    elif args[0] == "conflicts":
+        run_conflicts(SupabaseConflictStore())
+    elif args[0] == "resolve" and len(args) >= 3:
+        run_resolve(SupabaseConflictStore(), args[1], args[2])
     else:
         print(__doc__)
         sys.exit(1)

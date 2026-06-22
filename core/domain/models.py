@@ -849,3 +849,26 @@ class DeepDiveResult:
     # Short-Thesis-Agent-Output: ausformulierte Leerverkaufs-Begründung + XAI-Erklärung
     short_thesis: str = ""
     short_xai: str = ""
+
+
+# ─────────────────────────────────────────────
+# Konflikt-UX — Nutzer-Entscheidungs-Modell
+# ─────────────────────────────────────────────
+
+@dataclass
+class ConflictItem:
+    """Repräsentiert einen offenen Positions-Konflikt, der eine Nutzer-Entscheidung erfordert.
+
+    Ein Konflikt entsteht, wenn die Analyse-Empfehlung (verdict) der gehaltenen
+    Position (direction) widerspricht — z. B. Long-Position, aber Empfehlung EXIT.
+    """
+    ticker: str
+    direction: str                         # gehaltene Position: "long" | "short"
+    verdict: str                           # "HOLD" | "EXIT" | "REVERSE"
+    reason: str
+    status: str = "open"                   # "open" | "resolved"
+    source: str = "on_demand"              # "on_demand" | "proactive"
+    user_decision: Optional[str] = None    # "held" | "closed" | None
+    id: Optional[int] = None
+    created_at: Optional[str] = None
+    resolved_at: Optional[str] = None
