@@ -77,6 +77,16 @@ describe("useCockpit", () => {
     expect(ws.close).toHaveBeenCalled();
   });
 
+  it("ruft onUnauthorized bei 401 statt einen generischen Fehler zu setzen", async () => {
+    const fetchFn = (async () => ({ status: 401, ok: false, json: async () => undefined })) as unknown as typeof fetch;
+    const onUnauthorized = vi.fn();
+    const { result } = renderHook(() =>
+      useCockpit({ base: "http://x", fetchFn, wsFactory: makeFakeWs, onUnauthorized }),
+    );
+    await waitFor(() => expect(onUnauthorized).toHaveBeenCalledOnce());
+    expect(result.current.phase).not.toBe("error");
+  });
+
   it("nimmt das terminale CockpitResultReady NICHT in die Live-Events auf", async () => {
     const ws = makeFakeWs();
     const fetchFn = fakeFetch({

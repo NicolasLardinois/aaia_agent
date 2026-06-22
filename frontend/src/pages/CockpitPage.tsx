@@ -4,7 +4,7 @@ import { DomainTile } from "../components/DomainTile";
 import { DataHealthIndicator } from "../components/DataHealthIndicator";
 import { RunControl } from "../components/RunControl";
 
-export function CockpitPage({ deps }: { deps?: UseCockpitDeps }) {
+export function CockpitPage({ deps, onLogout }: { deps?: UseCockpitDeps; onLogout?: () => void }) {
   const { overview, phase, error, startAnalysis } = useCockpit(deps);
 
   return (
@@ -14,6 +14,11 @@ export function CockpitPage({ deps }: { deps?: UseCockpitDeps }) {
         <div className="flex items-center gap-4">
           {overview && <DataHealthIndicator active={overview.sources_active} total={overview.sources_total} />}
           <RunControl phase={phase} onStart={startAnalysis} />
+          {onLogout && (
+            <button type="button" onClick={onLogout} className="text-sm text-slate-500 underline">
+              Abmelden
+            </button>
+          )}
         </div>
       </header>
 
