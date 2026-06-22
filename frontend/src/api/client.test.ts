@@ -38,7 +38,7 @@ describe("startRun", () => {
     await expect(startRun("http://x", fakeFetch(500))).rejects.toThrow();
   });
 
-  it("haengt den Authorization-Header an, wenn ein Token gegeben ist", async () => {
+  it("startRun haengt den Authorization-Header an, wenn ein Token gegeben ist", async () => {
     let seenHeaders: Record<string, string> | undefined;
     const fetchFn = (async (_url: string, init?: { headers?: Record<string, string> }) => {
       seenHeaders = init?.headers;

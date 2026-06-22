@@ -57,3 +57,12 @@ def test_ws_accepts_with_token(monkeypatch):
     client = _client()
     with client.websocket_connect("/ws/cockpit?token=geheim") as ws:
         assert ws is not None  # akzeptiert
+
+
+def test_post_run_returns_409_when_already_running(monkeypatch):
+    monkeypatch.delenv("RENDER", raising=False)
+    monkeypatch.delenv("AAIA_ACCESS_TOKEN", raising=False)  # Auth aus -> kein Header noetig
+    rm = RunManager(lambda bus: _FakeOrch(bus), WebSocketBroadcaster())
+    rm._running = True  # simuliere einen bereits laufenden Lauf
+    client = TestClient(create_app(rm))
+    assert client.post("/api/cockpit/run").status_code == 409

@@ -23,6 +23,12 @@ def _allowed_origins(env: str | None) -> list[str]:
 
 def create_app(run_manager: RunManager) -> FastAPI:
     if not os.environ.get("AAIA_ACCESS_TOKEN"):
+        if os.environ.get("RENDER"):
+            # Fail-closed in Produktion: lieber Crash-Loop als still ungeschuetzte API.
+            raise RuntimeError(
+                "AAIA_ACCESS_TOKEN ist auf Render nicht gesetzt -> die API waere ungeschuetzt. "
+                "Setze das Zugangs-Token im Render-Dashboard."
+            )
         _logger.warning("AAIA_ACCESS_TOKEN ist leer -> API ist UNGESCHUETZT (nur fuer lokale Entwicklung).")
     app = FastAPI(title="AAIA API", version="0.1.0")
     app.add_middleware(

@@ -47,7 +47,7 @@ Warum zwei Pässe: Jeder Dienst braucht die URL des anderen, die es erst nach Pa
 2. Dem Dozenten **URL + Passwort** geben.
 3. Er öffnet `https://aaia-frontend.onrender.com`, gibt das Passwort im Login-Screen ein — fertig. (Das Passwort bleibt lokal im Browser gespeichert; „Abmelden" setzt es zurück.)
 
-> Ist `AAIA_ACCESS_TOKEN` leer, ist die API **ungeschützt** — nur für lokale Entwicklung.
+> Ist `AAIA_ACCESS_TOKEN` leer, ist die API **ungeschützt** — nur für lokale Entwicklung. Auf Render lässt ein **leeres** `AAIA_ACCESS_TOKEN` den Start **absichtlich fehlschlagen** (fail-closed), damit die API nie versehentlich ungeschützt online geht.
 
 ## ⚠️ Sicherheit — vor breiter Exposition zwingend
 `POST /api/cockpit/run` ist **unauthentifiziert** und **ohne Lauf-Lock** — jeder mit der URL kann beliebig viele echte FRED-/Yahoo-/Claude-Läufe auslösen (Kosten-/Missbrauchsrisiko). Das Repo ist öffentlich.
