@@ -40,7 +40,11 @@ class RunManager:
 
     def _schedule(self, message: dict) -> None:
         # Sync-Bus-Handler -> async Broadcast: auf demselben Loop, daher create_task.
-        asyncio.create_task(self.broadcaster.broadcast(message))
+        # Task-Referenz halten (wie bei _execute), sonst kann der GC den kurzlebigen
+        # Broadcast-Task vor Abschluss einsammeln (CPython-asyncio-Verhalten).
+        task = asyncio.create_task(self.broadcaster.broadcast(message))
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
 
     async def _execute(self, orchestrator, run_id: str) -> None:
         result = await orchestrator.run()
