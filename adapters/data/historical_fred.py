@@ -8,10 +8,12 @@ from core.ports.data_provider import MacroDataProvider
 from adapters.data.fred_api import SERIES, EXTENDED_SERIES
 
 
-def _default_series_loader(fred: Fred, series_id: str, as_of: date) -> pd.Series:
+def _default_series_loader(
+    fred: Fred, series_id: str, as_of: date
+) -> tuple[pd.Series, bool]:
     """Point-in-Time-Serie: bevorzugt Vintage (Stand wie am `as_of` veröffentlicht),
     sonst Rückfall auf die revidierte Serie, in beiden Fällen auf Datum <= as_of geschnitten.
-    Setzt das Attribut NICHT — die Qualität ermittelt der Aufrufer über _has_vintage."""
+    Gibt (Serie, used_vintage) zurück — True wenn echte Vintage-Daten geliefert wurden."""
     ts = pd.Timestamp(as_of)
     try:
         # get_series_as_of_date liefert die zum Stichtag bekannten Releases
@@ -22,13 +24,13 @@ def _default_series_loader(fred: Fred, series_id: str, as_of: date) -> pd.Series
         s = df.dropna().groupby("date")["value"].last()
         s = s[s.index <= ts].astype(float)
         if not s.empty:
-            return s
+            return s, True
     except Exception:
         pass
     # Fallback: revidierte Serie, auf <= as_of geschnitten
     s = fred.get_series(series_id)
     s.index = pd.to_datetime(s.index)
-    return s[s.index <= ts].astype(float)
+    return s[s.index <= ts].astype(float), False
 
 
 class HistoricalFredProvider(MacroDataProvider):
@@ -37,12 +39,20 @@ class HistoricalFredProvider(MacroDataProvider):
 
     def __init__(self, api_key: str, as_of: date, _series_loader=None):
         self.as_of = as_of
-        self.quality = "unbekannt"
+        self._used_vintage = False
         self._fred = Fred(api_key=api_key) if _series_loader is None else None
         self._load = _series_loader or _default_series_loader
 
+    @property
+    def quality(self) -> str:
+        """vintage, sobald mindestens eine Reihe aus echten Vintage-Daten kam, sonst revised."""
+        return "vintage" if self._used_vintage else "revised"
+
     def _series(self, series_id: str) -> pd.Series:
-        return self._load(self._fred, series_id, self.as_of)
+        s, used_vintage = self._load(self._fred, series_id, self.as_of)
+        if used_vintage:
+            self._used_vintage = True
+        return s
 
     def _state_from(self, mapping: dict) -> dict:
         state = {}
@@ -56,13 +66,7 @@ class HistoricalFredProvider(MacroDataProvider):
         return state
 
     def get_economic_state(self) -> dict:
-        state = self._state_from(SERIES)
-        # Qualitäts-Flag grob über die Kern-Reihe CPIAUCSL bestimmen
-        try:
-            self.quality = "vintage" if self._has_vintage("CPIAUCSL") else "revised"
-        except Exception:
-            self.quality = "revised"
-        return state
+        return self._state_from(SERIES)
 
     def get_extended_state(self) -> dict:
         state = self._state_from(EXTENDED_SERIES)
@@ -107,12 +111,3 @@ class HistoricalFredProvider(MacroDataProvider):
         except Exception:
             return []
 
-    def _has_vintage(self, series_id: str) -> bool:
-        """True, wenn FRED für series_id einen echten Vintage-Stand zum as_of liefert."""
-        if self._fred is None:
-            return False
-        try:
-            df = self._fred.get_series_as_of_date(series_id, self.as_of)
-            return df is not None and len(df) > 0
-        except Exception:
-            return False

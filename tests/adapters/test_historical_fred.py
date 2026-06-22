@@ -5,11 +5,12 @@ from adapters.data.historical_fred import HistoricalFredProvider
 
 def _fake_loader(series_map):
     """Baut einen _series_loader, der pro series_id eine feste Reihe liefert,
-    bereits auf <= as_of geschnitten (simuliert den Point-in-Time-Schnitt)."""
+    bereits auf <= as_of geschnitten (simuliert den Point-in-Time-Schnitt).
+    Gibt immer (Serie, False) zurück — simuliert den revidierten Fallback-Pfad."""
     def _loader(fred, series_id, as_of):
         idx, vals = series_map[series_id]
         s = pd.Series(vals, index=pd.to_datetime(idx))
-        return s[s.index <= pd.Timestamp(as_of)]
+        return s[s.index <= pd.Timestamp(as_of)], False
     return _loader
 
 
@@ -39,3 +40,25 @@ def test_get_economic_state_nutzt_nur_werte_bis_as_of():
     assert state["unemployment"] == 3.5
     # inflation = YoY Jan 2020 vs Jan 2019 = (102-100)/100 = 2.0 % (der 130-Wert ist Zukunft)
     assert round(state["inflation"], 1) == 2.0
+
+
+def test_quality_vintage_wenn_loader_vintage_meldet():
+    """Loader meldet used_vintage=True → quality muss 'vintage' sein."""
+    def _loader(fred, series_id, as_of):
+        s = pd.Series([100.0], index=pd.to_datetime(["2020-01-01"]))
+        return s, True  # meldet Vintage
+
+    prov = HistoricalFredProvider("KEY", date(2020, 6, 1), _series_loader=_loader)
+    prov.get_economic_state()
+    assert prov.quality == "vintage"
+
+
+def test_quality_revised_wenn_loader_kein_vintage_meldet():
+    """Loader meldet used_vintage=False → quality muss 'revised' sein."""
+    def _loader(fred, series_id, as_of):
+        s = pd.Series([100.0], index=pd.to_datetime(["2020-01-01"]))
+        return s, False  # kein Vintage, revidierte Serie
+
+    prov = HistoricalFredProvider("KEY", date(2020, 6, 1), _series_loader=_loader)
+    prov.get_economic_state()
+    assert prov.quality == "revised"
