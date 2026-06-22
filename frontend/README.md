@@ -1,73 +1,18 @@
-# React + TypeScript + Vite
+# AAIA Frontend — Cockpit-Übersicht (erste Scheibe)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite. Zeigt die Cockpit-Regime-Übersicht live über die AAIA-API-Brücke.
 
-Currently, two official plugins are available:
+## Entwicklung
+1. Backend starten (Repo-Wurzel): `python -m app.server` (lauscht auf `127.0.0.1:8000`).
+2. `cp .env.example .env` und ggf. `VITE_API_BASE_URL` anpassen.
+3. `npm install && npm run dev` — Dev-Server auf `http://localhost:5173`.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Tests
+`npm test` (Vitest). Pure Anzeige-Logik + Komponenten/Hook gegen Fakes.
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Build / Deploy (Render Static Site)
+- Build-Command: `npm install && npm run build`
+- Publish-Verzeichnis: `dist`
+- Environment-Variable: `VITE_API_BASE_URL` = URL des Backend-Web-Service (`https://…`).
+- Backend: die Frontend-URL in `AAIA_CORS_ORIGINS` (kommagetrennt) des Web-Service eintragen, damit HTTP **und** WebSocket erlaubt sind.
+- Backend-Web-Service: **eine Instanz** (kein Autoscaling) — In-Memory-Zustand.
