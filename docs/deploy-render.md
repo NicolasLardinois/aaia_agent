@@ -17,6 +17,7 @@ gemeinsam über den Blueprint `render.yaml` (Repo-Wurzel). Secrets stehen **nich
 | `FINNHUB_API_KEY` | Backend | nein | optionale Marktdaten |
 | `FMP_API_KEY` | Backend | nein | LME-Zink/Nickel im Rohstoff-Cockpit; ohne → fehlen nur diese beiden (kein Absturz) |
 | `AAIA_CORS_ORIGINS` | Backend | ja (2. Pass) | erlaubte Origin = **Frontend-URL** |
+| `AAIA_ACCESS_TOKEN` | Backend | **ja (öffentlich)** | Zugangs-Passwort; leer = API ungeschützt (nur lokal) |
 | `VITE_API_BASE_URL` | Frontend | ja (2. Pass) | **Backend-URL** (beim Build eingebacken!) |
 
 ## Deploy — Pass 1 (Dienste anlegen)
@@ -40,6 +41,13 @@ Warum zwei Pässe: Jeder Dienst braucht die URL des anderen, die es erst nach Pa
 - **Free-Tier:** das Backend schläft nach ~15 min Inaktivität ein → erster Aufruf danach ~30–60 s (Kaltstart). Solange eine WebSocket-Verbindung offen ist (laufende Analyse), bleibt es wach.
 - **Eine Instanz:** der Blueprint setzt `numInstances: 1`. **Nicht** hochskalieren — der Backend-Zustand liegt im Speicher eines Prozesses (sonst landen Anfragen/WS auf der falschen Instanz). Mehr-Instanz erst nach Persistenz + Redis-Bus (Backend-Folge-Aufgaben).
 - **Persistenz:** `GET /api/cockpit` ist nach einem Backend-Neustart leer (`204`), bis wieder ein Lauf gestartet wurde (kein Speichern über Neustart hinweg).
+
+## Zugang für den Dozenten
+1. Backend (`aaia-api`) → Environment → `AAIA_ACCESS_TOKEN` = ein selbst gewähltes Passwort → Save.
+2. Dem Dozenten **URL + Passwort** geben.
+3. Er öffnet `https://aaia-frontend.onrender.com`, gibt das Passwort im Login-Screen ein — fertig. (Das Passwort bleibt lokal im Browser gespeichert; „Abmelden" setzt es zurück.)
+
+> Ist `AAIA_ACCESS_TOKEN` leer, ist die API **ungeschützt** — nur für lokale Entwicklung.
 
 ## ⚠️ Sicherheit — vor breiter Exposition zwingend
 `POST /api/cockpit/run` ist **unauthentifiziert** und **ohne Lauf-Lock** — jeder mit der URL kann beliebig viele echte FRED-/Yahoo-/Claude-Läufe auslösen (Kosten-/Missbrauchsrisiko). Das Repo ist öffentlich.

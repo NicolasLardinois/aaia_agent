@@ -434,6 +434,14 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 
 ### Frontend / API-Brücke (Cockpit-Flow) — v1 (2026-06-22)
 
+#### Zugriffsschutz (Branch `feat/access-protection`)
+
+**✅ Umgesetzt:** Shared-Token (`AAIA_ACCESS_TOKEN`) schützt GET/POST/WS (Header bzw. `?token=`, constant-time; leer = Auth aus + Warn-Log); Lauf-Lock (`409`, `finally`-Freigabe); Frontend-Login-Gate (`useAuth`/`LoginGate`, localStorage, `401` → Passwortscreen, „Abmelden"); `render.yaml` + Deploy-Doku „Zugang für den Dozenten". Spec/Plan: `docs/superpowers/specs|plans/2026-06-22-access-protection*`.
+
+**Offene Folge-Aufgaben:** WS-Token als „erste Nachricht" statt Query-Param (Log-Hygiene); echte Accounts/Rate-Limit erst bei Bedarf; Backend-Folgeaufgabe #7 damit (für die Demo) **erledigt**.
+
+### Frontend / API-Brücke (Cockpit-Flow) — v1 (2026-06-22)
+
 **✅ Umgesetzt (Branch `feat/api-bridge-cockpit`):**
 v1 der Web-API-Schicht für den Cockpit-Flow:
 - `adapters/api/` + `app/server.py`: drei Endpunkte — `GET /api/cockpit` (letztes Ergebnis; `204` wenn noch keines), `POST /api/cockpit/run` (202 + `run_id`, startet Hintergrund-Task), `WS /ws/cockpit` (Live-Event-Stream während des Laufs).

@@ -23,6 +23,8 @@ services:
         sync: false                # optional (LME-Zink/Nickel im Rohstoff-Cockpit; ohne -> None)
       - key: AAIA_CORS_ORIGINS
         sync: false                # = Frontend-URL (nach 1. Deploy eintragen, siehe Doku)
+      - key: AAIA_ACCESS_TOKEN
+        sync: false                # Zugangs-Passwort (Pflicht fuer oeffentliche Instanz; leer = ungeschuetzt)
 
   # --- Frontend: Vite Static Site -----------------------------------------
   - type: web
