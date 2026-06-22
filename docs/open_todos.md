@@ -481,6 +481,8 @@ v1 der Web-API-Schicht für den Cockpit-Flow:
 React/TS/Vite/Tailwind-Frontend unter `frontend/`; Cockpit-Regime-Übersicht (Regime-Banner + 4 Domänen-Kacheln + Daten-Health + „Analyse starten"), live über `GET`/`POST`/`WS` (erst WS öffnen, dann POST); UNAVAILABLE-Vertrag (`signal=null`/Status) als gestreift-graues Feld; Basis-Komponenten (SignalBadge/ConfidenceBar/UnavailableField); pure Anzeige-Logik TDD-getestet; Render-Deploy als Static Site + `AAIA_CORS_ORIGINS` im Backend.
 Spec: `docs/superpowers/specs/2026-06-22-frontend-cockpit-overview-design.md`, Plan: `docs/superpowers/plans/2026-06-22-frontend-cockpit-overview.md`.
 
+**✅ PR #27 am 2026-06-22 gemergt** (nach zweitem Blick des Users). Im Review noch geändert: (1) CORS-Hygiene — `AAIA_CORS_ORIGINS` **ersetzt** die Dev-Origins in Produktion (localhost nicht in der Prod-Allowlist) statt sie anzuhängen; (2) PR-Beschreibung ehrlich gemacht — sichtbar ist nur der „läuft …"-Status, der einzelne WS-Event-Stream wird gesammelt (Fundament), aber noch nicht gerendert. `as`-Cast-Guard und Effekt-Deps bewusst als Folge-Aufgabe/Nit belassen.
+
 **Offene Folge-Aufgaben:**
 
 - [ ] **WS-Reconnect/Replay:** bricht die WS-Leitung ab, fällt das Frontend auf `GET` zurück, aber ein laufender Lauf wird nicht weiterverfolgt.
