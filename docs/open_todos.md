@@ -501,6 +501,8 @@ v1 der Web-API-Schicht für den Cockpit-Flow:
 
 **✅ Umgesetzt:** Shared-Token (`AAIA_ACCESS_TOKEN`) schützt GET/POST/WS (Header bzw. `?token=`, constant-time; leer = Auth aus + Warn-Log, auf Render fail-closed); Lauf-Lock (`409`, `finally`-Freigabe); Frontend-Login-Gate (`useAuth`/`LoginGate`, localStorage, `401` → Passwortscreen, „Abmelden"); `render.yaml` + Deploy-Doku „Zugang für den Dozenten". Spec/Plan: `docs/superpowers/specs|plans/2026-06-22-access-protection*`. Backend-Folgeaufgabe #7 damit (für die Demo) **erledigt**.
 
+**✅ PR #32 am 2026-06-23 gemergt** (nach zweitem Blick des Users). Im Review noch ergänzt: Logbuch-Konsolidierung (doppelte Überschrift entfernt), **Fail-closed auf Render** bei leerem Token (`RuntimeError` beim App-Bau statt still offen), 409-Route-Test.
+
 **Offene Folge-Aufgaben:**
 
 - [ ] **WS-Token als „erste Nachricht" statt Query-Param** (Log-Hygiene): der Token kann sonst in Server-/Proxy-Logs erscheinen. *Ansatz:* WS akzeptieren, erste Nachricht = Token, dann validieren/sonst schließen.
