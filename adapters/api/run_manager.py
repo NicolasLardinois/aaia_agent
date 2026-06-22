@@ -23,6 +23,7 @@ class RunManager:
         self.broadcaster = broadcaster
         self._latest = None
         self._tasks: set[asyncio.Task] = set()
+        self._broadcast_tasks: set[asyncio.Task] = set()
 
     @property
     def latest(self):
@@ -40,15 +41,20 @@ class RunManager:
 
     def _schedule(self, message: dict) -> None:
         # Sync-Bus-Handler -> async Broadcast: auf demselben Loop, daher create_task.
-        # Task-Referenz halten (wie bei _execute), sonst kann der GC den kurzlebigen
-        # Broadcast-Task vor Abschluss einsammeln (CPython-asyncio-Verhalten).
+        # Task-Referenz halten, sonst kann der GC den kurzlebigen Broadcast-Task
+        # vor Abschluss einsammeln (CPython-asyncio-Verhalten).
         task = asyncio.create_task(self.broadcaster.broadcast(message))
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        self._broadcast_tasks.add(task)
+        task.add_done_callback(self._broadcast_tasks.discard)
 
     async def _execute(self, orchestrator, run_id: str) -> None:
         result = await orchestrator.run()
         self._latest = result
+        # Fortschritts-Broadcasts (fire-and-forget aus dem Bus-Handler) zuerst
+        # abschliessen, damit das terminale CockpitResultReady garantiert ZULETZT
+        # beim Client ankommt (Vertrag §4: erst Fortschritt, dann fertig).
+        if self._broadcast_tasks:
+            await asyncio.gather(*self._broadcast_tasks, return_exceptions=True)
         await self.broadcaster.broadcast({
             "type": "CockpitResultReady",
             "source": "run_manager",

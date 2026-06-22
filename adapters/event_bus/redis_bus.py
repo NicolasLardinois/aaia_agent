@@ -39,7 +39,7 @@ class InMemoryEventBus(EventBus):
         self._handlers[event_type].append(handler)
 
     def subscribe_all(self, handler: Callable[[AgentEvent], None]) -> None:
-        """Ruft handler bei JEDEM publish auf (erster echter Bus-Zuhoerer, vgl. open_todos §7)."""
+        """Ruft handler bei JEDEM publish auf (erster echter Bus-Zuhoerer — speist den WebSocket-Broadcast; vgl. open_todos §7)."""
         self._all_handlers.append(handler)
 
     def get_log(self) -> list[AgentEvent]:

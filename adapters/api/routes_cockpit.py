@@ -33,6 +33,10 @@ def build_router(run_manager: RunManager) -> APIRouter:
             while True:
                 await websocket.receive_text()  # haelt die Verbindung; erkennt Disconnect
         except WebSocketDisconnect:
+            pass
+        finally:
+            # Auf JEDEM Exit-Pfad deregistrieren (auch bei abnormalem Close/Cancel),
+            # sonst bleibt eine tote Verbindung im Broadcaster haengen.
             run_manager.broadcaster.disconnect(websocket)
 
     return router

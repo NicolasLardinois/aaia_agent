@@ -5,10 +5,12 @@ ausgefallene Domaene zaehlt NICHT in sources_active (AGENTS.md §3 / Frontend §
 Macro wird durch das Regime-Banner repraesentiert (kein eigenes Signal-Feld im
 Modell); die vier Sub-Domaenen tragen ihr eigenes overall-signal.
 """
+from typing import Any
+
 from core.domain.models import CockpitResult, SignalStatus
 
 
-def cockpit_to_dict(result: CockpitResult) -> dict:
+def cockpit_to_dict(result: CockpitResult) -> dict[str, Any]:
     domains = [
         {"key": "commodities", "signal": result.commodities.signal.value,        "status": result.commodities.status.value},
         {"key": "sentiment",   "signal": result.sentiment.signal.value,          "status": result.sentiment.status.value},

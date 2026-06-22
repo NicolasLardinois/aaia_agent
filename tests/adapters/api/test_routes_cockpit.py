@@ -52,13 +52,17 @@ def test_ws_streams_until_terminal_then_get_returns_result():
     with client.websocket_connect("/ws/cockpit") as ws:
         r = client.post("/api/cockpit/run")
         assert r.status_code == 202
+        types_seen = []
         terminal = None
-        for _ in range(20):  # bis zum terminalen Event lesen
+        for _ in range(20):  # 1x MacroChiefReady + 1x CockpitResultReady erwartet
             msg = ws.receive_json()
+            types_seen.append(msg["type"])
             if msg["type"] == "CockpitResultReady":
                 terminal = msg
                 break
         assert terminal is not None
+        assert "MacroChiefReady" in types_seen
+        assert types_seen.index("MacroChiefReady") < types_seen.index("CockpitResultReady")
         assert terminal["payload"]["regime"] == "Abschwung"
     g = client.get("/api/cockpit")
     assert g.status_code == 200
