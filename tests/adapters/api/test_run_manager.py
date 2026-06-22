@@ -55,15 +55,21 @@ def test_execute_stores_result_and_broadcasts_terminal_event():
     assert terminal["payload"]["sources_active"] == 0     # alle Defaults => UNAVAILABLE
 
 
-def test_start_run_returns_distinct_run_ids():
+def test_sequential_runs_get_distinct_run_ids():
+    # Nach dem Lauf-Lock kann nur EIN Lauf gleichzeitig laufen. Zwei NACHEINANDER
+    # ausgefuehrte Laeufe (erster abgeschlossen -> Lock frei) muessen verschiedene,
+    # nicht-None run_ids liefern (der gleichzeitige Lock-None-Fall ist separat in
+    # test_run_lock.py abgedeckt).
     rm = RunManager(lambda bus: _FakeOrch(bus), WebSocketBroadcaster())
 
     async def scenario():
         a = rm.start_run()
+        await asyncio.gather(*list(rm._tasks))  # ersten Lauf abschliessen -> Lock frei
         b = rm.start_run()
         await asyncio.gather(*list(rm._tasks))
         return a, b
 
     a, b = asyncio.run(scenario())
+    assert a is not None and b is not None
     assert a != b
     assert rm.latest is not None
