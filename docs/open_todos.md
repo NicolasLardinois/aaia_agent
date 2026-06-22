@@ -314,6 +314,11 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   Task 4: `walk_forward`/`calibrate` (Expanding-Window, Markt-Härtetest A) ebenda.
   Task 5: `build_calib_report_md` (reiner String-Builder) + CLI `app/calibrate_regime.py` (NBER+FRED+yfinance, schreibt `data/backtests/regime_calib_YYYYMMDD.(json|md)`).
   **Kein Auto-Apply** — Urteil `adopt`/`keep_default` ist ein Vorschlag; `_REGIME_BIAS` wird manuell per PR gesetzt.
+  > **PR-Protokoll: PR #33 am 2026-06-22 gemergt** (Merge-Commit `4d3e4ad`, CI grün). Im Review (zweiter Blick) noch
+  > nachgezogen: A-Vorbehalt prüft jetzt die **Mehrheit der Horizonte** statt nur 6M (`_a_warning`); das `adopt`-Urteil
+  > benennt bei gesetzter A-Warnung den Vorbehalt, statt nur „übernehmen" (Schein-Widerspruch gelöst); `evaluate_market`-
+  > Import ans Modul-Top. Perf (`_price_on` pro Stichtag) ist durch das bestehende „Voll-Lauf-langsam"-TODO abgedeckt.
+  > *(Dieser Vermerk direkt auf `master`: bewusste Logbuch-Ausnahme — er braucht den Merge-Commit-Hash.)*
 - [ ] **Stufe ②-v2: Gewichte kalibrieren (`INDICATOR_WEIGHTS` in `regime.py`).** Nächster Schritt nach ②-v1.
   **Ansatz:** gleiche Walk-Forward-Struktur, aber statt 1-D-Bias ein k-dimensionales Gewichts-Gitter (oder Bayes-Opt.) → eigener Spec nötig (Suche nach Gitter-Explosion, evtl. Random-Search oder Nelder-Mead).
 
