@@ -462,6 +462,9 @@ Spec: `docs/superpowers/specs/2026-06-22-frontend-cockpit-overview-design.md`, P
 - [ ] **WS-Reconnect/Replay:** bricht die WS-Leitung ab, fällt das Frontend auf `GET` zurück, aber ein laufender Lauf wird nicht weiterverfolgt.
   *Ansatz:* Reconnect mit Backoff + `GET`-Poll als Fallback; serverseitiger Pro-Lauf-Replay-Puffer (Backend-Folgeaufgabe #3) macht es robust.
 
+- [ ] **Gerenderter WS-Fortschritts-Stream (aus Review PR #27):** der `useCockpit`-Hook sammelt die einzelnen `*Ready`-Events bereits im `events`-Array (Fundament), `CockpitPage` rendert sie aber noch nicht — sichtbar ist nur der „läuft …"-Status.
+  *Ansatz:* in `RunControl`/`CockpitPage` eine kompakte Schritt-für-Schritt-Liste (z. B. „Makro fertig … Sentiment fertig …") aus `events` rendern; passt natürlich zur Reconnect/Replay-Aufgabe.
+
 - [ ] **Drill-downs als nächste Scheiben** (Zinskurve/Buffett/Big-Mac): brauchen erst erweiterte Backend-Felder; eigene Spec/Plan je Scheibe.
 
 - [ ] **Auth vor öffentlicher Render-Exposition:** verknüpft mit Backend-Folgeaufgabe #7 (Auth + Rate-Limiting + Lauf-Lock), bevor das Dashboard über localhost/privat hinaus erreichbar ist.
