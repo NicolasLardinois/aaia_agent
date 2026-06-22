@@ -13,7 +13,7 @@ class ConflictStorePort(ABC):
 
     @abstractmethod
     def find_open(self, ticker: str, direction: str) -> ConflictItem | None:
-        """Gibt den ersten offenen (status='open') Konflikt für ticker+direction zurück."""
+        """Gibt den neuesten offenen (status='open') Konflikt für ticker+direction zurück (Adapter: ORDER BY id DESC). Für den Dedupe genügt die Existenz."""
         ...
 
     @abstractmethod

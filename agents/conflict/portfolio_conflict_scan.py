@@ -1,7 +1,11 @@
+from collections.abc import Callable
+
 from core.domain.conflict_inbox import record_conflict
+from core.ports.conflict_store import ConflictStorePort
 
 
-def scan_portfolio_conflicts(positions, judge_fn, store) -> None:
+def scan_portfolio_conflicts(positions: list, judge_fn: Callable[[str, str], object | None],
+                             store: ConflictStorePort) -> None:
     """Je gehaltener Position eine Analyse (judge_fn) laufen lassen; bei Konflikt protokollieren.
 
     judge_fn(ticker, direction) -> result mit .conflict/.conflict_resolution, oder None (keine Daten).

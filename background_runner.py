@@ -23,6 +23,17 @@ from orchestrators.judgment_orchestrator import JudgmentOrchestrator
 _SCAN_MARKET = "USA"
 
 
+def _build_scan_orchestrator(llm, bus, memory, port) -> JudgmentOrchestrator:
+    """Orchestrator für den proaktiven Scan — bewusst OHNE conflict_store.
+
+    WICHTIG: Der Scan ist der EINZIGE Recorder (er ruft record_conflict mit
+    source="proactive"). Trüge der Orchestrator den Store, nähme er den Konflikt
+    schon im run() als source="on_demand" auf; der spätere proaktive record würde
+    dann via Dedupe (ticker, direction) verworfen → "proactive" erreichte die DB nie.
+    """
+    return JudgmentOrchestrator(llm, bus, memory, portfolio_port=port, conflict_store=None)
+
+
 def _make_conflict_scan(memory: SupabaseMemory):
     """Baut den proaktiven Depot-Konflikt-Scan als (name, coroutine-fn) für die Agentenliste.
 
@@ -35,7 +46,7 @@ def _make_conflict_scan(memory: SupabaseMemory):
     port   = JsonPortfolioProvider()
     bus    = InMemoryEventBus()
     llm    = ClaudeAdapter(ANTHROPIC_API_KEY)
-    orch   = JudgmentOrchestrator(llm, bus, memory, portfolio_port=port, conflict_store=store)
+    orch   = _build_scan_orchestrator(llm, bus, memory, port)
 
     async def _judge_async(ticker: str, direction: str):
         # Voll-Reuse: gecachte Top-Down- und Bottom-Up-Ergebnisse laden.

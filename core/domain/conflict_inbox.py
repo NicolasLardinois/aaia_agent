@@ -1,4 +1,9 @@
+from typing import TYPE_CHECKING
+
 from core.domain.models import ConflictItem
+
+if TYPE_CHECKING:                       # nur für Type-Hints — keine Laufzeit-Kopplung Domäne→Port
+    from core.ports.conflict_store import ConflictStorePort
 
 # Verdikt-Severity: HOLD (mild) < EXIT < REVERSE (scharf).
 # Ein erledigter Konflikt öffnet nur wieder, wenn das neue Verdikt SCHÄRFER ist —
@@ -11,7 +16,7 @@ _VERDICT_SEVERITY: dict[str, int] = {
 
 
 def record_conflict(
-    store,
+    store: "ConflictStorePort",
     ticker: str,
     direction: str,
     verdict: str,

@@ -45,3 +45,26 @@ def test_scan_skips_none_and_errors():
     store = _Store()
     scan_portfolio_conflicts(pos, judge_fn, store)   # darf NICHT crashen
     assert store.saved == []
+
+
+def test_scan_records_with_source_proactive():
+    # Der Scan ist der proaktive Recorder → der angelegte Posten trägt source="proactive".
+    pos = [NS(ticker="AAPL", direction="long")]
+
+    def judge_fn(ticker, direction):
+        return NS(conflict=True, conflict_resolution=NS(verdict="EXIT", reasoning="r"))
+
+    store = _Store()
+    scan_portfolio_conflicts(pos, judge_fn, store)
+    assert len(store.saved) == 1 and store.saved[0].source == "proactive"
+
+
+def test_scan_orchestrator_has_no_conflict_store():
+    # Regression (Review PR #28): der proaktive Scan-Orchestrator darf KEINEN conflict_store
+    # tragen. Sonst nähme run() den Konflikt schon als source="on_demand" auf und der spätere
+    # proaktive record würde via Dedupe (ticker, direction) verworfen → "proactive" erreicht
+    # die DB nie. Diese Naht (_build_scan_orchestrator) war zuvor ungetestet.
+    from unittest.mock import MagicMock
+    from background_runner import _build_scan_orchestrator
+    orch = _build_scan_orchestrator(MagicMock(), MagicMock(), MagicMock(), MagicMock())
+    assert orch.conflict_store is None
