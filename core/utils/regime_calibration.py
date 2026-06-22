@@ -5,7 +5,7 @@ gespeicherten (composite, trend) je Stichtag nachrechenbar, ohne den Replay neu 
 from datetime import date
 
 from core.domain.regime import _regime_from
-from core.utils.regime_eval import evaluate_nber
+from core.utils.regime_eval import evaluate_nber, evaluate_market
 
 
 def bias_grid() -> list[float]:
@@ -115,10 +115,18 @@ def walk_forward(records: list, usrec_by_month: dict, folds: int, grid: list) ->
 def _a_hit_rates(records: list, sp_price_on, b: float) -> dict:
     """Markt-Hit-Rate (Evaluator A) je Horizont für einen Bias b.
     sp_price_on(d: date) -> float | None wird injiziert (kein I/O im Modul selbst)."""
-    from core.utils.regime_eval import evaluate_market
     judgments = [{"as_of": d, "regime": _regime_from(c + b, t)} for (d, c, t) in records]
     market = evaluate_market(judgments, sp_price_on, horizons_months=(3, 6, 12))
     return {h: market[h]["hit_rate"] for h in market}
+
+
+def _a_warning(hr_star: dict, hr_default: dict) -> bool:
+    """A-Vorbehalt: True, wenn b* den Markt auf der MEHRHEIT der vergleichbaren Horizonte
+    schlechter macht als der Default (nicht nur 6M) — robuster gegen Einzel-Horizont-Artefakte.
+    Horizonte ohne Hit-Rate (None) auf einer der Seiten werden ignoriert."""
+    vergleichbar = [h for h in hr_star if hr_star[h] is not None and hr_default.get(h) is not None]
+    schlechter = [h for h in vergleichbar if hr_star[h] < hr_default[h]]
+    return len(vergleichbar) > 0 and len(schlechter) * 2 > len(vergleichbar)
 
 
 def calibrate(records: list, usrec_by_month: dict, sp_price_on=None,
@@ -141,13 +149,8 @@ def calibrate(records: list, usrec_by_month: dict, sp_price_on=None,
     if sp_price_on is not None:
         hr_star = _a_hit_rates(records, sp_price_on, b_star)
         hr_default = _a_hit_rates(records, sp_price_on, 0.0)
-        # Warnung wenn b* den Markt zum 6M-Horizont schlechter macht als der Default
-        warn = (
-            hr_star.get(6) is not None
-            and hr_default.get(6) is not None
-            and hr_star[6] < hr_default[6]
-        )
-        a_check = {"b_star": hr_star, "default": hr_default, "warning": warn}
+        a_check = {"b_star": hr_star, "default": hr_default,
+                   "warning": _a_warning(hr_star, hr_default)}
 
     # Beide Bedingungen müssen erfüllt sein: OOS-Vorteil UND echter Bias-Wert
     adopt = wf["tuning_wins"] and b_star != 0.0
@@ -206,13 +209,19 @@ def build_calib_report_md(report: dict) -> str:
             lines.append(f"- {h} M: b\\* {s_str} vs. Default {d_str}")
         if ac.get("warning"):
             lines.append("- ⚠️ **Warnung:** b\\* verbessert NBER, verschlechtert aber den Markt "
-                         "(6M) — Übernahme fraglich.")
+                         "auf der Mehrheit der Horizonte — Übernahme fraglich.")
 
     lines += ["", "## Urteil", ""]
     if adopt:
-        lines.append(f"**Bias b\\* = {report['b_star']:+.2f} übernehmen** — schlägt den Default "
-                     f"out-of-sample (OOS-F1 {wf['tuned_oos_f1']:.3f} > {wf['default_oos_f1']:.3f}). "
-                     "Übernahme per PR: `_REGIME_BIAS` in `core/domain/regime.py` setzen.")
+        a_vorbehalt = bool((report.get("a_check") or {}).get("warning"))
+        text = (f"**Bias b\\* = {report['b_star']:+.2f} übernehmen** — schlägt den Default "
+                f"out-of-sample (OOS-F1 {wf['tuned_oos_f1']:.3f} > {wf['default_oos_f1']:.3f}). ")
+        if a_vorbehalt:
+            text += ("**Aber A-Vorbehalt beachten:** b\\* verschlechtert den Markt auf der Mehrheit "
+                     "der Horizonte — die NBER-Verbesserung schlug sich (noch) nicht in besserer "
+                     "Marktrendite nieder; Übernahme abwägen. ")
+        text += "Übernahme per PR: `_REGIME_BIAS` in `core/domain/regime.py` setzen."
+        lines.append(text)
     else:
         lines.append("**Default behalten — nichts ändern.** Die Hand-Einstellung (Bias 0) ist "
                      "out-of-sample nicht zu schlagen. Das bestätigt die heutige Grenze. "

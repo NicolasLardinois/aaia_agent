@@ -27,3 +27,14 @@ def test_report_a_warnung_sichtbar():
         "b_star": {3: 0.6, 6: 0.55, 12: 0.6}, "default": {3: 0.6, 6: 0.62, 12: 0.6},
         "warning": True}))
     assert "Warnung" in md
+
+
+def test_report_adopt_mit_a_vorbehalt_entschaerft_urteil():
+    """adopt UND A-Warnung gleichzeitig → das Urteil benennt den A-Vorbehalt, statt nur 'übernehmen'."""
+    report = _report(verdict="adopt", a_check={
+        "b_star": {3: 0.5, 6: 0.5, 12: 0.6}, "default": {3: 0.6, 6: 0.6, 12: 0.6},
+        "warning": True})
+    report["b_star"] = -0.10
+    md = build_calib_report_md(report)
+    assert "übernehmen" in md
+    assert "A-Vorbehalt" in md

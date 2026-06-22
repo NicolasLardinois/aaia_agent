@@ -104,3 +104,18 @@ def test_calibrate_a_check_befuellt_mit_stub():
     report = calibrate(records, usrec, sp_price_on=lambda d: 100.0 + d.month, folds=3)
     assert report["a_check"] is not None
     assert 6 in report["a_check"]["b_star"]
+
+
+# ---------------------------------------------------------------------------
+# Review PR #33: A-Vorbehalt auf Mehrheit der Horizonte (nicht nur 6M)
+# ---------------------------------------------------------------------------
+
+def test_a_warning_mehrheit_der_horizonte():
+    """A-Vorbehalt greift, wenn b* auf der MEHRHEIT der Horizonte schlechter ist — nicht nur 6M."""
+    from core.utils.regime_calibration import _a_warning
+    # schlechter auf 2 von 3 → Warnung
+    assert _a_warning({3: 0.5, 6: 0.5, 12: 0.6}, {3: 0.6, 6: 0.6, 12: 0.6}) is True
+    # schlechter nur auf 1 von 3 (6M) → KEINE Warnung (früher hätte 6M allein gewarnt)
+    assert _a_warning({3: 0.6, 6: 0.5, 12: 0.6}, {3: 0.6, 6: 0.6, 12: 0.6}) is False
+    # None-Horizonte werden ignoriert (nur 6M vergleichbar, dort schlechter → Warnung)
+    assert _a_warning({3: None, 6: 0.5}, {3: 0.6, 6: 0.6}) is True
