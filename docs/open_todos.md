@@ -271,6 +271,18 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   Anomalieerkennung, dynamische Konfidenz, Supabase-Memory, tägliche Backtester-Läufe.
 
 ### Regime-Backtester: Selbstlernende Validierung (Ausbau-Idee aus code_review)
+
+> **PR-Protokoll: Regime-Replay-Backtest Stufe 1 — PR #26 am 2026-06-22 gemergt** (Merge-Commit `da0659e8`).
+> Validierung Makro/Regime Point-in-Time (ab 1960, USA) gegen Forward-S&P (A) + NBER (B); Spec/Plan unter
+> `docs/superpowers/{specs,plans}/2026-06-22-regime-replay-backtest*`. **Im Review geändert:** Der
+> Voll-Branch-Review fing einen echten **stillen Bug** (fehlende Forward-Kurse am Fensterrand wurden als
+> −100 % statt „nicht auswertbar" gewertet → Trefferquote verzerrt) → behoben + getestet. Im zweiten Blick
+> des Users 6 weitere Punkte nachgezogen: tautologischer Composite-Test → echter Vergleich; Harness
+> adapterfrei (§1, Null-Objekt-Default + Stub-Verdrahtung im Composition-Root); `_price_on`-Performance
+> (`end=` statt `period=`); `RISK_OFF` → `_RISK_OFF`; Treue-Test um bullischen Fall + Confidence-Vergleich
+> erweitert; §3.1 Mean-Return + Voll-Lauf-Performance als Folge-Aufgaben (unten). Gesamtsuite **816 grün**.
+> *(Dieser Vermerk direkt auf `master`: bewusste Logbuch-Ausnahme — er braucht den Merge-Commit-Hash.)*
+
 - [ ] Composite-Score + erkanntes Regime mit Datum speichern.
   Nach 3 Monaten prüfen ob das damalige Regime tatsächlich eingetreten ist.
   Falls nicht: Gewichte in `INDICATOR_WEIGHTS` oder Schwellenwerte in `_regime_from` anpassen.
