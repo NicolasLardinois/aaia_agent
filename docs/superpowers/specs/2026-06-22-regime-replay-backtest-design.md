@@ -39,8 +39,16 @@ erzeugt. Zweitnutzen: Der `RegimeDetector` ist laut Logbuch (`docs/open_todos.md
 - **Kein Tuning/keine Optimierung** der Schwellen/Gewichte. Reine Messung. (→ Stufe 2, §10.)
 - **Keine Einzelaktien-Validierung** (Bottom-Up-Urteil). Fundamentaldaten reichen nicht bis 1960
   zurück → eigenes Teilprojekt mit kurzem, jüngerem Fenster. (→ Stufe 3, §10.)
-- **Nur USA.** EU/CH-Regime-Indikatoren bleiben in der Historie schlicht leer; der Detektor
-  re-normiert seine Gewichte bereits selbst über fehlende Keys. Kein Sonderpfad nötig.
+- **Lauf v1 nur USA — aber Architektur region-/quellen-steckbar.** Wichtig (Nutzer-Einwand): „heute
+  fließen keine EU/CH-Daten" ist ein **Verkabelungs**-Mangel (ECB/SNB-Adapter sind Stubs, Logbuch §2),
+  **kein** Datenmangel — die Historie existiert (vieles auf FRED, EU zudem CEPR). Daher gilt: **USA nicht
+  hart verdrahten.** Die Datenquellen (macro/ecb/snb) und Region/Benchmark/Wahrheits-Label werden
+  **injiziert**; v1 läuft mit USA-Realdaten + ECB/SNB-**Stubs** (liefern `None` → die EU/CH-Indikatoren
+  bleiben leer, der Detektor re-normiert seine Gewichte selbst — wie in Produktion heute). Sobald ein
+  `HistoricalEcbProvider`/`HistoricalSnbProvider` existiert, ist er ein **Drop-in** in denselben Replay —
+  **ohne** Redesign. Siehe §4.4.
+- **Keine historischen EU/CH-Daten-Adapter in diesem Teilprojekt.** Deren Implementierung hängt an der
+  ECB-SDW-/SNB-Anbindung (Logbuch §2) und ist eigene Arbeit (§10).
 - **Kein Scheduler, kein Live-Loop, keine Frontend-Anbindung.** Anstoßbarer Batch-Lauf + Report-Datei.
 - **Keine Anbindung der Stub-APIs** (ECB/SNB). Irrelevant, da USA-only über FRED läuft.
 
@@ -186,6 +194,26 @@ Drei kleine, rückwärtskompatible Eingriffe am Bestand, damit Produktion und Re
   das Report-Dict (§3.1 + §3.2). Kursreihe/`USREC` werden vom Harness geladen (Adapter-Seite),
   nicht im Evaluator — der bleibt rein.
 
+### 4.4 Region-/Quellen-Steckbarkeit (damit Stubs später Drop-in sind)
+
+Prinzip: **Ein Backtest kann nur validieren/kalibrieren, wofür Daten fließen.** Statt USA hart zu
+verdrahten, wird alles Regionsabhängige **injiziert** — so wird jede künftig angeschlossene Quelle
+(EU/CH, aber auch jeder andere Stub) zum Drop-in:
+
+- **Datenquellen injiziert:** `run_replay(provider_factory, …, ecb_factory=_default_stub,
+  snb_factory=_default_stub)`. Der Harness instanziiert die Sub-Signal-Agenten mit den **injizierten**
+  ECB/SNB-Providern (Default = Stub → `None`). Kein hartes `EcbStubProvider()` im Replay-Code.
+- **Markt-Wahrheit (A) region-parametrisiert:** der Benchmark kommt aus der **bereits vorhandenen**
+  `core/utils/backtest.py::benchmark_for_market(market)` (`USA→^GSPC`, `CH→^SSMI`, Eurozone→`^STOXX`).
+  Der `RegimeEvaluator` bleibt benchmark-agnostisch (bekommt die Kursfunktion injiziert); die
+  Region-Wahl passiert im Entrypoint.
+- **Wirtschafts-Wahrheit (B) steckbares Label:** das Wahrheits-Label ist injizierbar; **USA/NBER** ist
+  die erste Implementierung. **Ehrliche Asymmetrie:** (A) verallgemeinert sofort (Benchmarks gemappt),
+  (B) **nicht** — NBER ist USA-only; die Eurozone bräuchte CEPR-Daten, die Schweiz hat kein sauberes
+  Äquivalent. Für nicht-USA-Regionen läuft (A), sobald Daten fließen; (B) nur mit eigenem Regions-Label.
+
+So „berücksichtigt" das Design die Stubs **als steckbare Lücke** — nicht als jetzt zu füllende.
+
 ## 5. Look-Ahead-Disziplin (Korrektheits-Wächter, AGENTS.md §3)
 
 Ein Backtest mit Zukunftswissen ist **wertlos**. Verbindlich:
@@ -201,7 +229,7 @@ Ein Backtest mit Zukunftswissen ist **wertlos**. Verbindlich:
 
 | Aspekt | Wert | Begründung |
 |---|---|---|
-| Region | nur USA | tiefste Datenhistorie; NBER + S&P passen genau |
+| Region (v1-Lauf) | USA | tiefste Datenhistorie; NBER + S&P passen genau — **aber** Architektur region-steckbar (§4.4) |
 | Kadenz | monatlich | Makrodaten ändern sich nicht täglich; ~800 Entscheidungspunkte |
 | Fenster | 1960 → heute | Kern-Serien + NBER überlappen sauber |
 | Horizonte (A) | 3, 6, 12 Monate | Regime sind langsam; Tages-Horizonte unpassend |
@@ -262,9 +290,10 @@ Alle Tests **ohne Netz** (Fakes/Fixtures, deterministisch):
 
 | Stufe | Inhalt | Voraussetzung |
 |---|---|---|
-| ① **dieses Teilprojekt** | Makro/Regime **validieren** | — |
+| ① **dieses Teilprojekt** | Makro/Regime **validieren** (USA, region-steckbar) | — |
+| ①b | **EU/CH-Datenquellen anschließen** (`HistoricalEcbProvider`/`HistoricalSnbProvider`) → EU/CH in denselben Replay einstecken; für EU CEPR-Label für (B) | ECB-SDW-/SNB-Anbindung (Logbuch §2) |
 | ③ | Einzelaktien-Urteil **validieren** (kurzes Fenster) | Fundamental-Datenquelle |
-| ② | Makro/Regime **kalibrieren** (Walk-Forward) | ① + Overfitting-Schutz (Train/Test-Split) |
+| ② | Makro/Regime **kalibrieren** (Walk-Forward, je Region) | ① (+ ①b für EU/CH) + Overfitting-Schutz (Train/Test-Split) |
 | ④ | Einzelaktien **kalibrieren** | ③ |
 
 Die Kalibrier-Stufen (②④) brauchen zwingend **Walk-Forward-Disziplin** (auf einem Zeitfenster tunen,

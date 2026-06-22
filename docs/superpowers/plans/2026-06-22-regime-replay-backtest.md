@@ -822,8 +822,8 @@ git commit -m "feat(eval): RegimeEvaluator (B) NBER-Konfusion + Vorlauf je Rezes
 **Interfaces:**
 - Consumes: `assemble_regime_inputs` (Task 2), `RegimeDetector.detect(..., history=)` (Task 1), die vier Sub-Signal-Agenten, `BuffettIndicatorAgent(wb_fetch=)` (Task 3).
 - Produces:
-  - `replay_step(provider, bus) -> dict` — ein Stichtag: führt die vier Agenten aus, baut Inputs, gibt `{"economic_state", "usa_10y3m", "sub_signal_map"}` zurück (ohne Detector, damit der Trend außerhalb verwaltet wird).
-  - `run_replay(provider_factory, stichtage: list[date], bus=None) -> list[dict]` — iteriert die Stichtage, pflegt die Composite-Historie, liefert Urteile `[{"as_of", "regime", "confidence", "composite", "data_quality"}, ...]`. `provider_factory(as_of) -> MacroDataProvider`.
+  - `replay_step(provider, bus, ecb, snb) -> dict` — ein Stichtag: führt die vier Agenten mit den **injizierten** ECB/SNB-Providern aus, baut Inputs, gibt `{"economic_state", "usa_10y3m", "sub_signal_map"}` zurück (ohne Detector, damit der Trend außerhalb verwaltet wird).
+  - `run_replay(provider_factory, stichtage: list[date], bus=None, ecb_factory=_default_ecb, snb_factory=_default_snb) -> list[dict]` — iteriert die Stichtage, pflegt die Composite-Historie, liefert Urteile `[{"as_of", "regime", "confidence", "composite", "data_quality"}, ...]`. `provider_factory(as_of) -> MacroDataProvider`; `ecb_factory(as_of) -> EcbDataProvider`, `snb_factory(as_of) -> SnbDataProvider` (Default = Stubs → EU/CH leer, wie Produktion). **Region/Quelle steckbar** (Spec §4.4): kein hartes `EcbStubProvider()` im Schleifen-Code.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -886,9 +886,18 @@ class _NullBus:
     def publish(self, event): pass
 
 
-async def _sub_signals(provider, bus) -> dict:
-    """Führt die vier echten Sub-Signal-Agenten aus (netzfrei: ECB/SNB-Stubs, No-Op-WB)."""
-    ecb, snb = EcbStubProvider(), SnbStubProvider()
+# Default-Quellen-Fabriken: Stubs (EU/CH leer, wie Produktion heute). Region/Quelle ist
+# steckbar — ein HistoricalEcbProvider/-SnbProvider ist später ein reiner Drop-in (Spec §4.4).
+def _default_ecb(as_of):
+    return EcbStubProvider()
+
+
+def _default_snb(as_of):
+    return SnbStubProvider()
+
+
+async def _sub_signals(provider, bus, ecb, snb) -> dict:
+    """Führt die vier echten Sub-Signal-Agenten aus (netzfrei: injizierte ECB/SNB, No-Op-WB)."""
     money = MoneySupplyAgent(provider, ecb, snb, bus)
     credit = CreditAgent(provider, bus)
     labor = LaborIncomeAgent(provider, bus)
@@ -902,11 +911,11 @@ async def _sub_signals(provider, bus) -> dict:
     }
 
 
-def replay_step(provider, bus) -> dict:
+def replay_step(provider, bus, ecb, snb) -> dict:
     """Ein Stichtag: Roh-Zustand + Sub-Signale (ohne Detector — Trend wird außen verwaltet)."""
     economic_state = provider.get_economic_state()
     spreads = provider.get_yield_spreads()
-    sub_map = asyncio.run(_sub_signals(provider, bus))
+    sub_map = asyncio.run(_sub_signals(provider, bus, ecb, snb))
     return {
         "economic_state": economic_state,
         "usa_10y3m": spreads.get("10y3m"),
@@ -914,15 +923,17 @@ def replay_step(provider, bus) -> dict:
     }
 
 
-def run_replay(provider_factory, stichtage: list, bus=None) -> list:
-    """Iteriert die Stichtage, pflegt die Composite-Historie, liefert Regime-Urteile."""
+def run_replay(provider_factory, stichtage: list, bus=None,
+               ecb_factory=_default_ecb, snb_factory=_default_snb) -> list:
+    """Iteriert die Stichtage, pflegt die Composite-Historie, liefert Regime-Urteile.
+    ecb_factory/snb_factory(as_of) sind steckbar (Default = Stubs)."""
     bus = bus or _NullBus()
     detector = RegimeDetector()
     history: list = []          # [(iso_date, composite), ...]
     urteile = []
     for as_of in stichtage:
         provider = provider_factory(as_of)
-        raw = replay_step(provider, bus)
+        raw = replay_step(provider, bus, ecb_factory(as_of), snb_factory(as_of))
         state, sub_signals = assemble_regime_inputs(
             raw["economic_state"], raw["usa_10y3m"], {}, {}, raw["sub_signal_map"],
         )
@@ -1003,8 +1014,8 @@ def test_replay_pfad_gleich_produktionspfad():
         prov, bus, wb_fetch=lambda: {})
     prod_result = asyncio.run(chief.run())
 
-    # Replay-Pfad
-    raw = replay_step(prov, bus)
+    # Replay-Pfad (ECB/SNB-Stubs explizit injiziert — wie der Default in run_replay)
+    raw = replay_step(prov, bus, EcbStubProvider(), SnbStubProvider())
     state, subs = assemble_regime_inputs(raw["economic_state"], raw["usa_10y3m"], {}, {}, raw["sub_signal_map"])
     replay_regime, _, _ = RegimeDetector().detect(state, subs, history=[])
 
@@ -1135,9 +1146,14 @@ from fredapi import Fred
 from config.settings import FRED_API_KEY
 from adapters.data.historical_fred import HistoricalFredProvider
 from agents.backtester.regime_replay import run_replay
+from core.utils.backtest import benchmark_for_market
 from core.utils.regime_eval import evaluate_market, evaluate_nber, build_report_md
 
 _HORIZONS = (3, 6, 12)
+# v1-Entrypoint läuft USA. Region-Steckbarkeit liegt in der Library-API (run_replay nimmt
+# ecb_factory/snb_factory; evaluate_market nimmt die Kursfunktion injiziert; Benchmark über
+# benchmark_for_market). EU/CH-Entrypoint = Stufe ①b (Spec §4.4/§10).
+_REGION = "USA"
 
 
 def _monatsenden(start: date, end: date) -> list:
@@ -1148,10 +1164,10 @@ def _monatsenden(start: date, end: date) -> list:
     return out
 
 
-def _sp_price_on(d: date):
-    """Erster S&P-Schlusskurs am/nach d (^GSPC). None = kein Kurs."""
+def _price_on(ticker: str, d: date):
+    """Erster Benchmark-Schlusskurs am/nach d. None = kein Kurs."""
     try:
-        df = yf.Ticker("^GSPC").history(start=d.strftime("%Y-%m-%d"), period="10d")
+        df = yf.Ticker(ticker).history(start=d.strftime("%Y-%m-%d"), period="10d")
         if df is None or df.empty:
             return None
         return float(df["Close"].iloc[0])
@@ -1174,14 +1190,18 @@ def main() -> None:
     end = datetime.strptime(args.end, "%Y-%m").date().replace(day=1)
     stichtage = _monatsenden(start, end)
 
-    print(f"[RegimeReplay] {len(stichtage)} Stichtage {args.start}..{args.end} …")
+    print(f"[RegimeReplay] {len(stichtage)} Stichtage {args.start}..{args.end} (Region {_REGION}) …")
     urteile = run_replay(lambda d: HistoricalFredProvider(FRED_API_KEY, d), stichtage)
 
-    market = evaluate_market(urteile, _sp_price_on, horizons_months=_HORIZONS)
+    # (A) Markt-Wahrheit: Benchmark region-abhängig via benchmark_for_market (USA→^GSPC).
+    benchmark = benchmark_for_market(_REGION)
+    market = evaluate_market(urteile, lambda d: _price_on(benchmark, d), horizons_months=_HORIZONS)
+
+    # (B) Wirtschafts-Wahrheit: NBER ist USA-only (Spec §4.4). Andere Regionen: kein Label (Stufe ①b).
     fred = Fred(api_key=FRED_API_KEY)
     nber = evaluate_nber(urteile, _usrec_by_month(fred))
     quality_counts = dict(Counter(u["data_quality"] for u in urteile))
-    window = f"{args.start}..{args.end}"
+    window = f"{args.start}..{args.end} ({_REGION})"
     md = build_report_md(market, nber, len(urteile), window, quality_counts)
 
     os.makedirs("data/backtests", exist_ok=True)
@@ -1253,7 +1273,7 @@ Verwende die Skill `superpowers:finishing-a-development-branch`. **Nicht** ohne 
 ## Self-Review (vom Planautor durchgeführt)
 
 **Spec-Abdeckung:**
-- §3.1 (A Markt) → Task 5. §3.2 (B NBER) → Task 6. §4.0 Treue → Tasks 2/3/7. §4.1 Provider → Task 4. §4.2 (detect-History, assemble, buffett) → Tasks 1/2/3. §4.3 Harness → Task 7. §5 Look-Ahead → Tasks 1/4 (Tests pinnen `<= as_of`). §6 Daten/Defaults → Task 8 (Horizonte/USREC/^GSPC). §7 Tests → in jeder Task + Treue-Test (Task 7). §8 Deliverable → Task 8.
+- §3.1 (A Markt) → Task 5. §3.2 (B NBER) → Task 6. §4.0 Treue → Tasks 2/3/7. §4.1 Provider → Task 4. §4.2 (detect-History, assemble, buffett) → Tasks 1/2/3. §4.3 Harness → Task 7. **§4.4 Region-/Quellen-Steckbarkeit → Task 7 (injizierte ecb/snb-Fabriken) + Task 8 (`benchmark_for_market`, NBER USA-only).** §5 Look-Ahead → Tasks 1/4 (Tests pinnen `<= as_of`). §6 Daten/Defaults → Task 8 (Horizonte/USREC/Benchmark). §7 Tests → in jeder Task + Treue-Test (Task 7). §8 Deliverable → Task 8.
 - **Lücke bewusst akzeptiert:** Vintage-Datenqualität pro Reihe ist auf ein grobes Gesamt-Flag pro Stichtag vereinfacht (Spec §9 erlaubt das; pro-Reihe-Granularität ist YAGNI für v1).
 
 **Platzhalter-Scan:** Kein TBD/TODO im ausführbaren Code. Der redundante `candidates`-Block in Task 6 ist explizit als „nur `window` behalten" markiert.
