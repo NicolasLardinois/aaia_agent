@@ -52,3 +52,90 @@ def evaluate_market(judgments: list, sp_price_on, horizons_months: tuple = (3, 6
             },
         }
     return report
+
+
+def _month_key(d: date) -> str:
+    """date → Formatstring "YYYY-MM"."""
+    return f"{d.year:04d}-{d.month:02d}"
+
+
+def _nber_episodes(usrec_by_month: dict) -> list:
+    """Zusammenhängende Rezessions-Episoden als Liste von (start_key, end_key)."""
+    months = sorted(k for k, v in usrec_by_month.items() if v == 1)
+    episodes = []
+    start = prev = None
+    for k in months:
+        if start is None:
+            start = prev = k
+            continue
+        y, m = int(prev[:4]), int(prev[5:7])
+        nxt = f"{y + (m // 12):04d}-{(m % 12) + 1:02d}"
+        if k == nxt:
+            prev = k
+        else:
+            episodes.append((start, prev))
+            start = prev = k
+    if start is not None:
+        episodes.append((start, prev))
+    return episodes
+
+
+def _key_diff_months(a: str, b: str) -> int:
+    """a - b in Monaten (a, b im Format YYYY-MM)."""
+    ay, am = int(a[:4]), int(a[5:7])
+    by, bm = int(b[:4]), int(b[5:7])
+    return (ay - by) * 12 + (am - bm)
+
+
+def evaluate_nber(judgments: list, usrec_by_month: dict) -> dict:
+    """Konfusionsmatrix risk-off × NBER + mittlerer Vorlauf je Rezessions-Episode.
+
+    Rückgabe:
+    - tp, fp, tn, fn: Konfusionsmatrix (risk-off vs. NBER-Rezession)
+    - precision, recall: Metriken (None falls Division by zero)
+    - n: Gesamtzahl Beobachtungen
+    - mean_lead_months: Durchschn. Monate, die das System VOR Rezessions-Start auf risk-off schaltet
+      (positiv = antizipierend, negativ = nacheilend)
+    - episodes: Liste der Rezessions-Episoden [{"start": "YYYY-MM", "end": "YYYY-MM"}, ...]
+    """
+    tp = fp = tn = fn = 0
+    risk_off_keys = set()
+    for j in judgments:
+        key = _month_key(j["as_of"])
+        actual = usrec_by_month.get(key)
+        if actual is None:
+            continue
+        called = j["regime"] in RISK_OFF
+        if called:
+            risk_off_keys.add(key)
+        if called and actual == 1:
+            tp += 1
+        elif called and actual == 0:
+            fp += 1
+        elif not called and actual == 0:
+            tn += 1
+        else:
+            fn += 1
+
+    # Vorlauf: erster risk-off-Monat im Fenster [-12, +6] um den Episoden-Start
+    leads = []
+    for start, _end in _nber_episodes(usrec_by_month):
+        # risk-off-Monate im Fenster [Start-12, Start+6]: k-start liegt in [-12, +6]
+        window = [k for k in risk_off_keys if -12 <= _key_diff_months(k, start) <= 6]
+        if window:
+            first = min(window)
+            leads.append(_key_diff_months(start, first))  # >0 = vor dem Start (antizipierend)
+
+    precision = round(tp / (tp + fp), 3) if (tp + fp) else None
+    recall = round(tp / (tp + fn), 3) if (tp + fn) else None
+    return {
+        "tp": tp,
+        "fp": fp,
+        "tn": tn,
+        "fn": fn,
+        "n": tp + fp + tn + fn,
+        "precision": precision,
+        "recall": recall,
+        "mean_lead_months": round(sum(leads) / len(leads), 1) if leads else None,
+        "episodes": [{"start": s, "end": e} for s, e in _nber_episodes(usrec_by_month)],
+    }
