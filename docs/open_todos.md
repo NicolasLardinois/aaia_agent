@@ -468,7 +468,9 @@ Spec: `docs/superpowers/specs/2026-06-22-frontend-cockpit-overview-design.md`, P
 
 - [ ] **Charting-Bibliothek** (ECharts/Lightweight-Charts) erst mit den Drill-downs einführen.
 
-- [ ] **Aufräumen (aus Reviews):** ungenutzte `frontend/src/App.css` (Vite-Template-Rest) entfernen; `as unknown as CockpitOverview`-Cast im WS-Client später durch einen leichten Shape-Guard ersetzen.
+- [x] **Aufräumen (aus Reviews):** ✅ ungenutzte Vite-Template-Reste entfernt (`App.css`, `assets/{react,vite}.svg`, `hero.png`, `public/icons.svg`); `index.html` auf Deutsch (`lang="de"`, Titel „AAIA — Cockpit"); `CockpitEvent.timestamp` optional (Terminal-Event trägt keinen). **Verbleibend:** `as unknown as CockpitOverview`-Cast im WS-Client später durch einen leichten Shape-Guard (Runtime-Validierung) ersetzen.
+
+- [ ] **CI/Build-Reproduzierbarkeit:** Stack ist React 19 / TS 6 / Vite 8 / Vitest 4 (neuer als im Plan genannt); Node-/npm-Version in Render-Build + CI pinnen, damit die Lockfile-Auflösung reproduzierbar bleibt.
 
 ---
 

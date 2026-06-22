@@ -4,7 +4,7 @@ export interface CockpitEvent {
   type: string;
   source: string;
   payload: Record<string, unknown>;
-  timestamp: string;
+  timestamp?: string; // optional: das terminale CockpitResultReady traegt keinen timestamp
   run_id: string;
 }
 
