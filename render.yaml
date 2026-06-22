@@ -19,6 +19,8 @@ services:
         sync: false                # Pflicht
       - key: FINNHUB_API_KEY
         sync: false                # optional
+      - key: FMP_API_KEY
+        sync: false                # optional (LME-Zink/Nickel im Rohstoff-Cockpit; ohne -> None)
       - key: AAIA_CORS_ORIGINS
         sync: false                # = Frontend-URL (nach 1. Deploy eintragen, siehe Doku)
 

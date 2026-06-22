@@ -15,13 +15,14 @@ gemeinsam über den Blueprint `render.yaml` (Repo-Wurzel). Secrets stehen **nich
 | `FRED_API_KEY` | Backend | **ja** | FRED-Daten; ohne → Backend-Startabbruch |
 | `ANTHROPIC_API_KEY` | Backend | **ja** | Claude; ohne → Backend-Startabbruch |
 | `FINNHUB_API_KEY` | Backend | nein | optionale Marktdaten |
+| `FMP_API_KEY` | Backend | nein | LME-Zink/Nickel im Rohstoff-Cockpit; ohne → fehlen nur diese beiden (kein Absturz) |
 | `AAIA_CORS_ORIGINS` | Backend | ja (2. Pass) | erlaubte Origin = **Frontend-URL** |
 | `VITE_API_BASE_URL` | Frontend | ja (2. Pass) | **Backend-URL** (beim Build eingebacken!) |
 
 ## Deploy — Pass 1 (Dienste anlegen)
 1. Render → **New → Blueprint**.
 2. Repo `aaia_agent` + Branch (`master`) wählen → Render liest `render.yaml` und zeigt **zwei** Dienste (`aaia-api`, `aaia-frontend`).
-3. Bei den abgefragten `sync: false`-Variablen **jetzt** eintragen: `FRED_API_KEY`, `ANTHROPIC_API_KEY` (Pflicht), optional `FINNHUB_API_KEY`. `AAIA_CORS_ORIGINS` und `VITE_API_BASE_URL` zunächst **leer lassen** (kommen in Pass 2).
+3. Bei den abgefragten `sync: false`-Variablen **jetzt** eintragen: `FRED_API_KEY`, `ANTHROPIC_API_KEY` (Pflicht), optional `FINNHUB_API_KEY` und `FMP_API_KEY`. `AAIA_CORS_ORIGINS` und `VITE_API_BASE_URL` zunächst **leer lassen** (kommen in Pass 2).
 4. **Apply** → beide Dienste bauen und starten. Notiere die beiden URLs, z. B.
    `https://aaia-api-XXXX.onrender.com` und `https://aaia-frontend-XXXX.onrender.com`.
 
