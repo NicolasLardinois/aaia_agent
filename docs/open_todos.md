@@ -434,14 +434,6 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 
 ### Frontend / API-Brücke (Cockpit-Flow) — v1 (2026-06-22)
 
-#### Zugriffsschutz (Branch `feat/access-protection`)
-
-**✅ Umgesetzt:** Shared-Token (`AAIA_ACCESS_TOKEN`) schützt GET/POST/WS (Header bzw. `?token=`, constant-time; leer = Auth aus + Warn-Log); Lauf-Lock (`409`, `finally`-Freigabe); Frontend-Login-Gate (`useAuth`/`LoginGate`, localStorage, `401` → Passwortscreen, „Abmelden"); `render.yaml` + Deploy-Doku „Zugang für den Dozenten". Spec/Plan: `docs/superpowers/specs|plans/2026-06-22-access-protection*`.
-
-**Offene Folge-Aufgaben:** WS-Token als „erste Nachricht" statt Query-Param (Log-Hygiene); echte Accounts/Rate-Limit erst bei Bedarf; Backend-Folgeaufgabe #7 damit (für die Demo) **erledigt**.
-
-### Frontend / API-Brücke (Cockpit-Flow) — v1 (2026-06-22)
-
 **✅ Umgesetzt (Branch `feat/api-bridge-cockpit`):**
 v1 der Web-API-Schicht für den Cockpit-Flow:
 - `adapters/api/` + `app/server.py`: drei Endpunkte — `GET /api/cockpit` (letztes Ergebnis; `204` wenn noch keines), `POST /api/cockpit/run` (202 + `run_id`, startet Hintergrund-Task), `WS /ws/cockpit` (Live-Event-Stream während des Laufs).
@@ -482,6 +474,16 @@ v1 der Web-API-Schicht für den Cockpit-Flow:
 - [ ] **Security vor Nicht-localhost-Deployment (Review PR #24, #7):** `POST /api/cockpit/run` ist ein unauthentifizierter Trigger für echte FRED-/Yahoo-Calls und (v1-gewollt) ohne Lauf-Lock. Auf `127.0.0.1` gebunden ok; **bevor** die API je über localhost hinaus exponiert wird (Repo wird öffentlich), zwingend: Auth + Rate-Limiting + Lauf-Lock (sonst Kosten-/Missbrauchs-Vektor durch unbegrenzte parallele Läufe).
 
 - [x] **Minor-Aufräumen (aus Reviews):** ✅ `cockpit_to_dict`/`event_to_dict` mit `-> dict[str, Any]` annotiert (bereits im finalen Code); ✅ Docstring-Verweis auf §7 EDA-Eintrag in `subscribe_all` ergänzt; ✅ CORS-Konfiguration mit Kommentar versehen (Dev-CORS, credential-frei). **Verbleibend** → in den Security-Eintrag oben überführt: falls später Auth, `allow_credentials=True` + Origins einschränken.
+
+#### Zugriffsschutz (Branch `feat/access-protection`)
+
+**✅ Umgesetzt:** Shared-Token (`AAIA_ACCESS_TOKEN`) schützt GET/POST/WS (Header bzw. `?token=`, constant-time; leer = Auth aus + Warn-Log, auf Render fail-closed); Lauf-Lock (`409`, `finally`-Freigabe); Frontend-Login-Gate (`useAuth`/`LoginGate`, localStorage, `401` → Passwortscreen, „Abmelden"); `render.yaml` + Deploy-Doku „Zugang für den Dozenten". Spec/Plan: `docs/superpowers/specs|plans/2026-06-22-access-protection*`. Backend-Folgeaufgabe #7 damit (für die Demo) **erledigt**.
+
+**Offene Folge-Aufgaben:**
+
+- [ ] **WS-Token als „erste Nachricht" statt Query-Param** (Log-Hygiene): der Token kann sonst in Server-/Proxy-Logs erscheinen. *Ansatz:* WS akzeptieren, erste Nachricht = Token, dann validieren/sonst schließen.
+- [ ] **Stiller fehlgeschlagener Lauf (Review PR #32):** wirft der Orchestrator, wird der Lauf-Lock korrekt freigegeben, aber **kein terminales Event** gebroadcastet → der WS-Client bleibt in „läuft". *Ansatz:* ein terminales `CockpitError`-Event broadcasten (Backend) + im Frontend in einen Fehlerzustand überführen.
+- [ ] **Echte Accounts / Rate-Limit** erst bei Bedarf (über die Dozenten-Demo hinaus).
 
 ### Frontend-Scheibe 1 — Cockpit-Übersicht (Branch `feat/frontend-cockpit-overview`)
 
