@@ -451,6 +451,25 @@ v1 der Web-API-Schicht für den Cockpit-Flow:
 
 - [x] **Minor-Aufräumen (aus Reviews):** ✅ `cockpit_to_dict`/`event_to_dict` mit `-> dict[str, Any]` annotiert (bereits im finalen Code); ✅ Docstring-Verweis auf §7 EDA-Eintrag in `subscribe_all` ergänzt; ✅ CORS-Konfiguration mit Kommentar versehen (Dev-CORS, credential-frei). **Verbleibend** → in den Security-Eintrag oben überführt: falls später Auth, `allow_credentials=True` + Origins einschränken.
 
+### Frontend-Scheibe 1 — Cockpit-Übersicht (Branch `feat/frontend-cockpit-overview`)
+
+**✅ Umgesetzt:**
+React/TS/Vite/Tailwind-Frontend unter `frontend/`; Cockpit-Regime-Übersicht (Regime-Banner + 4 Domänen-Kacheln + Daten-Health + „Analyse starten"), live über `GET`/`POST`/`WS` (erst WS öffnen, dann POST); UNAVAILABLE-Vertrag (`signal=null`/Status) als gestreift-graues Feld; Basis-Komponenten (SignalBadge/ConfidenceBar/UnavailableField); pure Anzeige-Logik TDD-getestet; Render-Deploy als Static Site + `AAIA_CORS_ORIGINS` im Backend.
+Spec: `docs/superpowers/specs/2026-06-22-frontend-cockpit-overview-design.md`, Plan: `docs/superpowers/plans/2026-06-22-frontend-cockpit-overview.md`.
+
+**Offene Folge-Aufgaben:**
+
+- [ ] **WS-Reconnect/Replay:** bricht die WS-Leitung ab, fällt das Frontend auf `GET` zurück, aber ein laufender Lauf wird nicht weiterverfolgt.
+  *Ansatz:* Reconnect mit Backoff + `GET`-Poll als Fallback; serverseitiger Pro-Lauf-Replay-Puffer (Backend-Folgeaufgabe #3) macht es robust.
+
+- [ ] **Drill-downs als nächste Scheiben** (Zinskurve/Buffett/Big-Mac): brauchen erst erweiterte Backend-Felder; eigene Spec/Plan je Scheibe.
+
+- [ ] **Auth vor öffentlicher Render-Exposition:** verknüpft mit Backend-Folgeaufgabe #7 (Auth + Rate-Limiting + Lauf-Lock), bevor das Dashboard über localhost/privat hinaus erreichbar ist.
+
+- [ ] **Charting-Bibliothek** (ECharts/Lightweight-Charts) erst mit den Drill-downs einführen.
+
+- [ ] **Aufräumen (aus Reviews):** ungenutzte `frontend/src/App.css` (Vite-Template-Rest) entfernen; `as unknown as CockpitOverview`-Cast im WS-Client später durch einen leichten Shape-Guard ersetzen.
+
 ---
 
 ## 8. DESIGN-ENTSCHEIDUNGEN (Frontend — docs/frontend_notes.md)
