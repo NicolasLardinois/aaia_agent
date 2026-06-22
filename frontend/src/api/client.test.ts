@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { getCockpit, startRun } from "./client";
+import { getCockpit, startRun, UnauthorizedError, RunInProgressError } from "./client";
 
 const overview = {
   regime: "Aufschwung", regime_confidence: 0.71, macro_status: "available",
@@ -36,5 +36,37 @@ describe("startRun", () => {
 
   it("wirft bei Fehlerstatus", async () => {
     await expect(startRun("http://x", fakeFetch(500))).rejects.toThrow();
+  });
+
+  it("startRun haengt den Authorization-Header an, wenn ein Token gegeben ist", async () => {
+    let seenHeaders: Record<string, string> | undefined;
+    const fetchFn = (async (_url: string, init?: { headers?: Record<string, string> }) => {
+      seenHeaders = init?.headers;
+      return { status: 202, ok: true, json: async () => ({ run_id: "r1" }) };
+    }) as unknown as typeof fetch;
+    await startRun("http://x", fetchFn, "geheim");
+    expect(seenHeaders).toMatchObject({ Authorization: "Bearer geheim" });
+  });
+});
+
+describe("Token & Autorisierung", () => {
+  it("haengt den Authorization-Header an, wenn ein Token gegeben ist", async () => {
+    let seenHeaders: Record<string, string> | undefined;
+    const fetchFn = (async (_url: string, init?: { headers?: Record<string, string> }) => {
+      seenHeaders = init?.headers;
+      return { status: 204, ok: true, json: async () => undefined };
+    }) as unknown as typeof fetch;
+    await getCockpit("http://x", fetchFn, "geheim");
+    expect(seenHeaders).toMatchObject({ Authorization: "Bearer geheim" });
+  });
+
+  it("wirft UnauthorizedError bei 401", async () => {
+    const fetchFn = (async () => ({ status: 401, ok: false, json: async () => undefined })) as unknown as typeof fetch;
+    await expect(getCockpit("http://x", fetchFn, "x")).rejects.toBeInstanceOf(UnauthorizedError);
+  });
+
+  it("startRun wirft RunInProgressError bei 409", async () => {
+    const fetchFn = (async () => ({ status: 409, ok: false, json: async () => undefined })) as unknown as typeof fetch;
+    await expect(startRun("http://x", fetchFn, "x")).rejects.toBeInstanceOf(RunInProgressError);
   });
 });

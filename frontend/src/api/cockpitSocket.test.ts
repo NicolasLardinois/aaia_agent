@@ -41,4 +41,11 @@ describe("openCockpitSocket", () => {
     expect(onError).toHaveBeenCalledOnce();
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it("haengt den Token als Query-Parameter an die ws-URL", () => {
+    let seen = "";
+    const ws = fakeWs();
+    openCockpitSocket("http://127.0.0.1:8000", {}, (url) => { seen = url; return ws; }, "geheim");
+    expect(seen).toBe("ws://127.0.0.1:8000/ws/cockpit?token=geheim");
+  });
 });

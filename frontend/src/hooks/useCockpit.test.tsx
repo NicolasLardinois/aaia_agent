@@ -77,6 +77,16 @@ describe("useCockpit", () => {
     expect(ws.close).toHaveBeenCalled();
   });
 
+  it("ruft onUnauthorized bei 401 statt einen generischen Fehler zu setzen", async () => {
+    const fetchFn = (async () => ({ status: 401, ok: false, json: async () => undefined })) as unknown as typeof fetch;
+    const onUnauthorized = vi.fn();
+    const { result } = renderHook(() =>
+      useCockpit({ base: "http://x", fetchFn, wsFactory: makeFakeWs, onUnauthorized }),
+    );
+    await waitFor(() => expect(onUnauthorized).toHaveBeenCalledOnce());
+    expect(result.current.phase).not.toBe("error");
+  });
+
   it("nimmt das terminale CockpitResultReady NICHT in die Live-Events auf", async () => {
     const ws = makeFakeWs();
     const fetchFn = fakeFetch({
@@ -90,5 +100,41 @@ describe("useCockpit", () => {
     act(() => { ws.onmessage!({ data: JSON.stringify({ type: "MacroChiefReady", source: "m", payload: {}, timestamp: "t", run_id: "r1" }) }); });
     act(() => { ws.onmessage!({ data: JSON.stringify({ type: "CockpitResultReady", source: "run_manager", payload: overview, timestamp: "t", run_id: "r1" }) }); });
     expect(result.current.events.map((e) => e.type)).toEqual(["MacroChiefReady"]);
+  });
+
+  it("RunInProgressError (POST 409) laesst phase 'running' und setzt keinen Fehler", async () => {
+    const ws = makeFakeWs();
+    const fetchFn = fakeFetch({
+      "GET http://x/api/cockpit": { status: 204 },
+      "POST http://x/api/cockpit/run": { status: 409 },
+    });
+    const { result } = renderHook(() => useCockpit({ base: "http://x", fetchFn, wsFactory: () => ws }));
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+
+    act(() => { result.current.startAnalysis(); });
+    act(() => { ws.onopen!(); });
+
+    // Nach dem POST (409 = RunInProgressError) bleibt phase "running", kein Fehler.
+    await waitFor(() => expect(result.current.phase).toBe("running"));
+    expect(result.current.error).toBeNull();
+  });
+
+  it("UnauthorizedError bei startRun (POST 401) ruft onUnauthorized und setzt NICHT phase 'error'", async () => {
+    const ws = makeFakeWs();
+    const fetchFn = fakeFetch({
+      "GET http://x/api/cockpit": { status: 204 },
+      "POST http://x/api/cockpit/run": { status: 401 },
+    });
+    const onUnauthorized = vi.fn();
+    const { result } = renderHook(() =>
+      useCockpit({ base: "http://x", fetchFn, wsFactory: () => ws, onUnauthorized }),
+    );
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+
+    act(() => { result.current.startAnalysis(); });
+    act(() => { ws.onopen!(); });
+
+    await waitFor(() => expect(onUnauthorized).toHaveBeenCalled());
+    expect(result.current.phase).not.toBe("error");
   });
 });

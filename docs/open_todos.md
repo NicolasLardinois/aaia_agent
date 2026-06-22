@@ -497,6 +497,16 @@ v1 der Web-API-Schicht für den Cockpit-Flow:
 
 - [x] **Minor-Aufräumen (aus Reviews):** ✅ `cockpit_to_dict`/`event_to_dict` mit `-> dict[str, Any]` annotiert (bereits im finalen Code); ✅ Docstring-Verweis auf §7 EDA-Eintrag in `subscribe_all` ergänzt; ✅ CORS-Konfiguration mit Kommentar versehen (Dev-CORS, credential-frei). **Verbleibend** → in den Security-Eintrag oben überführt: falls später Auth, `allow_credentials=True` + Origins einschränken.
 
+#### Zugriffsschutz (Branch `feat/access-protection`)
+
+**✅ Umgesetzt:** Shared-Token (`AAIA_ACCESS_TOKEN`) schützt GET/POST/WS (Header bzw. `?token=`, constant-time; leer = Auth aus + Warn-Log, auf Render fail-closed); Lauf-Lock (`409`, `finally`-Freigabe); Frontend-Login-Gate (`useAuth`/`LoginGate`, localStorage, `401` → Passwortscreen, „Abmelden"); `render.yaml` + Deploy-Doku „Zugang für den Dozenten". Spec/Plan: `docs/superpowers/specs|plans/2026-06-22-access-protection*`. Backend-Folgeaufgabe #7 damit (für die Demo) **erledigt**.
+
+**Offene Folge-Aufgaben:**
+
+- [ ] **WS-Token als „erste Nachricht" statt Query-Param** (Log-Hygiene): der Token kann sonst in Server-/Proxy-Logs erscheinen. *Ansatz:* WS akzeptieren, erste Nachricht = Token, dann validieren/sonst schließen.
+- [ ] **Stiller fehlgeschlagener Lauf (Review PR #32):** wirft der Orchestrator, wird der Lauf-Lock korrekt freigegeben, aber **kein terminales Event** gebroadcastet → der WS-Client bleibt in „läuft". *Ansatz:* ein terminales `CockpitError`-Event broadcasten (Backend) + im Frontend in einen Fehlerzustand überführen.
+- [ ] **Echte Accounts / Rate-Limit** erst bei Bedarf (über die Dozenten-Demo hinaus).
+
 ### Frontend-Scheibe 1 — Cockpit-Übersicht (Branch `feat/frontend-cockpit-overview`)
 
 **✅ Umgesetzt:**

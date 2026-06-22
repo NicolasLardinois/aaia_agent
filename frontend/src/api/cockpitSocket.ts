@@ -27,16 +27,18 @@ export interface SocketHandlers {
   onClose?: () => void;
 }
 
-function wsUrl(base: string): string {
-  return base.replace(/^http/, "ws") + "/ws/cockpit";
+function wsUrl(base: string, token?: string | null): string {
+  const url = base.replace(/^http/, "ws") + "/ws/cockpit";
+  return token ? `${url}?token=${encodeURIComponent(token)}` : url;
 }
 
 export function openCockpitSocket(
   base: string,
   handlers: SocketHandlers,
   factory: WebSocketFactory = (url) => new WebSocket(url) as unknown as WebSocketLike,
+  token?: string | null,
 ): WebSocketLike {
-  const ws = factory(wsUrl(base));
+  const ws = factory(wsUrl(base, token));
   ws.onopen = () => handlers.onOpen?.();
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data) as CockpitEvent;
