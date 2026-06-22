@@ -66,6 +66,12 @@ def walk_forward(records: list, usrec_by_month: dict, folds: int, grid: list) ->
     - per_fold: Liste mit Fold-Detailergebnissen (fold, b, n_test, test_f1, default_test_f1)
     """
     records = sorted(records, key=lambda r: r[0])
+    # Guard: zu wenige Punkte → leere Train/Test-Splits → stille Fehler verhindern
+    if len(records) < (folds + 1) * 2:
+        raise ValueError(
+            f"Zu wenige Datenpunkte ({len(records)}) für {folds} Folds — "
+            f"mindestens {(folds + 1) * 2} nötig."
+        )
     # Slice 0 dient ausschließlich als Trainings-Seed für Fold 1; folds+1 Segmente insgesamt
     slices = _slices(len(records), folds + 1)
     per_fold = []

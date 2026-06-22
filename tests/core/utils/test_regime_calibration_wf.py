@@ -35,3 +35,72 @@ def test_calibrate_urteil_default_behalten_ohne_a_check():
     assert report["verdict"] == "keep_default"
     assert report["a_check"] is None
     assert report["default_bias"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Hilfsdaten: Tuning gewinnt (negativer Bias notwendig)
+# ---------------------------------------------------------------------------
+
+def _series_tuning_wins(n_per_phase=6):
+    """Rezessionsmonate composite 0.25 (bei b=0 risk-on → verpasst), gesund 0.6.
+    Ein negativer Bias schiebt 0.25 unter die ~0.15-Grenze → erwischt → F1 steigt OOS."""
+    records, usrec = [], {}
+    y = 1970
+    for block in range(8):
+        composite = 0.6 if block % 2 == 0 else 0.25
+        rec = 0 if block % 2 == 0 else 1
+        for m in range(1, n_per_phase + 1):
+            from datetime import date
+            d = date(y, m, 1)
+            records.append((d, composite, None))
+            usrec[f"{y:04d}-{m:02d}"] = rec
+        y += 1
+    return records, usrec
+
+
+# ---------------------------------------------------------------------------
+# Fix 1: adopt-Pfad getestet (bisher unabgedeckt)
+# ---------------------------------------------------------------------------
+
+def test_walk_forward_tuning_gewinnt_oos():
+    """Composite 0.25 in Rezessionen → bei b=0 risk-on (verpasst, FN).
+    Ein negativer Bias drückt 0.25 unter ~0.15 → risk-off → erwischt → F1 steigt OOS."""
+    records, usrec = _series_tuning_wins()
+    wf = walk_forward(records, usrec, folds=3, grid=bias_grid())
+    assert wf["tuning_wins"] is True
+    assert wf["tuned_oos_f1"] > wf["default_oos_f1"]
+    # Negativer Bias nötig, um 0.25 unter die ~0.15-Grenze zu schieben
+    assert all(f["b"] < 0 for f in wf["per_fold"])
+
+
+def test_calibrate_urteil_adopt():
+    """Wenn Tuning OOS gewinnt und b* ≠ 0, muss das Urteil 'adopt' sein."""
+    records, usrec = _series_tuning_wins()
+    report = calibrate(records, usrec, sp_price_on=None, folds=3)
+    assert report["verdict"] == "adopt"
+    assert report["b_star"] < 0.0
+
+
+# ---------------------------------------------------------------------------
+# Fix 2: Guard gegen zu wenige Datenpunkte
+# ---------------------------------------------------------------------------
+
+import pytest
+
+def test_walk_forward_zu_wenig_daten_raises():
+    """Weniger Punkte als (folds+1)*2 → ValueError statt stiller Fehler."""
+    records = [(date(2000, 1, 1), 0.0, None), (date(2000, 2, 1), 0.5, None)]
+    with pytest.raises(ValueError):
+        walk_forward(records, {"2000-01": 1, "2000-02": 0}, folds=3, grid=bias_grid())
+
+
+# ---------------------------------------------------------------------------
+# Fix 3: A-Check mit Stub-Preisfunktion befüllt
+# ---------------------------------------------------------------------------
+
+def test_calibrate_a_check_befuellt_mit_stub():
+    """sp_price_on injiziert → a_check darf nicht None sein und enthält b_star-Horizonte."""
+    records, usrec = _series_tuning_wins()
+    report = calibrate(records, usrec, sp_price_on=lambda d: 100.0 + d.month, folds=3)
+    assert report["a_check"] is not None
+    assert 6 in report["a_check"]["b_star"]
