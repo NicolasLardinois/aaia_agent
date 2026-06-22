@@ -40,6 +40,7 @@ def test_post_requires_token_when_set(monkeypatch):
     monkeypatch.setenv("AAIA_ACCESS_TOKEN", "geheim")
     client = _client()
     assert client.post("/api/cockpit/run").status_code == 401
+    assert client.post("/api/cockpit/run", headers={"Authorization": "Bearer falsch"}).status_code == 401
     assert client.post("/api/cockpit/run", headers={"Authorization": "Bearer geheim"}).status_code == 202
 
 

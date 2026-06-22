@@ -3,12 +3,12 @@ import logging
 import os
 
 from fastapi import FastAPI
-
-_logger = logging.getLogger(__name__)
 from fastapi.middleware.cors import CORSMiddleware
 
 from adapters.api.routes_cockpit import build_router
 from adapters.api.run_manager import RunManager
+
+_logger = logging.getLogger(__name__)
 
 _DEV_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
 
