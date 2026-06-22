@@ -389,10 +389,14 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 **✅ Umgesetzt (Branch `feat/api-bridge-cockpit`):**
 v1 der Web-API-Schicht für den Cockpit-Flow:
 - `adapters/api/` + `app/server.py`: drei Endpunkte — `GET /api/cockpit` (letztes Ergebnis; `204` wenn noch keines), `POST /api/cockpit/run` (202 + `run_id`, startet Hintergrund-Task), `WS /ws/cockpit` (Live-Event-Stream während des Laufs).
-- Eigene Serialisierung (`cockpit_to_dict`, `event_to_dict`); pro-Domäne-`status` (`"ok"` / `"unavailable"`) als UNAVAILABLE-Kontrakt für das Frontend (Chief gecrasht/Default → `status="unavailable"`).
+- Eigene Serialisierung (`cockpit_to_dict`, `event_to_dict`); pro-Domäne-`status` (`"available"` / `"unavailable"`) als UNAVAILABLE-Kontrakt für das Frontend (Chief gecrasht/Default → `status="unavailable"`).
 - `subscribe_all` am `InMemoryEventBus` (erster echter Subscriber — siehe EDA-Eintrag oben).
 - Spec: `docs/superpowers/specs/2026-06-22-api-bridge-cockpit-design.md`, Plan: `docs/superpowers/plans/2026-06-22-api-bridge-cockpit.md`.
 - TDD vollständig (Serialisierung, Event-Dict, subscribe_all, Broadcaster/Run, Endpunkte via TestClient).
+
+**Review-Fixes (PR #24, 2026-06-22):**
+- ✅ **UNAVAILABLE ≠ NEUTRAL im Serializer:** `cockpit_to_dict` liefert für eine ausgefallene Domäne jetzt `signal=null` statt des erfundenen `"neutral"` (Default-Signal). AGENTS.md §3 / Spec §6: eine Quelle ohne Daten darf kein echtes Signal vortäuschen. Neuer Helfer `_domain(...)`; 2 neue Tests (`test_unavailable_domain_signal_is_null_not_neutral`, `test_all_unavailable_domains_have_null_signal`). Suite: 763 grün.
+- ✅ **Logbuch-Hygiene:** die unten als „Minor-Aufräumen" notierten Typ-Hint- und Docstring-Punkte waren im finalen Code bereits umgesetzt → abgehakt (siehe dort).
 
 **Offene Folge-Aufgaben:**
 
@@ -408,7 +412,18 @@ v1 der Web-API-Schicht für den Cockpit-Flow:
 - [ ] **Folgeschnitte — `bottomup`/`judge`-Endpunkte:** `GET /api/bottomup`, `POST /api/bottomup/run`, `WS /ws/bottomup` (inkl. Ticker-Parameter) nach demselben Muster wie der Cockpit-Flow; danach reiche Widget-Daten (Buffett, Big-Mac) als eigene Endpunkte.
   *Ansatz:* `RunManager`-Abstraktion ist bereits generisch gehalten; neuer Router je Flow, gleiche Broadcaster-/subscribe_all-Verdrahtung.
 
-- [ ] **Minor-Aufräumen (aus Reviews, niedrige Prio):** `cockpit_to_dict`/`event_to_dict` mit `-> dict[str, Any]` statt bloßem `dict` annotieren; Docstring-Verweis auf §7 EDA-Eintrag in `subscribe_all` ergänzen; CORS-Konfiguration mit Kommentar versehen (heute bewusst credential-frei; falls später Auth, `allow_credentials=True` + Origins einschränken).
+- [ ] **WS-Verbindungsreihenfolge — frühe Events können verloren gehen (Review PR #24, #3):** `POST /run` startet sofort; gestreamt wird nur an *bereits* verbundene WS-Clients (kein Replay/Buffer). Verbindet der Client erst nach dem POST, verpasst er frühe `*Ready`-Events (im Extremfall das terminale). Recoverbar über `GET /api/cockpit`.
+  *Ansatz:* den Client-Vertrag „erst WS öffnen, dann POST" in Spec + Routen-Docstring festhalten; bei Bedarf einen kleinen Pro-Lauf-Replay-Puffer (letzte N Events je `run_id`) nachrüsten.
+
+- [ ] **Zeitstempel im WS-Vertrag ohne Zeitzone (Review PR #24, #4):** `event_to_dict` liefert `timestamp` aus dem naiven `datetime.utcnow()` → ISO-String ohne `Z` (z. B. `2026-06-22T10:15:03`). Ein Frontend interpretiert das oft als *lokale* Zeit. Teil der projektweiten `utcnow`→`now(timezone.utc)`-Aufgabe (oben), aber hier vertragsrelevant: sobald der Stempel tz-aware ist, trägt das JSON automatisch `…+00:00`/`Z`.
+
+- [ ] **`_broadcast_tasks` pro Lauf scopen (Review PR #24, #5):** das Task-Set im `RunManager` ist instanzweit; bei überlappenden Läufen (kein Lock) wartet Lauf A im `gather` auch auf B's Broadcast-Tasks. Kein Bug (Reihenfolge *innerhalb* eines Laufs bleibt korrekt), aber beim Nachrüsten des `409`-Locks bzw. Pro-Lauf-Trackings sollte das Set **pro `run_id`** geführt werden.
+
+- [ ] **Fokussierter Unit-Test für „Fortschritt-vor-Terminal" im `RunManager` (Review PR #24, #6):** der `gather`-Zweig (Kern der Reihenfolge-Garantie) wird heute nur end-to-end über den Routes-Test abgedeckt; `test_execute_…` läuft mit einem Fake-Orchestrator ohne Publishes (leeres Task-Set). *Ansatz:* Fake-Orchestrator, der über den Bus publiziert → Assert: alle Fortschritts-Broadcasts vor dem terminalen `CockpitResultReady`.
+
+- [ ] **Security vor Nicht-localhost-Deployment (Review PR #24, #7):** `POST /api/cockpit/run` ist ein unauthentifizierter Trigger für echte FRED-/Yahoo-Calls und (v1-gewollt) ohne Lauf-Lock. Auf `127.0.0.1` gebunden ok; **bevor** die API je über localhost hinaus exponiert wird (Repo wird öffentlich), zwingend: Auth + Rate-Limiting + Lauf-Lock (sonst Kosten-/Missbrauchs-Vektor durch unbegrenzte parallele Läufe).
+
+- [x] **Minor-Aufräumen (aus Reviews):** ✅ `cockpit_to_dict`/`event_to_dict` mit `-> dict[str, Any]` annotiert (bereits im finalen Code); ✅ Docstring-Verweis auf §7 EDA-Eintrag in `subscribe_all` ergänzt; ✅ CORS-Konfiguration mit Kommentar versehen (Dev-CORS, credential-frei). **Verbleibend** → in den Security-Eintrag oben überführt: falls später Auth, `allow_credentials=True` + Origins einschränken.
 
 ---
 
