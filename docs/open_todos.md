@@ -607,6 +607,8 @@ Jede Analyse gibt pro Linse genau eine Aktion. **HOLD vs NONE:** HOLD = Position
 - [ ] **⚠️ Risiko-Kennzahlen auf Nominal umstellen — VOR Track-B-Hedge-Dimensionierung.** Futures-Hebel + physische ETCs verfälschen `net_exposure`/`net_beta` (rechnen heute mit Kapitaleinsatz statt Nominal); ein gehebeltes Buch sähe fälschlich „sicherer" aus. Exposure muss `wrapper`-abhängig auf den **Nominalwert** rechnen. *(Befund Impact-Analyse 2026-06-21; hängt mit der Risiko-Kennzahlen-Verfeinerung F4 oben zusammen.)*
 - [ ] **NL-Resolver für Eingaben** („gold future" → `(precious_metal, future, GC)`) — erweitert die Ticker-Auflösung (§8) um Hüllen-/Basiswert-Erkennung; Such-API, kein LLM-Raten. Frontend-/Eingangsschicht, Folge-Aufgabe.
 - [ ] **Borrow-Rate manuell** — optionales Eingabefeld als Ergänzung zum Hard-to-borrow-Proxy-Flag.
+- [ ] **Index-Momentum-RS region/mutter-bewusst** (heute fix `URTH`): Sektor→Mutterindex, Land→Welt. Folge aus dem Equity-Momentum-Block (2026-06-22).
+- [ ] **`_detect_crossover`/`_signal` des Index-Agenten auf `core/utils/momentum.py` dedupen** (Equity nutzt bereits die geteilten Helfer).
 
 ---
 

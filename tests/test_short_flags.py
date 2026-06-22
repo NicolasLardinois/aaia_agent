@@ -38,3 +38,22 @@ def test_kinds_and_archetypes():
     kern = {f.name for f in SHORT_FLAGS if f.kind == "kern"}
     assert {"altman_distress", "earnings_collapse", "growth_collapse"} <= kern
     assert _flag("valuation_extreme").kind == "verstaerker"
+
+
+# --- Task 4: Momentum-Verstärker-Flags ---
+
+from core.domain.models import Signal
+
+
+def test_momentum_breakdown_fires_on_bearish():
+    f = _flag("momentum_breakdown")
+    assert f.fires(_bu(momentum=NS(signal=Signal.BEARISH, relative_strength=0.0))) is True
+    assert f.fires(_bu(momentum=NS(signal=Signal.BULLISH, relative_strength=0.0))) is False
+    assert f.fires(_bu(momentum=None)) is False
+
+
+def test_relative_weakness_fires_on_negative_rs():
+    f = _flag("relative_weakness")
+    assert f.fires(_bu(momentum=NS(signal=Signal.NEUTRAL, relative_strength=-0.05))) is True
+    assert f.fires(_bu(momentum=NS(signal=Signal.NEUTRAL, relative_strength=0.05))) is False
+    assert f.fires(_bu(momentum=NS(signal=Signal.NEUTRAL, relative_strength=None))) is False

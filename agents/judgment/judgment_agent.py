@@ -26,9 +26,12 @@ Struktur (alle 5 Punkte ausführen):
 Kein Fachjargon. Direkt, klar und für einen informierten Anleger verständlich."""
 
 
-# Gewichte nach prädiktiver Kraft (Index-aligned zu all_signals in run()):
-# [Fundamentals, ShortInterest, Insider, Earnings, Moat, Valuation]
-_ALIGNMENT_WEIGHTS = [1.0, 0.5, 0.5, 1.0, 0.75, 1.5]
+# Gewichte nach prädiktiver Kraft (Index-aligned zu _bottom_up_signals):
+# [Fundamentals, ShortInterest, Insider, Earnings, Moat, Valuation, Momentum, Bond]
+# Momentum (0.5) ist sekundär — Preis-Trend bestätigt das fundamentale Urteil, aber
+# ein einzelnes Momentum-Signal soll nicht allein die Alignment-Richtung kippen.
+# Bond (1.0) bleibt gleich gewichtet wie bisher (verhaltens-erhaltend, war gepaddet).
+_ALIGNMENT_WEIGHTS = [1.0, 0.5, 0.5, 1.0, 0.75, 1.5, 0.5, 1.0]
 _ALIGNMENT_THRESHOLD = 0.60
 
 
@@ -74,7 +77,11 @@ def _bottom_up_signals(bottom_up) -> list[Signal | None]:
     Eine Anleihe trägt diese Bausteine nicht — ihr bereits aggregiertes Gesamtsignal
     steckt im `BondResult.overall_signal` (PR #19). Ohne den letzten Slot bliebe jede
     Anleihe-Empfehlung NEUTRAL, weil alle sechs Equity-Bausteine `None` sind.
-    Die ersten sechs Positionen bleiben index-gleich zu `_ALIGNMENT_WEIGHTS`.
+
+    Reihenfolge (index-gleich zu `_ALIGNMENT_WEIGHTS`):
+    [Fundamentals, ShortInterest, Insider, Earnings, Moat, Valuation, Momentum, Bond]
+    Momentum (0.5) ist sekundär — Preis-Trend bestätigt das fundamentale Urteil.
+    Bond-Slot bleibt letzter Slot (verhaltens-erhaltend, war bisher gepaddet mit 1.0).
     """
     fu  = bottom_up.fundamentals
     si  = bottom_up.short_interest
@@ -82,7 +89,8 @@ def _bottom_up_signals(bottom_up) -> list[Signal | None]:
     et  = bottom_up.earnings_trend
     mo  = bottom_up.moat
     vr  = bottom_up.valuation_range
-    bond = getattr(bottom_up, "bond", None)   # defensiv: Test-Doubles tragen evtl. kein Bond-Feld
+    mom  = getattr(bottom_up, "momentum", None)  # defensiv: Test-Doubles tragen evtl. kein Momentum-Feld
+    bond = getattr(bottom_up, "bond", None)       # defensiv: Test-Doubles tragen evtl. kein Bond-Feld
     return [
         fu.signal  if fu  else None,
         si.signal  if si  else None,
@@ -90,6 +98,7 @@ def _bottom_up_signals(bottom_up) -> list[Signal | None]:
         et.signal  if et  else None,
         mo.signal  if mo  else None,
         vr.signal  if vr  else None,
+        mom.signal  if mom  else None,
         bond.overall_signal if bond else None,
     ]
 

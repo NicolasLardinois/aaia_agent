@@ -456,6 +456,19 @@ class ValuationRangeSnapshot:
 
 
 @dataclass
+class MomentumSnapshot:
+    rsi_14: Optional[float]
+    ma50: Optional[float]
+    ma200: Optional[float]
+    golden_cross: Optional[bool]
+    # Titel-Return − Heimatmarkt-Return als DEZIMAL (0.10 = +10 %, rs<0 = schwächer).
+    # Achtung: IndexMomentumSnapshot.relative_strength ist in PROZENT (10.0 = +10 %) —
+    # bei der geplanten Dedup beider Agenten die Einheit angleichen (Logbuch-Folgeaufgabe).
+    relative_strength: Optional[float]
+    signal: Signal
+
+
+@dataclass
 class EquityChiefResult:
     fundamentals: FundamentalsSnapshot
     quality: QualitySnapshot
@@ -464,6 +477,9 @@ class EquityChiefResult:
     earnings_trend: EarningsTrendSnapshot
     moat: MoatSnapshot
     valuation_range: ValuationRangeSnapshot
+    # Trailing Optional — bestehende Konstruktionen ohne momentum-Argument bleiben gültig.
+    # Wird in Task 5 ins Signal-Aggregat aufgenommen (jetzt: befüllt, aber ungenutzt).
+    momentum: Optional["MomentumSnapshot"] = None
 
 
 # ─────────────────────────────────────────────
@@ -745,6 +761,9 @@ class BottomUpResult:
     bond: Optional[BondResult]
     index: Optional[IndexResult]
     commodity_deep: Optional[CommodityBottomUpResult]
+    # Trailing Optional — bestehende Konstruktionen ohne momentum-Argument bleiben gültig.
+    # Wird vom EquityChiefAgent befüllt; in Task 5 im Judgment genutzt.
+    momentum: Optional["MomentumSnapshot"] = None
 
 
 # ─────────────────────────────────────────────

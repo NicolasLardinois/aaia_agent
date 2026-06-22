@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Callable, Optional
 
+from core.domain.models import Signal
+
 
 @dataclass(frozen=True)
 class ShortFlag:
@@ -18,6 +20,7 @@ def _fu(bu):  return getattr(bu, "fundamentals", None)
 def _vr(bu):  return getattr(bu, "valuation_range", None)
 def _mo(bu):  return getattr(bu, "moat", None)
 def _in(bu):  return getattr(bu, "insider", None)
+def _mom(bu): return getattr(bu, "momentum", None)
 
 
 def _lt(v, t):
@@ -57,4 +60,13 @@ SHORT_FLAGS = [
     ShortFlag("insider_selling", "verstaerker", None, 0.04,
               lambda bu: _in(bu) is not None and "sell" in (getattr(_in(bu), "net_direction", "") or "").lower(),
               lambda bu: "Insider-Verkäufe"),
+    # Momentum fällt unter MA200 → kurzfristiger Abwärtsdruck (technisches Warnsignal)
+    ShortFlag("momentum_breakdown", "verstaerker", None, 0.04,
+              lambda bu: _mom(bu) is not None and _mom(bu).signal == Signal.BEARISH,
+              lambda bu: "Momentum bearish (ma50<ma200)"),
+    # Aktie verliert gegenüber ihrem Heimatmarkt → relative Schwäche erhöht Short-Risiko
+    ShortFlag("relative_weakness", "verstaerker", None, 0.03,
+              lambda bu: _mom(bu) is not None and _mom(bu).relative_strength is not None
+                         and _mom(bu).relative_strength < 0,
+              lambda bu: f"relative Schwäche vs. Heimatmarkt (RS {_mom(bu).relative_strength:.0%})"),
 ]

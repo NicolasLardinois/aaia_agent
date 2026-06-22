@@ -63,6 +63,7 @@ class BottomUpOrchestrator:
             moat=result.moat,
             valuation_range=result.valuation_range,
             precious_metals=None, bond=None, index=None, commodity_deep=None,
+            momentum=result.momentum,
         )
 
     async def _run_bond(self, ticker: str, bond_type: str, rate_direction: str,

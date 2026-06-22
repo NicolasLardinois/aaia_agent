@@ -116,6 +116,9 @@ class CockpitResultReady(AgentEvent): pass
 
 # --- Modus 2: Equity ---
 @dataclass
+class EquityMomentumReady(AgentEvent): pass
+
+@dataclass
 class FundamentalsReady(AgentEvent): pass
 
 @dataclass
