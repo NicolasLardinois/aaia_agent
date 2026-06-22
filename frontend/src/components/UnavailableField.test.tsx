@@ -9,4 +9,8 @@ describe("UnavailableField", () => {
     expect(el).toBeInTheDocument();
     expect(screen.getByTitle("Stub-Quelle")).toBeInTheDocument();
   });
+  it("nutzt den Standard-Tooltip, wenn kein Grund angegeben ist", () => {
+    render(<UnavailableField />);
+    expect(screen.getByTitle("Datenquelle nicht verfügbar")).toBeInTheDocument();
+  });
 });

@@ -11,4 +11,9 @@ describe("ConfidenceBar", () => {
     render(<ConfidenceBar value={0.71} />);
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "71");
   });
+  it("clamped Werte ausserhalb [0,1]", () => {
+    render(<ConfidenceBar value={1.5} />);
+    expect(screen.getByText("100 %")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100");
+  });
 });

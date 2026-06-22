@@ -1,6 +1,7 @@
 import { formatConfidence } from "../lib/format";
 
 export function ConfidenceBar({ value }: { value: number }) {
+  // Eigenes Clamping/Runden fuer aria-valuenow + Balkenbreite (der String kommt aus formatConfidence).
   const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
   return (
     <div className="flex items-center gap-2">
