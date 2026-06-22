@@ -57,6 +57,12 @@ class ShortThesisAgent:
 ### 3.5 Anzeige (`app/main.py`)
 Nach „URTEIL" eine `SHORT-THESE`-Sektion drucken, wenn `result.short_thesis` nicht leer ist (analog zur `URTEIL`-Anzeige des `judgment`). `short_xai` wird **nicht** im CLI gedruckt (gespeichert/Frontend — symmetrisch zur Long-XAI).
 
+### 3.6 Persistenz (`adapters/memory/supabase_memory.py`)
+**Symmetrisch zur Long-Seite:** `save_analysis` persistiert heute `result.xai_explanation` (Spalte `xai_explanation`), aber **nicht** `judgment`. Genauso:
+- **`short_xai`** → neue Spalte `short_xai` in `analysis_memory`; `save_analysis` schreibt `result.short_xai` (analog `xai_explanation`).
+- **`short_thesis`** → **nicht** persistiert (wie `judgment` — nur Anzeige/In-Memory).
+- **Migration (vor Deploy einmalig):** `ALTER TABLE analysis_memory ADD COLUMN short_xai text;`. `db/schema.sql` (autoritativ) entsprechend ergänzen.
+
 ## 4. Datenfluss
 
 ```
@@ -91,12 +97,11 @@ app/main.py: druckt URTEIL (Long) + SHORT-THESE (Short)
 1. `ShortThesisAgent.run(...)` liefert `(short_thesis, short_xai)` aus dem `ShortAssessment` (zwei LLM-Calls, XAI nutzt die These); defensiv `("", "")` bei Fehler.
 2. `DeepDiveResult.short_thesis` + `short_xai` (Default `""`).
 3. Orchestrator ruft den Agenten **immer** (null-sicher) und füllt die Felder; Fehler → `""` ohne Crash.
-4. CLI zeigt `SHORT-THESE` (wenn vorhanden); `short_xai` bleibt gespeichert/ungezeigt (parallel zur Long-XAI).
+4. CLI zeigt `SHORT-THESE` (wenn vorhanden); `short_xai` wird **nicht** im CLI gezeigt, aber in `analysis_memory.short_xai` **persistiert** (parallel zur Long-`xai_explanation`); `short_thesis` nicht persistiert (wie `judgment`).
 5. Beide Linsen liefern weiterhin **immer** ihr Urteil (Long- + Short-Output zum Vergleich) — Linsen-Modell unverändert.
-6. Gesamtsuite grün; LLM in Tests gemockt.
+6. Gesamtsuite grün; LLM in Tests gemockt; Migration `ALTER TABLE analysis_memory ADD COLUMN short_xai text;` + `db/schema.sql` ergänzt.
 
 ## 8. Bewusst draußen
 
-- **Supabase-Persistenz** der zwei Texte (reproduzierbar aus dem strukturierten `ShortAssessment`) — Result-Feld + Anzeige genügen.
 - **Long-Seite umbauen** (Gating/Zusammenlegen) — die Long-Seite bleibt wie sie ist (immer Prosa); Symmetrie ist über „beide immer voll" gegeben.
 - **Frontend „Kurzfassung + aufklappen"** — reine Anzeige-Entscheidung später; der volle Text liegt dann vor.
