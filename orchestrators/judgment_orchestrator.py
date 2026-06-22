@@ -2,6 +2,7 @@ from agents.anomaly_chief_agent import AnomalyChiefAgent
 from agents.judgment_chief_agent import JudgmentChiefAgent
 from agents.backtester_chief_agent import BacktesterChiefAgent
 from agents.conflict.conflict_agent import ConflictAgent
+from agents.short_thesis.short_thesis_agent import ShortThesisAgent
 from core.domain.models import AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult, PositionState
 from core.domain.recommendation import FULL_ANALYSIS_MARKETS
 from core.domain.top_down_context import derive_top_down_context
@@ -19,11 +20,12 @@ class JudgmentOrchestrator:
 
     def __init__(self, llm: LLMProvider, bus: EventBus, memory: MemoryPort,
                  portfolio_port: PortfolioPort | None = None):
-        self.memory           = memory
-        self.anomaly_chief    = AnomalyChiefAgent(bus)
-        self.judgment_chief   = JudgmentChiefAgent(llm, bus, portfolio_port)
-        self.backtester_chief = BacktesterChiefAgent(memory, bus)
-        self.conflict_agent   = ConflictAgent(llm, bus)
+        self.memory              = memory
+        self.anomaly_chief       = AnomalyChiefAgent(bus)
+        self.judgment_chief      = JudgmentChiefAgent(llm, bus, portfolio_port)
+        self.backtester_chief    = BacktesterChiefAgent(memory, bus)
+        self.conflict_agent      = ConflictAgent(llm, bus)
+        self.short_thesis_agent  = ShortThesisAgent(llm, bus)
 
     async def run(
         self,
@@ -86,6 +88,14 @@ class JudgmentOrchestrator:
                     backtester_context=backtester_context)
             except Exception:
                 result.conflict_resolution = None
+
+        # Short-These + XAI: immer erzeugen, solange short_assessment vorhanden (null-sicher)
+        if result.short_assessment is not None:
+            try:
+                result.short_thesis, result.short_xai = await self.short_thesis_agent.run(
+                    bottom_up.ticker, result.short_assessment, result.asset_class)
+            except Exception:
+                result.short_thesis, result.short_xai = "", ""
 
         self.memory.save_analysis(result, cockpit, price=None)
         return result
