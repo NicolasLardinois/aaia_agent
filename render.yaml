@@ -1,0 +1,34 @@
+# Render Blueprint — Cockpit-Scheibe (Backend Web Service + Frontend Static Site).
+# Secrets/URLs sind sync:false -> werden im Render-Dashboard gesetzt, NICHT im Repo.
+# Verdrahtung der Cross-URLs (AAIA_CORS_ORIGINS / VITE_API_BASE_URL) manuell im
+# Zwei-Pass nach dem ersten Deploy (siehe docs/deploy-render.md).
+services:
+  # --- Backend: FastAPI / uvicorn -----------------------------------------
+  - type: web
+    name: aaia-api
+    runtime: python
+    plan: free
+    numInstances: 1                # In-Memory-Zustand -> kein Autoscaling
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/cockpit  # liefert 204 (2xx) solange kein Lauf war -> healthy
+    envVars:
+      - key: FRED_API_KEY
+        sync: false                # Pflicht (sonst Startabbruch in config/settings.py)
+      - key: ANTHROPIC_API_KEY
+        sync: false                # Pflicht
+      - key: FINNHUB_API_KEY
+        sync: false                # optional
+      - key: AAIA_CORS_ORIGINS
+        sync: false                # = Frontend-URL (nach 1. Deploy eintragen, siehe Doku)
+
+  # --- Frontend: Vite Static Site -----------------------------------------
+  - type: web
+    name: aaia-frontend
+    runtime: static
+    rootDir: frontend              # build + publish relativ zu diesem Verzeichnis
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false                # = Backend-URL (nach 1. Deploy eintragen, siehe Doku)
