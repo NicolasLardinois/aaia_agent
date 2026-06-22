@@ -13,7 +13,8 @@ from core.domain.models import (
 # ── gewichtete Gesamtbeurteilung ──────────────────────────────────────────
 
 def test_aggregate_dominiert_von_bewertung_und_qualitaet():
-    """Bullish Bewertung + bullish Qualität + bullish Moat → BULLISH gesamt."""
+    """Bullish Bewertung + bullish Qualität + bullish Moat → BULLISH gesamt.
+    momentum_sig=NEUTRAL: Momentum ist sekundär (0.10), ändert die Gesamtaussage nicht."""
     sig, conf = _aggregate_signal(
         fundamentals_sig=Signal.BULLISH,
         quality_sig=Signal.BULLISH,
@@ -22,13 +23,15 @@ def test_aggregate_dominiert_von_bewertung_und_qualitaet():
         earnings_sig=Signal.NEUTRAL,
         insider_sig=Signal.NEUTRAL,
         short_sig=Signal.NEUTRAL,
+        momentum_sig=Signal.NEUTRAL,
     )
     assert sig == Signal.BULLISH
     assert conf > 0.0
 
 
 def test_aggregate_konflikt_neutralisiert():
-    """Bullish Bewertung gegen bearish Qualität (gleich gewichtet) → tendenziell NEUTRAL."""
+    """Bullish Bewertung gegen bearish Qualität (gleich gewichtet) → tendenziell NEUTRAL.
+    momentum_sig=NEUTRAL: Momentum ist sekundär (0.10), ändert die Gesamtaussage nicht."""
     sig, _ = _aggregate_signal(
         fundamentals_sig=Signal.BULLISH,
         quality_sig=Signal.BEARISH,
@@ -37,6 +40,7 @@ def test_aggregate_konflikt_neutralisiert():
         earnings_sig=Signal.NEUTRAL,
         insider_sig=Signal.NEUTRAL,
         short_sig=Signal.NEUTRAL,
+        momentum_sig=Signal.NEUTRAL,
     )
     assert sig == Signal.NEUTRAL
 
@@ -120,4 +124,29 @@ def _momentum_default():
         rsi_14=None, ma50=None, ma200=None,
         golden_cross=None, relative_strength=None,
         signal=Signal.NEUTRAL,
+    )
+
+
+# ── Task 5: _aggregate_signal nimmt momentum_sig ──────────────────────────
+
+def test_aggregate_signal_accepts_momentum():
+    """_aggregate_signal muss momentum_sig als Parameter akzeptieren
+    und ein (Signal, float)-Tupel zurückgeben.
+    Momentum-Gewicht 0.10 — ein einzelnes BEARISH-Momentum-Signal
+    darf NEUTRAL-Bausteine nicht allein überstimmen."""
+    sig, conf = _aggregate_signal(
+        fundamentals_sig=Signal.NEUTRAL,
+        quality_sig=Signal.NEUTRAL,
+        valuation_sig=Signal.NEUTRAL,
+        moat_sig=Signal.NEUTRAL,
+        earnings_sig=Signal.NEUTRAL,
+        insider_sig=Signal.NEUTRAL,
+        short_sig=Signal.NEUTRAL,
+        momentum_sig=Signal.BEARISH,
+    )
+    assert isinstance(conf, float)
+    # Alle anderen NEUTRAL + nur Momentum BEARISH (0.10) → Gesamtsignal bleibt NEUTRAL
+    assert sig == Signal.NEUTRAL, (
+        f"Einzelnes BEARISH-Momentum (0.10) darf NEUTRAL-Bausteine nicht überstimmen, "
+        f"aber Ergebnis war: {sig}"
     )

@@ -16,7 +16,10 @@ from core.ports.llm_provider import LLMProvider
 from core.utils.aggregation import weighted_signal
 
 # Gewichte: Bewertung = Langfrist-Anker, Qualität/Moat = Prämien-Rechtfertigung,
-# Earnings/Insider/Short = Timing/Bestätigung.
+# Earnings/Insider/Short/Momentum = Timing/Bestätigung.
+# Momentum (0.10) ist sekundär — Preis-Trend bestätigt oder bremst das fundamentale Urteil,
+# aber ein einzelnes BEARISH-Momentum-Signal soll NEUTRAL-Bausteine nicht allein überstimmen.
+# Summe: 0.25+0.20+0.20+0.15+0.10+0.05+0.05+0.10 = 1.10 → weighted_signal renormalisiert.
 _W_VALUATION = 0.25
 _W_FUNDAMENTALS = 0.20
 _W_QUALITY = 0.20
@@ -24,6 +27,7 @@ _W_MOAT = 0.15
 _W_EARNINGS = 0.10
 _W_INSIDER = 0.05
 _W_SHORT = 0.05
+_W_MOMENTUM = 0.10
 
 
 def _status(sig: Signal) -> SignalStatus:
@@ -35,7 +39,8 @@ def _status(sig: Signal) -> SignalStatus:
 
 
 def _aggregate_signal(fundamentals_sig, quality_sig, valuation_sig, moat_sig,
-                      earnings_sig, insider_sig, short_sig) -> tuple[Signal, float]:
+                      earnings_sig, insider_sig, short_sig,
+                      momentum_sig) -> tuple[Signal, float]:
     items = [
         (valuation_sig,    _W_VALUATION,    _status(valuation_sig)),
         (fundamentals_sig, _W_FUNDAMENTALS, _status(fundamentals_sig)),
@@ -44,6 +49,7 @@ def _aggregate_signal(fundamentals_sig, quality_sig, valuation_sig, moat_sig,
         (earnings_sig,     _W_EARNINGS,     _status(earnings_sig)),
         (insider_sig,      _W_INSIDER,      _status(insider_sig)),
         (short_sig,        _W_SHORT,        _status(short_sig)),
+        (momentum_sig,     _W_MOMENTUM,     _status(momentum_sig)),
     ]
     return weighted_signal(items)
 
@@ -98,6 +104,7 @@ class EquityChiefAgent:
             earnings_sig=earnings_trend.signal,
             insider_sig=insider.signal,
             short_sig=short_interest.signal,
+            momentum_sig=momentum.signal,
         )
 
         self.bus.publish(EquityChiefReady(source="equity_chief_agent", payload={

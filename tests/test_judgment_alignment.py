@@ -5,7 +5,9 @@ from unittest.mock import MagicMock, patch
 from core.domain.models import (
     AnomalyReport, MarketRegime, PositionState, ShortAction, Signal,
 )
-from agents.judgment.judgment_agent import _derive_alignment, _backtester_summary, JudgmentAgent
+from agents.judgment.judgment_agent import (
+    _derive_alignment, _backtester_summary, _bottom_up_signals, _ALIGNMENT_WEIGHTS, JudgmentAgent,
+)
 
 
 def test_alignment_relative_majority_bullish():
@@ -117,3 +119,31 @@ def test_judgment_long_held_distress_gives_conflict():
     """LONG gehalten + starke Distress-These → conflict == True."""
     result = _run_judgment(PositionState.LONG)
     assert result.conflict is True
+
+
+# ─────────────────────────────────────────────
+# Task 5: Momentum-Integration in Alignment (Step 1 — Failing Tests)
+# ─────────────────────────────────────────────
+
+def test_bottom_up_signals_includes_momentum():
+    """Momentum erscheint an Position 6 (vor Bond) in _bottom_up_signals.
+    _ALIGNMENT_WEIGHTS muss mindestens 8 Einträge haben:
+    Momentum-Gewicht 0.5 an Pos 6, Bond-Gewicht 1.0 an Pos 7.
+    """
+    from types import SimpleNamespace as NS
+    bu = NS(
+        fundamentals=None, short_interest=None, insider=None, earnings_trend=None,
+        moat=None, valuation_range=None, bond=None,
+        momentum=NS(signal=Signal.BEARISH),
+    )
+    sigs = _bottom_up_signals(bu)
+    assert sigs[6] == Signal.BEARISH, f"Erwartet Signal.BEARISH an Index 6, aber: {sigs[6]}"
+    assert len(_ALIGNMENT_WEIGHTS) >= 8, (
+        f"_ALIGNMENT_WEIGHTS hat nur {len(_ALIGNMENT_WEIGHTS)} Einträge, benötigt mind. 8"
+    )
+    assert _ALIGNMENT_WEIGHTS[6] == 0.5, (
+        f"Momentum-Gewicht (Index 6) sollte 0.5 sein, ist aber: {_ALIGNMENT_WEIGHTS[6]}"
+    )
+    assert _ALIGNMENT_WEIGHTS[7] == 1.0, (
+        f"Bond-Gewicht (Index 7) sollte 1.0 sein, ist aber: {_ALIGNMENT_WEIGHTS[7]}"
+    )
