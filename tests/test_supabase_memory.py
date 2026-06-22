@@ -18,6 +18,7 @@ def _result(short_action):
         bottom_up=None, conflict_resolution=None,
         top_down_anomaly=None, bottom_up_anomaly=None,
         short_action=short_action,
+        short_xai="",
     )
 
 
@@ -46,6 +47,35 @@ def test_save_analysis_persists_short_action(monkeypatch):
     sql, params = cur.execute.call_args.args
     assert "short_action" in sql, "INSERT muss die Spalte short_action enthalten"
     assert "COVER" in params, f"short_action-Wert COVER fehlt in den INSERT-Parametern: {params}"
+
+
+def test_save_analysis_persists_short_xai(monkeypatch):
+    """save_analysis muss die Short-XAI separat persistieren (Spalte short_xai),
+    symmetrisch zur Long-Seite (xai_explanation). Ohne eigene Spalte ginge die
+    erklärbare Short-Begründung in der History verloren."""
+    cur = MagicMock()
+
+    @contextmanager
+    def fake_cursor():
+        yield cur
+
+    conn = MagicMock()
+    conn.cursor.side_effect = fake_cursor
+
+    @contextmanager
+    def fake_connect(self):
+        yield conn
+
+    monkeypatch.setattr(SupabaseMemory, "_connect", fake_connect)
+
+    mem = SupabaseMemory.__new__(SupabaseMemory)  # __init__ umgehen (kein SUPABASE_DB_URL nötig)
+    result = _result(ShortAction.COVER)
+    result.short_xai = "SX"
+    mem.save_analysis(result)
+
+    sql, params = cur.execute.call_args.args
+    assert "short_xai" in sql, "INSERT muss die Spalte short_xai enthalten"
+    assert "SX" in params, f"short_xai-Wert SX fehlt in den INSERT-Parametern: {params}"
 
 
 # ── Bug #46: kein stilles `except AttributeError: pass` mehr ───────────────

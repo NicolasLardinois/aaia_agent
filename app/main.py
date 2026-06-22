@@ -188,6 +188,8 @@ async def run_judgment(ticker: str, market: str = "USA") -> None:
         cr = result.conflict_resolution
         print(f"🔀 KONFLIKT-URTEIL: {cr.verdict}\n{cr.reasoning}")
     print(f"\nURTEIL:\n{result.judgment}")
+    if result.short_thesis:
+        print(f"\nSHORT-THESE:\n{result.short_thesis}")
 
 
 def main() -> None:
