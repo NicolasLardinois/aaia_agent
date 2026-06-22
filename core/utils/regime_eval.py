@@ -139,3 +139,41 @@ def evaluate_nber(judgments: list, usrec_by_month: dict) -> dict:
         "mean_lead_months": round(sum(leads) / len(leads), 1) if leads else None,
         "episodes": [{"start": s, "end": e} for s, e in _nber_episodes(usrec_by_month)],
     }
+
+
+def build_report_md(market: dict, nber: dict, n_judgments: int, window: str,
+                    quality_counts: dict) -> str:
+    """Lesbare Markdown-Zusammenfassung des Replay-Reports."""
+    lines = [
+        f"# Regime-Replay-Report",
+        f"",
+        f"- Fenster: **{window}**",
+        f"- Urteile gesamt: **{n_judgments}**",
+        f"- Datenqualität: " + ", ".join(f"{k}={v}" for k, v in sorted(quality_counts.items())),
+        f"",
+        f"## (A) Markt-Wahrheit — Forward-S&P",
+        f"",
+        f"| Horizont | N | Hit-Rate | 95 %-CI |",
+        f"|---|---|---|---|",
+    ]
+    for h in sorted(market):
+        m = market[h]
+        hr = f"{m['hit_rate']*100:.0f} %" if m["hit_rate"] is not None else "n/v"
+        lines.append(f"| {h} M | {m['n']} | {hr} | {m['ci_low']*100:.0f}–{m['ci_high']*100:.0f} % |")
+    lines += ["", "### Je Regime (kürzester Horizont)", ""]
+    if market:
+        h0 = sorted(market)[0]
+        for rk, v in sorted(market[h0]["by_regime"].items()):
+            hr = f"{v['hit_rate']*100:.0f} %" if v["hit_rate"] is not None else "n/v"
+            lines.append(f"- **{rk}**: N={v['n']}, Hit-Rate={hr}")
+    lead = nber.get("mean_lead_months")
+    lead_str = f"{lead:+.1f} Monate" if lead is not None else "n/v"
+    lines += [
+        "", "## (B) Wirtschafts-Wahrheit — NBER", "",
+        f"- Precision (risk-off | NBER): **{(nber['precision'] or 0)*100:.0f} %**",
+        f"- Recall: **{(nber['recall'] or 0)*100:.0f} %**",
+        f"- Mittlerer **Vorlauf** vor Rezessionsbeginn: **{lead_str}** (positiv = antizipierend)",
+        f"- Konfusion: TP={nber['tp']} FP={nber['fp']} TN={nber['tn']} FN={nber['fn']}",
+        f"- Rezessions-Episoden im Fenster: {len(nber.get('episodes', []))}",
+    ]
+    return "\n".join(lines)
