@@ -174,6 +174,7 @@ class MacroChiefResult:
     labor_income: LaborIncomeSnapshot
     credit: CreditSnapshot
     buffett_indicator: BuffettIndicatorSnapshot
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 # ─────────────────────────────────────────────
@@ -227,6 +228,7 @@ class CommodityChiefResult:
     precious_metals: PreciousMetalsMacroSnapshot
     agricultural: AgriculturalSnapshot
     signal: Signal = Signal.NEUTRAL
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 # ─────────────────────────────────────────────
@@ -260,6 +262,7 @@ class SentimentChiefResult:
     fear_greed: FearGreedSnapshot
     put_call: PutCallSnapshot
     signal: Signal = Signal.NEUTRAL
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 # ─────────────────────────────────────────────
@@ -296,6 +299,7 @@ class YieldCurveChiefResult:
     yield_spreads: YieldSpreadSnapshot
     sovereign_spreads: SovereignSpreadSnapshot
     signal: Signal = Signal.NEUTRAL
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 # ─────────────────────────────────────────────
@@ -324,6 +328,7 @@ class SectorRotationSnapshot:
 class SectorChiefResult:
     performance: SectorPerformanceSnapshot
     rotation: SectorRotationSnapshot
+    status: SignalStatus = SignalStatus.AVAILABLE
 
 
 # ─────────────────────────────────────────────
