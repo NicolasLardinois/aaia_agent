@@ -139,10 +139,14 @@ def _regime_from(composite: float, trend: float | None) -> MarketRegime:
 
 
 class RegimeDetector:
-    def detect(self, state: dict, sub_signals: Optional[dict] = None) -> tuple[MarketRegime, float, dict]:
+    def detect(self, state: dict, sub_signals: Optional[dict] = None,
+               history: Optional[list] = None) -> tuple[MarketRegime, float, dict]:
         """Returns: (regime, confidence, evidence_per_indicator)
         sub_signals: optionale {key: ±1.0}-Werte (money_supply, credit, labor, buffett)
         mit kleinen Gewichten; fließen in weighted_sum/weight_total ein.
+        history: optionale datierte Composite-Reihe [(iso_date, value), ...]. Ist sie
+        gesetzt, wird die Cache-Datei WEDER gelesen NOCH geschrieben (Backtest/Replay) —
+        der Trend kommt allein aus dieser Reihe.
         """
         evidence = {}
         weighted_sum = 0.0
@@ -155,7 +159,6 @@ class RegimeDetector:
             weighted_sum += score * w
             weight_total += w
 
-        # Optionale Sub-Signal-Indikatoren (kleines Gewicht 0.03 je Sub-Signal)
         _SUB_WEIGHT = 0.03
         if sub_signals:
             for sub_key, sub_val in sub_signals.items():
@@ -166,9 +169,14 @@ class RegimeDetector:
 
         composite = weighted_sum / weight_total if weight_total > 0 else 0.0
 
-        history = _load_history()
-        trend   = _trend(history, composite)
-        _save_history(history, composite)
+        if history is None:
+            # Live-Pfad: datei-basierte Historie (unverändertes Verhalten)
+            loaded = _load_history()
+            trend = _trend(loaded, composite)
+            _save_history(loaded, composite)
+        else:
+            # Backtest/Replay-Pfad: rein aus der injizierten Reihe, kein Datei-I/O
+            trend = _trend(history, composite)
 
         regime     = _regime_from(composite, trend)
         confidence = round(min(1.0, abs(composite) * 1.5 + 0.3), 3)
