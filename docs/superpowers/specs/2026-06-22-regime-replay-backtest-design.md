@@ -109,42 +109,74 @@ Markt kurzfristig verrauscht (B gut, A schlecht).
    Fundament: Point-in-Time — nie Daten aus der Zukunft des Stichtags
 ```
 
+### 4.0 Treue-Prinzip (Option 1 — voll-treu, vom Nutzer gewählt)
+
+Der Replay validiert **genau das Regime, das live läuft**. Daraus zwei verbindliche Konsequenzen:
+
+- **Der Replay führt die echten Agenten aus** (statt ihre Logik nachzubauen). Die Produktion baut den
+  Regime-Input in `MacroChiefAgent.run()` (Zeilen 64–93) reicher zusammen als nur `get_economic_state()`:
+  zusätzlich die **USA-Zinskurve 10y-3m** (`T10Y3M`, Gewicht 0,17) und **vier Sub-Signale**
+  (`money_supply`, `credit`, `labor`, `buffett`, je ±1,0, zusammen ~11 % des Composite). Diese vier
+  stammen aus vier weiteren Makro-Agenten, die nur FRED-Daten brauchen.
+- **Produktions-Eigenheiten werden nachgebildet, nicht „verbessert".** Beispiel: `get_extended_state()`
+  liefert weder `gdp_growth` noch `inflation` → das `money_supply`-Sub-Signal ist in Produktion faktisch
+  **immer NEUTRAL**. Durch das Ausführen der echten Agenten trägt der Replay solche Eigenheiten
+  automatisch korrekt mit. (Ob diese Eigenheit ein zu behebender Bug ist, ist eine **separate**
+  Folge-Frage — der Validierungslauf misst zuerst den *Ist-Zustand*.)
+
 ### 4.1 `HistoricalFredProvider(as_of)` — Adapter (NEU)
 
 - Liegt in `adapters/data/historical_fred.py`, implementiert **dasselbe** `MacroDataProvider`-Port
-  wie der bestehende `FredDataProvider`. **Folge:** `TopDownOrchestrator` und der Regime-Code ändern
+  wie der bestehende `FredDataProvider`. **Folge:** die Makro-Agenten und der Regime-Code ändern
   sich nicht — es wird nur ein anderer Adapter injiziert (Lohn der hexagonalen Architektur).
 - Statt `.iloc[-1]` (neuester Wert) liefert er den letzten Wert **mit Beobachtungsdatum ≤ `as_of`**.
 - **Vintage:** nutzt `fredapi.Fred.get_series_as_of_date(series_id, as_of)` — liefert den Stand, der
   am Stichtag *veröffentlicht* war (vor späteren Revisionen). Wo FRED **keine** Vintage-Stände hat
   (flächendeckend erst ~1990er), Rückfall auf die normale (revidierte) Serie, geschnitten auf
   `≤ as_of`. Pro Lauf/Reihe wird die verwendete Datenqualität (`vintage` | `revised`) protokolliert.
-- Wiederverwendet die bestehenden Serien-Mappings/Transformationen aus `FredDataProvider` (CPIAUCSL,
-  UNRATE, FEDFUNDS, T10Y2Y, T10Y3M, GDP, UMCSENT, INDPRO), damit die Berechnung **identisch** zum
-  Live-Pfad bleibt (keine Logik-Divergenz).
+- Implementiert die Port-Methoden, die der **faithful** Pfad braucht — mit **denselben**
+  Serien-Mappings/Transformationen wie `FredDataProvider` (keine Logik-Divergenz):
+  - `get_economic_state()` → CPIAUCSL, UNRATE, FEDFUNDS, T10Y2Y, GDP, UMCSENT, INDPRO
+  - `get_yield_spreads()` → T10Y2Y, **T10Y3M** (für die 10y-3m-Anreicherung)
+  - `get_extended_state()` → AHETPI, M2V, TOTLL, DFII10, T10Y3M, M2SL, PPIACO (+ `real_wage_growth`)
+  - `get_buffett_data()` → WILL5000INDFC / GDP · `get_buffett_history(years)` → quartalsweise Quoten
 
-### 4.2 `RegimeDetector` — Trend-Historie injizierbar (BESTEHEND, minimaler Eingriff)
+### 4.2 Geteilter Regime-Input + injizierbare Trend-Historie (BESTEHEND, gezielte Eingriffe)
 
-**Problem heute:** `RegimeDetector.detect()` liest/schreibt die Trend-Historie aus einer **globalen**
-Cache-Datei (`.cache/composite_history.json`, max. 8 Einträge, datiert auf `date.today()`). Für einen
-Replay ist das doppelt falsch: es würde das *heutige* Datum schreiben und sich über alle historischen
-Stichtage gegenseitig überschreiben.
+Drei kleine, rückwärtskompatible Eingriffe am Bestand, damit Produktion und Replay **einen** Pfad teilen:
 
-**Lösung:** `detect()` akzeptiert die Composite-Historie als **Parameter** (z. B.
-`detect(state, sub_signals=None, history=None)`); ist `history` gesetzt, wird **nichts** aus der Datei
-gelesen oder geschrieben. Das **Live-Verhalten bleibt per Default unverändert** (ohne `history`-Arg
-weiterhin Datei-basiert). Die Replay-Schleife baut die bis `as_of` aufgelaufene Composite-Reihe selbst
-auf und reicht sie durch — die `_trend()`-Berechnung bleibt unangetastet.
+1. **`RegimeDetector.detect()` — Trend-Historie injizierbar.**
+   *Problem heute:* `detect()` liest/schreibt die Trend-Historie aus einer **globalen** Cache-Datei
+   (`.cache/composite_history.json`, max. 8 Einträge, datiert auf `date.today()`). Für einen Replay ist
+   das doppelt falsch: es würde das *heutige* Datum schreiben und sich über alle Stichtage überschreiben.
+   *Lösung:* `detect(state, sub_signals=None, history=None)`; ist `history` gesetzt, wird **nichts** aus
+   der Datei gelesen/geschrieben. **Live-Verhalten per Default unverändert** (ohne `history` weiter
+   datei-basiert). Die `_trend()`-Berechnung bleibt unangetastet.
+
+2. **Geteilte Funktion `assemble_regime_inputs(...)`** (neu, **reine** Funktion, z. B.
+   `core/domain/regime_inputs.py`): kapselt die Input-Montage aus `MacroChiefAgent.run()` (Zeilen 69–91)
+   — die `yield_curve_*`-Anreicherung **und** den `sub_signals`-Aufbau (Signal→±1,0). `MacroChiefAgent`
+   wird so umgebaut, dass es diese Funktion aufruft → **Produktion und Replay bauen den Input identisch**
+   (DRY, kein Drift). Signatur: `assemble_regime_inputs(economic_state, usa_10y3m, eu_spreads, ch_spreads,
+   sub_signal_map) -> tuple[dict, dict]`.
+
+3. **`BuffettIndicatorAgent` — Weltbank-Fetch injizierbar.** Konstruktor erhält `wb_fetch=_fetch_world_bank`
+   (Default unverändert). Der Replay injiziert einen No-Op (`lambda: {}`) → kein Netz, kein Look-Ahead;
+   das **USA-Sub-Signal** bleibt voll-treu, da es ohnehin aus FRED stammt (USA überschreibt Weltbank).
 
 ### 4.3 `ReplayHarness` — die Schleife (NEU)
 
-- Liegt unter `agents/backtester/` (z. B. `regime_replay.py`) bzw. wird über `app/replay_regime.py`
-  angestoßen.
-- Iteriert monatsweise von `start` (Default 1960-01) bis heute. Je Stichtag:
-  1. `state = HistoricalFredProvider(as_of).get_economic_state()` (+ `get_extended_state` falls genutzt),
-  2. Composite-Reihe der **vorherigen** Stichtage zusammenstellen,
-  3. `regime, confidence, evidence = RegimeDetector().detect(state, history=…)`,
-  4. Datensatz `(as_of, regime, confidence, composite, evidence, data_quality)` sammeln.
+- Liegt unter `agents/backtester/` (z. B. `regime_replay.py`), angestoßen über `app/replay_regime.py`.
+- Nutzt einen **In-Memory-Bus** und **ECB/SNB-Stubs** (liefern `None` — wie in Produktion heute für USA).
+- Iteriert monatsweise von `start` (Default 1960-01) bis heute. Je Stichtag `as_of`:
+  1. `provider = HistoricalFredProvider(as_of)`,
+  2. parallel: `economic_state = provider.get_economic_state()`, `usa_10y3m = provider.get_yield_spreads()["10y3m"]`,
+     und die **vier echten Sub-Signal-Agenten** ausführen (`MoneySupplyAgent`, `CreditAgent`,
+     `LaborIncomeAgent`, `BuffettIndicatorAgent(wb_fetch=lambda: {})`) → je `.usa.signal` (bzw. `.signal`),
+  3. `(state, sub_signals) = assemble_regime_inputs(economic_state, usa_10y3m, {}, {}, {…vier Signale…})`,
+  4. Composite-Reihe der **vorherigen** Stichtage zusammenstellen,
+  5. `regime, confidence, _ = RegimeDetector().detect(state, sub_signals, history=…)`,
+  6. Datensatz `(as_of, regime, confidence, composite, evidence, data_quality)` sammeln.
 
 ### 4.4 `RegimeEvaluator` — reine Mathematik (NEU)
 
@@ -189,10 +221,20 @@ Alle Tests **ohne Netz** (Fakes/Fixtures, deterministisch):
   Vintage-Pfad und Revised-Fallback je ein Test inkl. korrektem `data_quality`-Flag.
 - **`RegimeDetector` mit injizierter Historie**: pinnt ein bekanntes `(composite, trend) → Regime`
   und beweist, dass **keine** Datei gelesen/geschrieben wird (kein Seiteneffekt).
+- **`assemble_regime_inputs(...)`**: baut aus `economic_state` + `usa_10y3m` + vier Signalen exakt
+  dieselben `(state, sub_signals)`-Dicts wie der bisherige Inline-Code in `MacroChiefAgent` (inkl.
+  `yield_curve_10y3m_usa`-Key und `±1,0`-Scores).
+- **`MacroChiefAgent`-Regression**: nach dem Umbau auf `assemble_regime_inputs(...)` bleibt das
+  Regime identisch (bestehende Macro-Chief-Tests grün; ggf. ein Pin-Test ergänzen).
+- **`BuffettIndicatorAgent(wb_fetch=…)`**: injizierter No-Op-Fetch → kein Netz; USA-Signal entsteht
+  trotzdem aus den FRED-Daten (`get_buffett_data`/`get_buffett_history`).
 - **`RegimeEvaluator` (A)**: Richtungs-Mapping je Regime; Grenzfälle (Return exakt 0, `None`-Kurs);
   Wilson-CI an bekanntem Beispiel.
 - **`RegimeEvaluator` (B)**: NBER-Konfusionsmatrix + Vorlauf/Nachlauf an einer konstruierten Episode
   (früh/spät/genau am Rezessionsbeginn).
+- **Treue-Äquivalenztest (zentral)**: dieselben historischen Roh-Daten einmal durch den **echten**
+  `MacroChiefAgent`-Pfad (mit injizierter Historie + No-Op-WB-Fetch) und einmal durch den
+  **Replay**-Pfad → **identisches Regime**. Schützt dauerhaft gegen Drift zwischen beiden.
 - **Integration**: Mini-Replay über 3 Stichtage gegen einen Fake-Provider erzeugt **deterministisch**
   denselben Report.
 
