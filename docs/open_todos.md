@@ -304,6 +304,19 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   je Serie einmal die volle (Vintage-)Reihe laden und lokal pro `as_of` schneiden (Caching im
   `HistoricalFredProvider` oder ein vorgelagerter Serien-Cache). Niedrige Prio (v1 läuft, nur langsam).
 
+#### Regime-Kalibrierung Stufe ②-v1 — Risk-off-Grenze kalibrieren (2026-06-22, Branch `worktree-regime-calibration`)
+- [x] **Stufe ②-v1 umgesetzt:** Walk-Forward-Kalibrierung der Risk-off-Grenze (`_REGIME_BIAS`) gegen NBER-Wahrheit (F1-Metrik).
+  Spec `docs/superpowers/specs/2026-06-22-regime-kalibrierung-design.md`; Plan `docs/superpowers/plans/2026-06-22-regime-kalibrierung.md`.
+  **Implementiert (5 Tasks):**
+  Task 1: `_REGIME_BIAS`-Knopf + Trend-Invarianz in `core/domain/regime.py`.
+  Task 2: `evidence["trend"]` + `urteil["trend"]` in `regime_replay.py`.
+  Task 3: `bias_grid`/`f1_for_bias`/`best_bias_on` + NBER-Evaluator-Reuse in `core/utils/regime_calibration.py`.
+  Task 4: `walk_forward`/`calibrate` (Expanding-Window, Markt-Härtetest A) ebenda.
+  Task 5: `build_calib_report_md` (reiner String-Builder) + CLI `app/calibrate_regime.py` (NBER+FRED+yfinance, schreibt `data/backtests/regime_calib_YYYYMMDD.(json|md)`).
+  **Kein Auto-Apply** — Urteil `adopt`/`keep_default` ist ein Vorschlag; `_REGIME_BIAS` wird manuell per PR gesetzt.
+- [ ] **Stufe ②-v2: Gewichte kalibrieren (`INDICATOR_WEIGHTS` in `regime.py`).** Nächster Schritt nach ②-v1.
+  **Ansatz:** gleiche Walk-Forward-Struktur, aber statt 1-D-Bias ein k-dimensionales Gewichts-Gitter (oder Bayes-Opt.) → eigener Spec nötig (Suche nach Gitter-Explosion, evtl. Random-Search oder Nelder-Mead).
+
 ### PM: periodische + manuelle Komplett-Neuanalyse von Portfolio-Positionen (Idee 2026-06-21, eigener Spec später)
 - [ ] **Im Portfolio-Manager pro Position eine volle Deep-Dive-Neuanalyse anstoßen — manuell (1-Klick) und automatisch im Hintergrund (~alle 30 Tage).**
   Querschnittlich (alle Anlageklassen) + braucht **Scheduling** (Hintergrundlauf) → **eigenes Feature mit eigenem Spec**, NICHT Teil des Bond-Risikoaffinität-Specs.

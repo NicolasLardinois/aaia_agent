@@ -15,6 +15,11 @@ _MAX_HISTORY = 8
 _TREND_NORMAL = 0.05   # Mindestschwelle für einen erkennbaren Trend
 _TREND_STRONG = 0.12   # Schwelle für einen deutlichen Trend
 
+# Kalibrierbarer Risk-off-Grenz-Bias: wird vor der Regime-Zuordnung auf den Composite addiert.
+# Default 0.0 = heutiges Verhalten. Stufe ②-Kalibrierung schlägt einen Wert vor (kein Auto-Apply).
+# b < 0 → Risk-off feuert früher (sensibler); b > 0 → später.
+_REGIME_BIAS: float = 0.0
+
 
 def _score_indicator(key: str, value: float) -> float:
     _yc = lambda v: 1.0 if v > 1 else (0.5 if v > 0 else -1.0)
@@ -83,7 +88,7 @@ def _save_history(history: list[tuple[str, float]], current: float, today: Optio
 
 def _trend(history: list[tuple[str, float]], current: float) -> float | None:
     """Positiv = Composite verbessert sich, Negativ = verschlechtert sich.
-    Steigung der letzten N datierten Punkte statt current − mean (misst echte Dynamik)."""
+    Berechnung: current − mean(history) — misst die Abweichung vom Durchschnitt (shift-invariant)."""
     values = [v for _, v in history]
     if len(values) < 2:
         return None
@@ -181,6 +186,7 @@ class RegimeDetector:
             # Backtest/Replay-Pfad: rein aus der injizierten Reihe, kein Datei-I/O
             trend = _trend(history, composite)
 
-        regime     = _regime_from(composite, trend)
+        evidence["trend"] = trend
+        regime     = _regime_from(composite + _REGIME_BIAS, trend)
         confidence = round(min(1.0, abs(composite) * 1.5 + 0.3), 3)
         return regime, confidence, evidence
