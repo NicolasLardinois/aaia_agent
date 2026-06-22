@@ -164,3 +164,60 @@ def calibrate(records: list, usrec_by_month: dict, sp_price_on=None,
         "n_recession_months": n_rec,
         "n_records": len(records),
     }
+
+
+# ---------------------------------------------------------------------------
+# Report-Builder — reine String-Funktion, kein I/O
+# ---------------------------------------------------------------------------
+
+def build_calib_report_md(report: dict) -> str:
+    """Lesbare Markdown-Zusammenfassung des Kalibrier-Vorschlags."""
+    wf = report["walk_forward"]
+    adopt = report["verdict"] == "adopt"
+    lines = [
+        "# Regime-Kalibrierung — Vorschlag (Risk-off-Grenze)",
+        "",
+        f"- Datenpunkte (Monate): **{report['n_records']}**, davon Rezessionsmonate (NBER): "
+        f"**{report['n_recession_months']}**",
+        f"- Vorgeschlagener Bias **b\\* = {report['b_star']:+.2f}** "
+        f"(Default = {report['default_bias']:+.2f})",
+        f"- F1 auf voller Historie: b\\* = {report['full_f1_b_star']:.3f} vs. "
+        f"Default {report['full_f1_default']:.3f}",
+        "",
+        "## Out-of-Sample (Walk-Forward) — der ehrliche Test",
+        "",
+        f"- **Getuntes b OOS-F1: {wf['tuned_oos_f1']:.3f}** vs. **Default OOS-F1: "
+        f"{wf['default_oos_f1']:.3f}**",
+        "",
+        "| Fold | b (Train) | N Test | Test-F1 (b) | Test-F1 (Default) |",
+        "|---|---|---|---|---|",
+    ]
+    for f in wf["per_fold"]:
+        lines.append(f"| {f['fold']} | {f['b']:+.2f} | {f['n_test']} | "
+                     f"{f['test_f1']:.3f} | {f['default_test_f1']:.3f} |")
+
+    ac = report.get("a_check")
+    if ac is not None:
+        lines += ["", "## Markt-Härtetest (A) — Hit-Rate je Horizont", ""]
+        for h in sorted(ac["b_star"]):
+            s = ac["b_star"][h]; d = ac["default"][h]
+            s_str = f"{s*100:.0f} %" if s is not None else "n/v"
+            d_str = f"{d*100:.0f} %" if d is not None else "n/v"
+            lines.append(f"- {h} M: b\\* {s_str} vs. Default {d_str}")
+        if ac.get("warning"):
+            lines.append("- ⚠️ **Warnung:** b\\* verbessert NBER, verschlechtert aber den Markt "
+                         "(6M) — Übernahme fraglich.")
+
+    lines += ["", "## Urteil", ""]
+    if adopt:
+        lines.append(f"**Bias b\\* = {report['b_star']:+.2f} übernehmen** — schlägt den Default "
+                     f"out-of-sample (OOS-F1 {wf['tuned_oos_f1']:.3f} > {wf['default_oos_f1']:.3f}). "
+                     "Übernahme per PR: `_REGIME_BIAS` in `core/domain/regime.py` setzen.")
+    else:
+        lines.append("**Default behalten — nichts ändern.** Die Hand-Einstellung (Bias 0) ist "
+                     "out-of-sample nicht zu schlagen. Das bestätigt die heutige Grenze. "
+                     "(keep_default)")
+    lines += ["", f"_Hinweis: Mit nur {report['n_recession_months']} Rezessionsmonaten über "
+              f"{len(wf['per_fold'])} Folds ist die OOS-Schätzung verrauscht — ein kleiner, über "
+              "Folds stabiler Effekt ist glaubwürdiger als ein großer Einzelfund._"]
+    return "\n".join(lines)
