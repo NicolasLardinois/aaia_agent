@@ -74,3 +74,31 @@ def test_signal_status_ist_str_enum():
     from core.domain.models import SignalStatus
     assert isinstance(SignalStatus.AVAILABLE, str)
     assert SignalStatus.AVAILABLE == "available"
+
+
+def test_deepdive_has_short_thesis_fields():
+    """DeepDiveResult hat short_thesis und short_xai als trailing-Default-Felder."""
+    from core.domain.events import ShortThesisReady
+    rec = InvestmentRecommendation(
+        action=Recommendation.BUY,
+        short_type=None,
+        short_warning=None,
+        confidence=0.75,
+        reasoning="Test",
+    )
+    # Pflichtfelder wie in Nachbartests; short_thesis/short_xai greifen als Default
+    r = DeepDiveResult(
+        ticker="AAPL",
+        asset_class="equity",
+        market="USA",
+        top_down_context="Test context",
+        top_down_available=True,
+        judgment="Test judgment",
+        alignment="aligned_bullish",
+        recommendation=rec,
+    )
+    assert r.short_thesis == ""
+    assert r.short_xai == ""
+    # ShortThesisReady-Event analog ConflictResolutionReady
+    ev = ShortThesisReady(source="short_thesis_agent", payload={"ticker": "X"})
+    assert ev.payload["ticker"] == "X"
