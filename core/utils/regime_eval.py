@@ -29,6 +29,11 @@ def evaluate_market(judgments: list, sp_price_on, horizons_months: tuple = (3, 6
             regime = j["regime"]
             entry_px = sp_price_on(as_of)
             fwd_px = sp_price_on(as_of + relativedelta(months=h))
+            # Fehlender Forward-Kurs (Fenster-Rand: Datum liegt noch in der Zukunft) → NICHT
+            # auswertbar. forward_return(entry, None) liefert -1.0 (Survivorship für delistete
+            # Einzelwerte); für einen noch nicht existierenden Index-Kurs wäre das falsch.
+            if entry_px is None or fwd_px is None:
+                continue
             ret = forward_return(entry_px, fwd_px)
             if ret is None:
                 continue

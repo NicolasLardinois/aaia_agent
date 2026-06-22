@@ -29,3 +29,12 @@ def test_evaluate_market_trefferquote():
     assert h3["n"] == 2
     assert h3["hit_rate"] == 0.5
     assert h3["by_regime"]["Aufschwung"]["n"] == 2
+
+
+def test_evaluate_market_ueberspringt_fehlenden_forward_kurs():
+    # Forward-Kurs fehlt (Fenster-Rand, Zukunft) → Urteil NICHT gezählt (kein -100%-Schein-Miss)
+    j = [{"as_of": date(2030, 1, 1), "regime": MarketRegime.EXPANSION}]
+    prices = {date(2030, 1, 1): 100.0}  # kein Kurs für 2030-04-01
+    report = evaluate_market(j, lambda d: prices.get(d), horizons_months=(3,))
+    assert report[3]["n"] == 0
+    assert report[3]["hit_rate"] is None
