@@ -451,6 +451,16 @@ class ValuationRangeSnapshot:
 
 
 @dataclass
+class MomentumSnapshot:
+    rsi_14: Optional[float]
+    ma50: Optional[float]
+    ma200: Optional[float]
+    golden_cross: Optional[bool]
+    relative_strength: Optional[float]   # Titel-Return − Heimatmarkt-Return (rs<0 = schwächer)
+    signal: Signal
+
+
+@dataclass
 class EquityChiefResult:
     fundamentals: FundamentalsSnapshot
     quality: QualitySnapshot
