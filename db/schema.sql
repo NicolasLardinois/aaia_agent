@@ -81,6 +81,24 @@ CREATE TABLE IF NOT EXISTS portfolio_snapshots (
 );
 
 
+-- ── conflicts ───────────────────────────────────────────────────────────────
+-- Offene und erledigte Positions-Konflikte, die eine Nutzer-Entscheidung erfordern.
+-- Ein Konflikt entsteht, wenn die Analyse-Empfehlung der gehaltenen Position widerspricht.
+-- Lebenszyklus: status='open' → Nutzer entscheidet → status='resolved' + user_decision gesetzt.
+CREATE TABLE IF NOT EXISTS conflicts (
+    id            bigserial     PRIMARY KEY,
+    ticker        text          NOT NULL,
+    direction     text          NOT NULL,                   -- "long" | "short"
+    verdict       text          NOT NULL,                   -- "HOLD" | "EXIT" | "REVERSE"
+    reason        text,
+    status        text          NOT NULL DEFAULT 'open',    -- "open" | "resolved"
+    source        text          NOT NULL DEFAULT 'on_demand',  -- "on_demand" | "proactive"
+    user_decision text,                                     -- "held" | "closed" | NULL
+    created_at    timestamptz   DEFAULT now(),
+    resolved_at   timestamptz
+);
+
+
 -- =============================================================================
 -- Migrationshistorie (manuell gepflegt, bis ein echtes Migrations-Tool existiert)
 -- =============================================================================
@@ -95,3 +113,5 @@ CREATE TABLE IF NOT EXISTS portfolio_snapshots (
 -- ⚠️ DEPLOY: vor Merge einmalig auf Supabase ausführen:
 --             ALTER TABLE analysis_memory ADD COLUMN IF NOT EXISTS risk_affinity text;
 --             ALTER TABLE analysis_memory ADD COLUMN IF NOT EXISTS short_xai text;
+-- 2026-06-22  conflicts: neue Tabelle für Konflikt-UX (feat/konflikt-ux — Task 3).
+--             CREATE TABLE IF NOT EXISTS conflicts ( … ) — siehe oben.
