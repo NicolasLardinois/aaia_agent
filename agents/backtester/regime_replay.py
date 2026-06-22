@@ -1,0 +1,99 @@
+"""Regime-Replay: spielt den Top-Down-Regime-Motor Point-in-Time über die Historie durch.
+Führt die ECHTEN Sub-Signal-Agenten aus (Treue) und nutzt die geteilte Input-Montage."""
+import asyncio
+from datetime import date
+
+from agents.market_cockpit.macro.money_supply_agent import MoneySupplyAgent
+from agents.market_cockpit.macro.credit_agent import CreditAgent
+from agents.market_cockpit.macro.labor_income_agent import LaborIncomeAgent
+from agents.market_cockpit.macro.buffett_indicator_agent import BuffettIndicatorAgent
+from adapters.data.ecb_snb_stub import EcbStubProvider, SnbStubProvider
+from core.domain.regime import RegimeDetector
+from core.domain.regime_inputs import assemble_regime_inputs
+
+
+class _NullBus:
+    def publish(self, event): pass
+
+
+# Default-Quellen-Fabriken: Stubs (EU/CH leer, wie Produktion heute). Region/Quelle ist
+# steckbar — ein HistoricalEcbProvider/-SnbProvider ist später ein reiner Drop-in (Spec §4.4).
+def _default_ecb(as_of):
+    return EcbStubProvider()
+
+
+def _default_snb(as_of):
+    return SnbStubProvider()
+
+
+async def _sub_signals(provider, bus, ecb, snb) -> dict:
+    """Führt die vier echten Sub-Signal-Agenten aus (netzfrei: injizierte ECB/SNB, No-Op-WB)."""
+    money = MoneySupplyAgent(provider, ecb, snb, bus)
+    credit = CreditAgent(provider, bus)
+    labor = LaborIncomeAgent(provider, bus)
+    buffett = BuffettIndicatorAgent(provider, bus, wb_fetch=lambda: {})
+    m, c, l, b = await asyncio.gather(money.run(), credit.run(), labor.run(), buffett.run())
+    return {
+        "money_supply": m.usa.signal,
+        "credit":       c.usa.signal,
+        "labor":        l.usa.signal,
+        "buffett":      b.signal,
+    }
+
+
+def replay_step(provider, bus, ecb, snb) -> dict:
+    """Ein Stichtag: Roh-Zustand + Sub-Signale (ohne Detector — Trend wird außen verwaltet)."""
+    economic_state = provider.get_economic_state()
+    spreads = provider.get_yield_spreads()
+    sub_map = asyncio.run(_sub_signals(provider, bus, ecb, snb))
+    return {
+        "economic_state": economic_state,
+        "usa_10y3m": spreads.get("10y3m"),
+        "sub_signal_map": sub_map,
+    }
+
+
+def run_replay(provider_factory, stichtage: list, bus=None,
+               ecb_factory=_default_ecb, snb_factory=_default_snb) -> list:
+    """Iteriert die Stichtage, pflegt die Composite-Historie, liefert Regime-Urteile.
+    ecb_factory/snb_factory(as_of) sind steckbar (Default = Stubs)."""
+    bus = bus or _NullBus()
+    detector = RegimeDetector()
+    history: list = []          # [(iso_date, composite), ...]
+    urteile = []
+    for as_of in stichtage:
+        provider = provider_factory(as_of)
+        raw = replay_step(provider, bus, ecb_factory(as_of), snb_factory(as_of))
+        state, sub_signals = assemble_regime_inputs(
+            raw["economic_state"], raw["usa_10y3m"], {}, {}, raw["sub_signal_map"],
+        )
+        regime, confidence, evidence = detector.detect(state, sub_signals, history=history)
+        # Composite für den Trend des nächsten Stichtags rekonstruieren
+        composite = _composite_from(evidence, sub_signals)
+        history = history + [(as_of.isoformat(), composite)]
+        urteile.append({
+            "as_of": as_of,
+            "regime": regime,
+            "confidence": confidence,
+            "composite": round(composite, 4),
+            "data_quality": getattr(provider, "quality", "unbekannt"),
+        })
+    return urteile
+
+
+def _composite_from(evidence: dict, sub_signals: dict) -> float:
+    """Composite aus evidence (score je Indikator) + INDICATOR_WEIGHTS + Sub-Gewichten,
+    identisch zur Berechnung in RegimeDetector.detect()."""
+    from core.domain.regime import INDICATOR_WEIGHTS
+    weighted_sum = 0.0
+    weight_total = 0.0
+    for key, score in evidence.items():
+        if key in sub_signals:
+            continue
+        w = INDICATOR_WEIGHTS.get(key, 0.0)
+        weighted_sum += score * w
+        weight_total += w
+    for key in sub_signals:
+        weighted_sum += sub_signals[key] * 0.03
+        weight_total += 0.03
+    return weighted_sum / weight_total if weight_total > 0 else 0.0
