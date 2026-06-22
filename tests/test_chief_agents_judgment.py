@@ -185,7 +185,7 @@ def _bu_price(cur):
 
 
 def test_pnl_short_in_profit():
-    port = _port([NS(ticker="AAPL", direction="short", entry_price=100.0)])
+    port = _port([NS(ticker="AAPL", direction="short", entry_price=100.0, shares=10)])
     assert _short_position_pnl_pct(port, "AAPL", PositionState.SHORT, _bu_price(90.0)) == 10.0
 
 
@@ -217,8 +217,41 @@ def test_pnl_none_on_portfolio_error():
 def test_pnl_short_ticker_case_insensitive():
     """Depot-Ticker klein, Analyse-Ticker groß → trotzdem Treffer
     (kanonische Ticker-Schreibweise im System ist Großschrift)."""
-    port = _port([NS(ticker="aapl", direction="short", entry_price=100.0)])
+    port = _port([NS(ticker="aapl", direction="short", entry_price=100.0, shares=10)])
     assert _short_position_pnl_pct(port, "AAPL", PositionState.SHORT, _bu_price(90.0)) == 10.0
+
+
+def test_pnl_weighted_average_multiple_lots():
+    """Mehrere Short-Lots desselben Tickers → volumengewichteter Durchschnitts-Einstand.
+    100@50 + 100@30 → Schnitt 40; bei Kurs 40 ist die Gesamtposition break-even (0 %),
+    nicht +20 % (was der erste Lot allein ergäbe)."""
+    port = _port([
+        NS(ticker="NOK", direction="short", entry_price=50.0, shares=100),
+        NS(ticker="NOK", direction="short", entry_price=30.0, shares=100),
+    ])
+    assert _short_position_pnl_pct(port, "NOK", PositionState.SHORT, _bu_price(40.0)) == 0.0
+
+
+def test_pnl_weighted_average_asymmetric_shares_ignores_long():
+    """Gewichtung nach Stückzahl, und Long-Lots desselben Tickers zählen nicht mit.
+    (50·300 + 30·100)/400 = 45; bei Kurs 40 → (45−40)/45·100 = 11,11 %."""
+    port = _port([
+        NS(ticker="NOK", direction="short", entry_price=50.0, shares=300),
+        NS(ticker="NOK", direction="short", entry_price=30.0, shares=100),
+        NS(ticker="NOK", direction="long",  entry_price=1.0,  shares=999),  # muss ignoriert werden
+    ])
+    result = _short_position_pnl_pct(port, "NOK", PositionState.SHORT, _bu_price(40.0))
+    assert round(result, 2) == 11.11
+
+
+def test_pnl_lot_with_zero_shares_ignored():
+    """Lots mit shares ≤ 0 fließen nicht in die Gewichtung ein (kein 0-Gewicht/Division-Risiko).
+    Nur 100@50 zählt → bei Kurs 40 → 20 %."""
+    port = _port([
+        NS(ticker="NOK", direction="short", entry_price=30.0, shares=0),
+        NS(ticker="NOK", direction="short", entry_price=50.0, shares=100),
+    ])
+    assert _short_position_pnl_pct(port, "NOK", PositionState.SHORT, _bu_price(40.0)) == 20.0
 
 
 def test_pnl_none_on_value_error():

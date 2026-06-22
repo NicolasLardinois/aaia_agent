@@ -100,15 +100,22 @@ def _short_position_pnl_pct(port: PortfolioPort | None, ticker: str,
     # (bottom_up.ticker = .upper()); toleriert abweichende CLI-/Depot-Schreibweise.
     want = ticker.upper()
     try:
-        for p in port.get_positions():
-            if p.ticker.upper() == want and p.direction == "short" and p.entry_price > 0:
-                # Positiver Wert = Short im Gewinn (Kurs unter Einstand gefallen)
-                return (p.entry_price - cur) / p.entry_price * 100
+        lots = [p for p in port.get_positions()
+                if p.ticker.upper() == want and p.direction == "short"
+                and p.entry_price > 0 and p.shares > 0]
     except (PortfolioError, OSError, ValueError):
         # Depotquelle defekt/unlesbar (PortfolioError, OSError, JSONDecodeError ⊂ ValueError)
         # → kein SHORT+. Programmierfehler (AttributeError/TypeError) bleiben bewusst ungefangen.
         return None
-    return None
+    if not lots:
+        return None
+    # Volumengewichteter Durchschnitts-Einstand über ALLE Short-Lots desselben Tickers:
+    # avg_entry = Σ(Einstand·Stückzahl) / Σ(Stückzahl). So zählt die Gesamtposition, nicht
+    # ein einzelner Lot — bei mehreren Tranchen wäre sonst das 5-%-Gate willkürlich (reihenfolge-/lotabhängig).
+    total_shares = sum(p.shares for p in lots)
+    avg_entry = sum(p.entry_price * p.shares for p in lots) / total_shares
+    # Positiver Wert = Short im Gewinn (Kurs unter gewichtetem Einstand gefallen)
+    return (avg_entry - cur) / avg_entry * 100
 
 
 class JudgmentAgent:
