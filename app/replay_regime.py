@@ -25,7 +25,8 @@ _HORIZONS = (3, 6, 12)
 _REGION = "USA"
 
 
-def _monatsenden(start: date, end: date) -> list:
+def _monatserste(start: date, end: date) -> list:
+    """Erster Werk-/Handels-Tag jedes Monats im Intervall [start, end] (day=1 gesetzt)."""
     out, cur = [], start
     while cur <= end:
         out.append(cur)
@@ -57,7 +58,7 @@ def main() -> None:
 
     start = datetime.strptime(args.start, "%Y-%m").date().replace(day=1)
     end = datetime.strptime(args.end, "%Y-%m").date().replace(day=1)
-    stichtage = _monatsenden(start, end)
+    stichtage = _monatserste(start, end)
 
     print(f"[RegimeReplay] {len(stichtage)} Stichtage {args.start}..{args.end} (Region {_REGION}) …")
     urteile = run_replay(lambda d: HistoricalFredProvider(FRED_API_KEY, d), stichtage)

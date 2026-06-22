@@ -13,3 +13,13 @@ def test_build_report_md_enthaelt_kernzahlen():
     assert "62" in md                  # 0.62 → 62 %
     assert "Vorlauf" in md
     assert "1960-01..2026-06" in md
+
+
+def test_build_report_md_toleriert_none_werte():
+    # n=0 / kein NBER-Label: precision/recall/mean_lead_months sind None → kein Crash
+    market = {3: {"n": 0, "hit_rate": None, "ci_low": 0.0, "ci_high": 0.0, "by_regime": {}}}
+    nber = {"tp": 0, "fp": 0, "tn": 0, "fn": 0, "n": 0,
+            "precision": None, "recall": None, "mean_lead_months": None, "episodes": []}
+    md = build_report_md(market, nber, 0, "2020-01..2020-12", {})
+    assert "n/v" in md        # hit_rate None → "n/v"
+    assert "Vorlauf" in md

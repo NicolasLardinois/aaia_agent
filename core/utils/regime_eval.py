@@ -145,22 +145,22 @@ def build_report_md(market: dict, nber: dict, n_judgments: int, window: str,
                     quality_counts: dict) -> str:
     """Lesbare Markdown-Zusammenfassung des Replay-Reports."""
     lines = [
-        f"# Regime-Replay-Report",
-        f"",
+        "# Regime-Replay-Report",
+        "",
         f"- Fenster: **{window}**",
         f"- Urteile gesamt: **{n_judgments}**",
         f"- Datenqualität: " + ", ".join(f"{k}={v}" for k, v in sorted(quality_counts.items())),
-        f"",
-        f"## (A) Markt-Wahrheit — Forward-S&P",
-        f"",
-        f"| Horizont | N | Hit-Rate | 95 %-CI |",
-        f"|---|---|---|---|",
+        "",
+        "## (A) Markt-Wahrheit — Forward-S&P",
+        "",
+        "| Horizont | N | Hit-Rate | 95 %-CI |",
+        "|---|---|---|---|",
     ]
     for h in sorted(market):
         m = market[h]
         hr = f"{m['hit_rate']*100:.0f} %" if m["hit_rate"] is not None else "n/v"
         lines.append(f"| {h} M | {m['n']} | {hr} | {m['ci_low']*100:.0f}–{m['ci_high']*100:.0f} % |")
-    lines += ["", "### Je Regime (kürzester Horizont)", ""]
+    lines += ["", "### Je Regime (kürzester Horizont)", ""]  # No f-strings here; plain strings
     if market:
         h0 = sorted(market)[0]
         for rk, v in sorted(market[h0]["by_regime"].items()):
@@ -175,5 +175,5 @@ def build_report_md(market: dict, nber: dict, n_judgments: int, window: str,
         f"- Mittlerer **Vorlauf** vor Rezessionsbeginn: **{lead_str}** (positiv = antizipierend)",
         f"- Konfusion: TP={nber['tp']} FP={nber['fp']} TN={nber['tn']} FN={nber['fn']}",
         f"- Rezessions-Episoden im Fenster: {len(nber.get('episodes', []))}",
-    ]
+    ]  # lead_str uses f-string interpolation; keep those f-strings
     return "\n".join(lines)
