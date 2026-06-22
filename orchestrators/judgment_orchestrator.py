@@ -8,6 +8,7 @@ from core.domain.top_down_context import derive_top_down_context
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
 from core.ports.memory_port import MemoryPort
+from core.ports.portfolio_port import PortfolioPort
 
 
 class JudgmentOrchestrator:
@@ -16,10 +17,11 @@ class JudgmentOrchestrator:
     Koordiniert 3 ChiefAgents: Anomalie-Erkennung, Urteil, Backtesting-Kontext.
     """
 
-    def __init__(self, llm: LLMProvider, bus: EventBus, memory: MemoryPort):
+    def __init__(self, llm: LLMProvider, bus: EventBus, memory: MemoryPort,
+                 portfolio_port: PortfolioPort | None = None):
         self.memory           = memory
         self.anomaly_chief    = AnomalyChiefAgent(bus)
-        self.judgment_chief   = JudgmentChiefAgent(llm, bus)
+        self.judgment_chief   = JudgmentChiefAgent(llm, bus, portfolio_port)
         self.backtester_chief = BacktesterChiefAgent(memory, bus)
         self.conflict_agent   = ConflictAgent(llm, bus)
 

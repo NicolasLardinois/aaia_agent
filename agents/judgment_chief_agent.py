@@ -3,12 +3,13 @@ from core.domain.events import JudgmentChiefReady
 from core.domain.models import AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult, InvestmentRecommendation, PositionState, Recommendation
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
+from core.ports.portfolio_port import PortfolioPort
 
 
 class JudgmentChiefAgent:
-    def __init__(self, llm: LLMProvider, bus: EventBus):
+    def __init__(self, llm: LLMProvider, bus: EventBus, portfolio_port: PortfolioPort | None = None):
         self.bus = bus
-        self.judgment_agent = JudgmentAgent(llm, bus)
+        self.judgment_agent = JudgmentAgent(llm, bus, portfolio_port)
 
     async def run(
         self,

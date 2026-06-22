@@ -167,6 +167,107 @@ def test_judgment_chief_short_action_none_when_none():
 
 from agents.backtester_chief_agent import BacktesterChiefAgent
 
+# ─────────────────────────────────────────────
+# Task 2: _short_position_pnl_pct (P&L-Helfer)
+# ─────────────────────────────────────────────
+
+from types import SimpleNamespace as NS
+from core.domain.portfolio import PortfolioError
+from agents.judgment.judgment_agent import _short_position_pnl_pct
+
+
+def _port(positions):
+    return NS(get_positions=lambda: positions)
+
+
+def _bu_price(cur):
+    return NS(valuation_range=NS(current_price=cur))
+
+
+def test_pnl_short_in_profit():
+    port = _port([NS(ticker="AAPL", direction="short", entry_price=100.0, shares=10)])
+    assert _short_position_pnl_pct(port, "AAPL", PositionState.SHORT, _bu_price(90.0)) == 10.0
+
+
+def test_pnl_none_when_not_short():
+    port = _port([NS(ticker="AAPL", direction="short", entry_price=100.0)])
+    assert _short_position_pnl_pct(port, "AAPL", PositionState.NONE, _bu_price(90.0)) is None
+
+
+def test_pnl_none_when_no_port():
+    assert _short_position_pnl_pct(None, "AAPL", PositionState.SHORT, _bu_price(90.0)) is None
+
+
+def test_pnl_none_when_ticker_absent():
+    port = _port([NS(ticker="MSFT", direction="short", entry_price=100.0)])
+    assert _short_position_pnl_pct(port, "AAPL", PositionState.SHORT, _bu_price(90.0)) is None
+
+
+def test_pnl_none_when_no_current_price():
+    port = _port([NS(ticker="AAPL", direction="short", entry_price=100.0)])
+    assert _short_position_pnl_pct(port, "AAPL", PositionState.SHORT, NS(valuation_range=None)) is None
+
+
+def test_pnl_none_on_portfolio_error():
+    def _raise():
+        raise PortfolioError("bad")
+    assert _short_position_pnl_pct(NS(get_positions=_raise), "AAPL", PositionState.SHORT, _bu_price(90.0)) is None
+
+
+def test_pnl_short_ticker_case_insensitive():
+    """Depot-Ticker klein, Analyse-Ticker groß → trotzdem Treffer
+    (kanonische Ticker-Schreibweise im System ist Großschrift)."""
+    port = _port([NS(ticker="aapl", direction="short", entry_price=100.0, shares=10)])
+    assert _short_position_pnl_pct(port, "AAPL", PositionState.SHORT, _bu_price(90.0)) == 10.0
+
+
+def test_pnl_weighted_average_multiple_lots():
+    """Mehrere Short-Lots desselben Tickers → volumengewichteter Durchschnitts-Einstand.
+    100@50 + 100@30 → Schnitt 40; bei Kurs 40 ist die Gesamtposition break-even (0 %),
+    nicht +20 % (was der erste Lot allein ergäbe)."""
+    port = _port([
+        NS(ticker="NOK", direction="short", entry_price=50.0, shares=100),
+        NS(ticker="NOK", direction="short", entry_price=30.0, shares=100),
+    ])
+    assert _short_position_pnl_pct(port, "NOK", PositionState.SHORT, _bu_price(40.0)) == 0.0
+
+
+def test_pnl_weighted_average_asymmetric_shares_ignores_long():
+    """Gewichtung nach Stückzahl, und Long-Lots desselben Tickers zählen nicht mit.
+    (50·300 + 30·100)/400 = 45; bei Kurs 40 → (45−40)/45·100 = 11,11 %."""
+    port = _port([
+        NS(ticker="NOK", direction="short", entry_price=50.0, shares=300),
+        NS(ticker="NOK", direction="short", entry_price=30.0, shares=100),
+        NS(ticker="NOK", direction="long",  entry_price=1.0,  shares=999),  # muss ignoriert werden
+    ])
+    result = _short_position_pnl_pct(port, "NOK", PositionState.SHORT, _bu_price(40.0))
+    assert round(result, 2) == 11.11
+
+
+def test_pnl_lot_with_zero_shares_ignored():
+    """Lots mit shares ≤ 0 fließen nicht in die Gewichtung ein (kein 0-Gewicht/Division-Risiko).
+    Nur 100@50 zählt → bei Kurs 40 → 20 %."""
+    port = _port([
+        NS(ticker="NOK", direction="short", entry_price=30.0, shares=0),
+        NS(ticker="NOK", direction="short", entry_price=50.0, shares=100),
+    ])
+    assert _short_position_pnl_pct(port, "NOK", PositionState.SHORT, _bu_price(40.0)) == 20.0
+
+
+def test_pnl_none_on_value_error():
+    """Defekte/unparsebare Depotquelle (JSONDecodeError ⊂ ValueError) → None statt Crash;
+    nur SHORT+ entfällt, das übrige Urteil bleibt intakt."""
+    def _raise():
+        raise ValueError("malformed json")
+    assert _short_position_pnl_pct(NS(get_positions=_raise), "AAPL", PositionState.SHORT, _bu_price(90.0)) is None
+
+
+def test_pnl_none_on_os_error():
+    """I/O-Fehler beim Depot-Zugriff (OSError, z. B. PermissionError) → None statt Crash."""
+    def _raise():
+        raise OSError("disk")
+    assert _short_position_pnl_pct(NS(get_positions=_raise), "AAPL", PositionState.SHORT, _bu_price(90.0)) is None
+
 
 def test_backtester_chief_load_context_empty():
     bus = MagicMock()
@@ -191,3 +292,21 @@ def test_backtester_chief_run_calls_all_agents():
     chief.bu_backtester.run.assert_called_once()
     chief.j_backtester.run.assert_called_once()
     bus.publish.assert_called_once()
+
+
+# ─────────────────────────────────────────────
+# Task 3: PortfolioPort-Verdrahtung durch die Kette
+# ─────────────────────────────────────────────
+
+def test_portfolio_port_wired_chief_to_agent():
+    from agents.judgment_chief_agent import JudgmentChiefAgent
+    sentinel = object()
+    chief = JudgmentChiefAgent(NS(), NS(), portfolio_port=sentinel)
+    assert chief.judgment_agent.portfolio_port is sentinel
+
+
+def test_portfolio_port_wired_orchestrator_to_agent():
+    from orchestrators.judgment_orchestrator import JudgmentOrchestrator
+    sentinel = object()
+    orch = JudgmentOrchestrator(NS(), NS(), NS(), portfolio_port=sentinel)
+    assert orch.judgment_chief.judgment_agent.portfolio_port is sentinel

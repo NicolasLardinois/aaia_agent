@@ -4,10 +4,12 @@ from core.domain.events import DeepDiveResultReady
 from core.domain.models import (
     AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult, PositionState, Signal,
 )
+from core.domain.portfolio import PortfolioError
 from core.domain.recommendation import compute_confidence, derive_recommendation, detect_conflict
 from core.domain.short_assessment import derive_short_assessment
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
+from core.ports.portfolio_port import PortfolioPort
 
 SYSTEM_PROMPT = """Du bist ein erfahrener Aktienanalyst.
 Du kombinierst makroökonomischen Top-Down-Kontext mit Bottom-Up-Fundamentalanalyse.
@@ -108,10 +110,46 @@ def _backtester_summary(context: dict) -> str:
     return notes or "Backtesting-Daten vorhanden."
 
 
+def _short_position_pnl_pct(port: PortfolioPort | None, ticker: str,
+                            position: PositionState, bottom_up: BottomUpResult) -> float | None:
+    """P&L-% einer gehaltenen Short-Position (Gewinn, wenn der Kurs unter den Einstand fällt).
+    Formel: (Einstand - aktueller Kurs) / Einstand * 100
+    Defensiv: fehlt Port/Position/Einstand/Kurs oder ist die Depotquelle defekt → None.
+    Dann entfällt nur SHORT+ (→ HOLD); das übrige Urteil bleibt intakt (kein Crash)."""
+    if position != PositionState.SHORT or port is None:
+        return None
+    # Aktuellen Kurs aus dem Bewertungsbereich lesen
+    vr = getattr(bottom_up, "valuation_range", None)
+    cur = getattr(vr, "current_price", None) if vr else None
+    if cur is None:
+        return None
+    # Ticker kanonisch in Großschrift abgleichen — System-Ticker sind upper
+    # (bottom_up.ticker = .upper()); toleriert abweichende CLI-/Depot-Schreibweise.
+    want = ticker.upper()
+    try:
+        lots = [p for p in port.get_positions()
+                if p.ticker.upper() == want and p.direction == "short"
+                and p.entry_price > 0 and p.shares > 0]
+    except (PortfolioError, OSError, ValueError):
+        # Depotquelle defekt/unlesbar (PortfolioError, OSError, JSONDecodeError ⊂ ValueError)
+        # → kein SHORT+. Programmierfehler (AttributeError/TypeError) bleiben bewusst ungefangen.
+        return None
+    if not lots:
+        return None
+    # Volumengewichteter Durchschnitts-Einstand über ALLE Short-Lots desselben Tickers:
+    # avg_entry = Σ(Einstand·Stückzahl) / Σ(Stückzahl). So zählt die Gesamtposition, nicht
+    # ein einzelner Lot — bei mehreren Tranchen wäre sonst das 5-%-Gate willkürlich (reihenfolge-/lotabhängig).
+    total_shares = sum(p.shares for p in lots)
+    avg_entry = sum(p.entry_price * p.shares for p in lots) / total_shares
+    # Positiver Wert = Short im Gewinn (Kurs unter gewichtetem Einstand gefallen)
+    return (avg_entry - cur) / avg_entry * 100
+
+
 class JudgmentAgent:
-    def __init__(self, llm: LLMProvider, bus: EventBus):
+    def __init__(self, llm: LLMProvider, bus: EventBus, portfolio_port: PortfolioPort | None = None):
         self.llm = llm
         self.bus = bus
+        self.portfolio_port = portfolio_port
 
     async def run(
         self,
@@ -199,9 +237,11 @@ Kombiniere Top-Down und Bottom-Up zu einem klaren Urteil. Gibt es Widersprüche?
             top_down_available=top_down_available,
             confidence=confidence,
         )
+        position_pnl_pct = _short_position_pnl_pct(
+            self.portfolio_port, ticker, current_position, bottom_up)
         short_assessment = derive_short_assessment(
             bottom_up, cockpit, current_position, top_down_available,
-            bottom_up_anomaly, top_down_anomaly)
+            bottom_up_anomaly, top_down_anomaly, position_pnl_pct=position_pnl_pct)
         conflict, conflict_reason = detect_conflict(
             current_position, alignment, dominant_sig, short_assessment, confidence)
 

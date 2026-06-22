@@ -3,6 +3,7 @@ from core.domain.models import (
     ShortAction, PositionState, MarketRegime, AnomalyReport,
 )
 from core.domain.short_assessment import derive_short_assessment
+from core.domain.recommendation import _position_size_pct
 
 
 def _bu(**kw):
@@ -19,8 +20,8 @@ def _cockpit(regime):
 _NA = AnomalyReport.empty()
 
 
-def _run(bu, pos=PositionState.NONE, cockpit=None, td=True, bua=_NA, tda=_NA):
-    return derive_short_assessment(bu, cockpit, pos, td, bua, tda)
+def _run(bu, pos=PositionState.NONE, cockpit=None, td=True, bua=_NA, tda=_NA, pnl=None):
+    return derive_short_assessment(bu, cockpit, pos, td, bua, tda, position_pnl_pct=pnl)
 
 
 def test_distress_only_is_moderate_short():
@@ -109,3 +110,37 @@ def test_no_catalyst_cap_is_hard_ceiling():
     a = _run(bu, cockpit=_cockpit(MarketRegime.RECESSION), bua=bear)   # tailwind + Boost
     assert "broken_growth" not in a.archetypes        # wirklich kein Katalysator
     assert a.confidence <= 0.70
+
+
+# ---------------------------------------------------------------------------
+# SHORT_PLUS — in einen Gewinner-Short nachlegen (Task 1)
+# ---------------------------------------------------------------------------
+
+_STRONG = dict(quality=NS(altman_z=1.0, interest_coverage=0.5, fcf_margin=-5.0,
+                          debt_to_equity=2.0, current_ratio=0.8),
+               earnings_trend=NS(estimate_revision="down", beat_rate=0.3))
+
+
+def test_short_plus_when_winning_and_thesis_holds():
+    a = _run(_bu(**_STRONG), pos=PositionState.SHORT, pnl=6.0)
+    assert a.short_action == ShortAction.SHORT_PLUS
+    assert a.suggested_size_pct == round(_position_size_pct(a.confidence) * 0.25, 1)
+    assert a.stop_pct == 15.0
+
+
+def test_short_plus_boundary_exactly_5pct():
+    assert _run(_bu(**_STRONG), pos=PositionState.SHORT, pnl=5.0).short_action == ShortAction.SHORT_PLUS
+    assert _run(_bu(**_STRONG), pos=PositionState.SHORT, pnl=4.9).short_action == ShortAction.HOLD
+
+
+def test_short_plus_none_pnl_holds():
+    assert _run(_bu(**_STRONG), pos=PositionState.SHORT, pnl=None).short_action == ShortAction.HOLD
+
+
+def test_short_plus_blocked_by_high_squeeze():
+    bu = _bu(**_STRONG, short_interest=NS(days_to_cover=3, short_float_pct=25.0))
+    assert _run(bu, pos=PositionState.SHORT, pnl=8.0).short_action == ShortAction.HOLD
+
+
+def test_short_plus_weak_thesis_still_covers():
+    assert _run(_bu(), pos=PositionState.SHORT, pnl=20.0).short_action == ShortAction.COVER
