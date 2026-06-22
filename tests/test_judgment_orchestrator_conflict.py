@@ -31,6 +31,8 @@ def _orch(result):
     o.judgment_chief.run = AsyncMock(return_value=result)
     o.conflict_agent = MagicMock()
     o.conflict_agent.run = AsyncMock(return_value=ConflictResolution(verdict="EXIT", reasoning="r"))
+    # conflict_store: Standard None — bestehende Tests nutzen keinen Store
+    o.conflict_store = None
     return o
 
 
@@ -124,3 +126,75 @@ def test_orchestrator_short_thesis_error_is_safe():
                             current_position=PositionState.NONE))
     assert out.short_thesis == ""
     assert out.short_xai == ""
+
+
+# ---------------------------------------------------------------------------
+# Task 4: On-demand Conflict-Store-Aufnahme im JudgmentOrchestrator
+# ---------------------------------------------------------------------------
+
+class _FakeConflictStore:
+    """Minimaler Mock-Store für record_conflict-Aufrufe."""
+    def __init__(self, raise_on_save: bool = False):
+        self.saved: list = []
+        self._raise = raise_on_save
+
+    def find_open(self, ticker, direction):
+        return None  # kein offener Eintrag → record_conflict legt neu an
+
+    def find_latest_resolved(self, ticker, direction):
+        return None  # keine erledigten → immer Neu-Anlage
+
+    def save(self, item) -> None:
+        if self._raise:
+            raise RuntimeError("DB-Fehler")
+        self.saved.append(item)
+
+    def load_open(self):
+        return []
+
+    def resolve(self, conflict_id, user_decision):
+        pass
+
+
+def test_conflict_store_save_called_on_conflict():
+    """Bei result.conflict=True (+ conflict_resolution) ruft run() store.save einmal auf."""
+    res = _result(conflict=True)
+    # conflict_resolution wird vom gemockten conflict_agent gesetzt (Zeile 33 in _orch)
+    o = _orch(res)
+    store = _FakeConflictStore()
+    o.conflict_store = store
+
+    asyncio.run(o.run(cockpit=None, bottom_up=_bottom_up(), market="USA",
+                      current_position=PositionState.LONG))
+
+    assert len(store.saved) == 1
+    assert store.saved[0].ticker == "X"
+    assert store.saved[0].verdict == "EXIT"
+    assert store.saved[0].status == "open"
+
+
+def test_no_conflict_skips_store_save():
+    """Ohne Konflikt darf store.save NICHT aufgerufen werden."""
+    res = _result(conflict=False)
+    o = _orch(res)
+    store = _FakeConflictStore()
+    o.conflict_store = store
+
+    asyncio.run(o.run(cockpit=None, bottom_up=_bottom_up(), market="USA",
+                      current_position=PositionState.NONE))
+
+    assert len(store.saved) == 0
+
+
+def test_conflict_store_exception_no_crash():
+    """Wirft der Store eine Exception, läuft die Analyse stabil weiter — kein Crash."""
+    res = _result(conflict=True)
+    o = _orch(res)
+    store = _FakeConflictStore(raise_on_save=True)
+    o.conflict_store = store
+
+    # Darf nicht werfen:
+    out = asyncio.run(o.run(cockpit=None, bottom_up=_bottom_up(), market="USA",
+                            current_position=PositionState.LONG))
+    # Ergebnis trotzdem vorhanden
+    assert out.conflict_resolution is not None

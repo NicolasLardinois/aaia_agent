@@ -24,6 +24,7 @@ from adapters.event_bus.redis_bus import InMemoryEventBus
 from adapters.llm.claude_adapter import ClaudeAdapter
 from adapters.memory.supabase_memory import SupabaseMemory
 from adapters.cache.result_cache import ResultCache
+from adapters.persistence.supabase_conflict_store import SupabaseConflictStore
 from orchestrators.top_down_orchestrator import TopDownOrchestrator
 from orchestrators.bottom_up_orchestrator import BottomUpOrchestrator
 from orchestrators.judgment_orchestrator import JudgmentOrchestrator
@@ -163,7 +164,9 @@ async def run_judgment(ticker: str, market: str = "USA") -> None:
     bus    = InMemoryEventBus()
     llm    = ClaudeAdapter(ANTHROPIC_API_KEY)
     memory = SupabaseMemory()
-    orch   = JudgmentOrchestrator(llm, bus, memory, portfolio_port=JsonPortfolioProvider())
+    # Konflikt-Store: persistiert erkannte Konflikte on-demand in der DB
+    orch   = JudgmentOrchestrator(llm, bus, memory, portfolio_port=JsonPortfolioProvider(),
+                                  conflict_store=SupabaseConflictStore())
     result = await orch.run(
         cockpit=cockpit,
         bottom_up=bottom_up,
