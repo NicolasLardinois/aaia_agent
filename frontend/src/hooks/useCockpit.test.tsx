@@ -38,7 +38,7 @@ describe("useCockpit", () => {
   it("startet POST erst nach WS-onopen und fuellt beim Terminal die Uebersicht", async () => {
     const ws = makeFakeWs();
     const postSpy = vi.fn(async () => ({ status: 202, ok: true, json: async () => ({ run_id: "r1" }) }));
-    const fetchFn = ((url: string, init?: { method?: string }) => {
+    const fetchFn = ((_url: string, init?: { method?: string }) => {
       if ((init?.method ?? "GET") === "POST") return postSpy();
       return Promise.resolve({ status: 204, ok: false, json: async () => undefined });
     }) as unknown as typeof fetch;
