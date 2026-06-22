@@ -1,6 +1,10 @@
 # Test-/Entwicklungs-Abhängigkeiten — NICHT für die Laufzeit nötig.
 # Werden nur in der CI (und lokal zum Testen) installiert.
 #
-# pytest reicht: Die Tests nutzen `asyncio.run(...)` direkt, es gibt KEINE
-# `@pytest.mark.asyncio`-Tests → kein pytest-asyncio-Plugin erforderlich.
+# pytest reicht für die Tests selbst: sie nutzen `asyncio.run(...)` direkt, es gibt
+# KEINE `@pytest.mark.asyncio`-Tests → kein pytest-asyncio-Plugin erforderlich.
 pytest
+# pytest-timeout: Per-Test-Timeout in der CI. Ein hängender Test (z. B. ein
+# blockierender Netzwerk-/WebSocket-Call) FÄLLT nach `--timeout` mit Stacktrace +
+# Namen aus, statt den Lauf bis zum GH-Actions-Maximum (~6 h) zu blockieren.
+pytest-timeout

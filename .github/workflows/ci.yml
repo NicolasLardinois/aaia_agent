@@ -14,6 +14,10 @@ jobs:
   tests:
     name: pytest (Python 3.12)
     runs-on: ubuntu-latest
+    # Harte Obergrenze: Verhindert, dass ein hängender Test den Lauf bis zum
+    # GH-Actions-Maximum (~6 h) blockiert. Der Per-Test-`--timeout` (s. u.) greift
+    # i. d. R. zuerst und nennt den Schuldigen; dies ist der Sicherheitsnetz-Deckel.
+    timeout-minutes: 20
 
     # Dummy-Werte, KEINE echten Secrets: config/settings.py wirft beim Import
     # einen Fehler, wenn diese Keys fehlen. Die Tests mocken alle echten
@@ -40,4 +44,8 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Tests ausführen
-        run: python -m pytest -q
+        # --timeout=120: kein Einzeltest darf länger als 120 s laufen → ein Hänger
+        # (z. B. blockierender Netzwerk-/WS-Call) FÄLLT mit Namen + Stacktrace aus,
+        # statt den Lauf zu blockieren. (Auf Linux nutzt pytest-timeout das Signal-
+        # Verfahren und bricht den Test sauber ab.)
+        run: python -m pytest -q --timeout=120
