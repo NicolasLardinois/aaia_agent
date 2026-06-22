@@ -1,7 +1,6 @@
 """Regime-Replay: spielt den Top-Down-Regime-Motor Point-in-Time über die Historie durch.
 Führt die ECHTEN Sub-Signal-Agenten aus (Treue) und nutzt die geteilte Input-Montage."""
 import asyncio
-from datetime import date
 
 from agents.market_cockpit.macro.money_supply_agent import MoneySupplyAgent
 from agents.market_cockpit.macro.credit_agent import CreditAgent
@@ -68,8 +67,8 @@ def run_replay(provider_factory, stichtage: list, bus=None,
             raw["economic_state"], raw["usa_10y3m"], {}, {}, raw["sub_signal_map"],
         )
         regime, confidence, evidence = detector.detect(state, sub_signals, history=history)
-        # Composite für den Trend des nächsten Stichtags rekonstruieren
-        composite = _composite_from(evidence, sub_signals)
+        # Exakten Composite direkt aus evidence lesen (kein Rundungsfehler durch Rekonstruktion)
+        composite = evidence["composite"]
         history = history + [(as_of.isoformat(), composite)]
         urteile.append({
             "as_of": as_of,
@@ -79,21 +78,3 @@ def run_replay(provider_factory, stichtage: list, bus=None,
             "data_quality": getattr(provider, "quality", "unbekannt"),
         })
     return urteile
-
-
-def _composite_from(evidence: dict, sub_signals: dict) -> float:
-    """Composite aus evidence (score je Indikator) + INDICATOR_WEIGHTS + Sub-Gewichten,
-    identisch zur Berechnung in RegimeDetector.detect()."""
-    from core.domain.regime import INDICATOR_WEIGHTS
-    weighted_sum = 0.0
-    weight_total = 0.0
-    for key, score in evidence.items():
-        if key in sub_signals:
-            continue
-        w = INDICATOR_WEIGHTS.get(key, 0.0)
-        weighted_sum += score * w
-        weight_total += w
-    for key in sub_signals:
-        weighted_sum += sub_signals[key] * 0.03
-        weight_total += 0.03
-    return weighted_sum / weight_total if weight_total > 0 else 0.0

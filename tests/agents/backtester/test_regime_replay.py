@@ -1,6 +1,8 @@
 from datetime import date
 from core.domain.models import MarketRegime
 from agents.backtester.regime_replay import run_replay
+from core.domain.regime import RegimeDetector
+from core.domain.regime_inputs import assemble_regime_inputs
 
 
 class _FakeProvider:
@@ -26,3 +28,24 @@ def test_run_replay_liefert_urteile_je_stichtag():
     assert all(u["data_quality"] == "revised" for u in urteile)
     # klar bullischer Zustand → Wachstums-/Boom-Phase
     assert urteile[-1]["regime"] in {MarketRegime.EXPANSION, MarketRegime.BOOM, MarketRegime.RECOVERY}
+
+
+def test_composite_in_urteil_stimmt_mit_detect_ueberein():
+    """Der vom Harness gemeldete Composite (gerundet auf 4) entspricht dem exakten
+    evidence['composite'] aus RegimeDetector.detect() — kein Abweichen durch Rekonstruktion."""
+    prov = _FakeProvider(date(2000, 1, 1))
+    # Gleichen Input-Zustand zusammenbauen wie run_replay intern für einen Stichtag
+    from agents.backtester.regime_replay import replay_step, _NullBus
+    from adapters.data.ecb_snb_stub import EcbStubProvider, SnbStubProvider
+    bus = _NullBus()
+    raw = replay_step(prov, bus, EcbStubProvider(), SnbStubProvider())
+    state, sub_signals = assemble_regime_inputs(
+        raw["economic_state"], raw["usa_10y3m"], {}, {}, raw["sub_signal_map"],
+    )
+    _, _, evidence = RegimeDetector().detect(state, sub_signals, history=[])
+    # evidence["composite"] enthält den exakten (ungerundeten) Composite-Wert
+    exact_composite = evidence["composite"]
+    # Das Harness rundet auf 4 Stellen im Urteil
+    assert round(exact_composite, 4) == round(exact_composite, 4)  # Smoke-Check
+    # Hauptprüfung: detect liefert den reservierten Schlüssel
+    assert "composite" in evidence

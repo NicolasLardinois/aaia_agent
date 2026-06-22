@@ -140,7 +140,7 @@ def _regime_from(composite: float, trend: float | None) -> MarketRegime:
 
 class RegimeDetector:
     def detect(self, state: dict, sub_signals: Optional[dict] = None,
-               history: Optional[list] = None) -> tuple[MarketRegime, float, dict]:
+               history: Optional[list[tuple[str, float]]] = None) -> tuple[MarketRegime, float, dict]:
         """Returns: (regime, confidence, evidence_per_indicator)
         sub_signals: optionale {key: ±1.0}-Werte (money_supply, credit, labor, buffett)
         mit kleinen Gewichten; fließen in weighted_sum/weight_total ein.
@@ -168,6 +168,9 @@ class RegimeDetector:
                     weight_total += _SUB_WEIGHT
 
         composite = weighted_sum / weight_total if weight_total > 0 else 0.0
+        # Reservierter Schlüssel — exakter Composite für Backtest/Trend, kein Indikator-Score.
+        # Wird im Replay-Harness direkt ausgelesen statt aus gerundeten evidence-Werten rekonstruiert.
+        evidence["composite"] = composite
 
         if history is None:
             # Live-Pfad: datei-basierte Historie (unverändertes Verhalten)

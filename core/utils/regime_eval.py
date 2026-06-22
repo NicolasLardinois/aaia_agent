@@ -122,9 +122,12 @@ def evaluate_nber(judgments: list, usrec_by_month: dict) -> dict:
         else:
             fn += 1
 
+    # Rezessions-Episoden einmal berechnen (wird für Vorlauf-Fenster und Rückgabe genutzt)
+    episodes = _nber_episodes(usrec_by_month)
+
     # Vorlauf: erster risk-off-Monat im Fenster [-12, +6] um den Episoden-Start
     leads = []
-    for start, _end in _nber_episodes(usrec_by_month):
+    for start, _end in episodes:
         # risk-off-Monate im Fenster [Start-12, Start+6]: k-start liegt in [-12, +6]
         window = [k for k in risk_off_keys if -12 <= _key_diff_months(k, start) <= 6]
         if window:
@@ -142,7 +145,7 @@ def evaluate_nber(judgments: list, usrec_by_month: dict) -> dict:
         "precision": precision,
         "recall": recall,
         "mean_lead_months": round(sum(leads) / len(leads), 1) if leads else None,
-        "episodes": [{"start": s, "end": e} for s, e in _nber_episodes(usrec_by_month)],
+        "episodes": [{"start": s, "end": e} for s, e in episodes],
     }
 
 
