@@ -1,20 +1,15 @@
 import "@testing-library/jest-dom";
 
-// localStorage polyfill for tests
-if (typeof localStorage === "undefined") {
-  const store: Record<string, string> = {};
-  (globalThis as any).localStorage = {
-    getItem: (key: string) => store[key] || null,
-    setItem: (key: string, value: string) => {
-      store[key] = value;
-    },
-    removeItem: (key: string) => {
-      delete store[key];
-    },
-    clear: () => {
-      Object.keys(store).forEach((key) => delete store[key]);
-    },
-    length: 0,
-    key: () => null,
-  };
+// Node 26 + jsdom stellen kein funktionierendes localStorage bereit -> minimaler,
+// korrekter Map-basierter Ersatz fuer Tests (nur falls nicht vorhanden).
+if (typeof globalThis.localStorage === "undefined") {
+  const store = new Map<string, string>();
+  globalThis.localStorage = {
+    getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+    setItem: (k: string, v: string) => { store.set(k, String(v)); },
+    removeItem: (k: string) => { store.delete(k); },
+    clear: () => { store.clear(); },
+    key: (i: number) => Array.from(store.keys())[i] ?? null,
+    get length() { return store.size; },
+  } as Storage;
 }
