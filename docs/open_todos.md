@@ -507,6 +507,8 @@ Spec: `docs/superpowers/specs/2026-06-22-frontend-cockpit-overview-design.md`, P
 Blueprint `render.yaml` (Backend-Web-Service `aaia-api` via `uvicorn app.server:app --host 0.0.0.0 --port $PORT`, `numInstances:1`, Health `/api/cockpit`; Frontend-Static-Site `aaia-frontend`, `rootDir: frontend`, `staticPublishPath: dist`), `.python-version` (3.12), Anleitung `docs/deploy-render.md`. **Kein Code-Change** (Render nutzt den uvicorn-Start-Befehl; Secrets/URLs `sync:false`). Cross-URLs (`AAIA_CORS_ORIGINS`/`VITE_API_BASE_URL`) manuell im Zwei-Pass (Render `fromService` liefert keine öffentliche URL; Vite backt `VITE_API_BASE_URL` beim Build ein).
 Spec: `docs/superpowers/specs/2026-06-22-render-deploy-design.md`, Plan: `docs/superpowers/plans/2026-06-22-render-deploy.md`.
 
+**✅ PR #29 am 2026-06-22 gemergt** (nach zweitem Blick des Users; von Anfang an i.O., keine Review-Änderungen). Nächster Schritt liegt beim User: Blueprint in Render anwenden (`docs/deploy-render.md`).
+
 **Offene Folge-Aufgaben:**
 
 - [ ] **Auth/Rate-Limiting/Lauf-Lock vor breiter Exposition (Backend-Folgeaufgabe #7):** verschärft sich, sobald die Render-URL erreichbar ist (`POST …/run` ist unauthentifiziert + ohne Lock; Repo öffentlich).
