@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 from collections import Counter
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from dateutil.relativedelta import relativedelta
 import yfinance as yf
@@ -14,6 +14,7 @@ from fredapi import Fred
 
 from config.settings import FRED_API_KEY
 from adapters.data.historical_fred import HistoricalFredProvider
+from adapters.data.ecb_snb_stub import EcbStubProvider, SnbStubProvider
 from agents.backtester.regime_replay import run_replay
 from core.utils.backtest import benchmark_for_market
 from core.utils.regime_eval import evaluate_market, evaluate_nber, build_report_md
@@ -35,9 +36,14 @@ def _monatserste(start: date, end: date) -> list:
 
 
 def _price_on(ticker: str, d: date):
-    """Erster Benchmark-Schlusskurs am/nach d. None = kein Kurs."""
+    """Erster Benchmark-Schlusskurs am/nach d. None = kein Kurs.
+    end statt period: yfinance ignoriert period bei gesetztem start und lädt sonst bis heute —
+    so wird nur das nötige ~10-Tage-Fenster geholt (relevant bei ~800 Stichtagen)."""
     try:
-        df = yf.Ticker(ticker).history(start=d.strftime("%Y-%m-%d"), period="10d")
+        df = yf.Ticker(ticker).history(
+            start=d.strftime("%Y-%m-%d"),
+            end=(d + timedelta(days=10)).strftime("%Y-%m-%d"),
+        )
         if df is None or df.empty:
             return None
         return float(df["Close"].iloc[0])
@@ -61,7 +67,13 @@ def main() -> None:
     stichtage = _monatserste(start, end)
 
     print(f"[RegimeReplay] {len(stichtage)} Stichtage {args.start}..{args.end} (Region {_REGION}) …")
-    urteile = run_replay(lambda d: HistoricalFredProvider(FRED_API_KEY, d), stichtage)
+    # Composition-Root: konkrete Quellen-Adapter hier verdrahten (Harness bleibt adapterfrei, §1).
+    # Für EU/CH später hier HistoricalEcbProvider/-SnbProvider statt der Stubs einsetzen (Stufe ①b).
+    urteile = run_replay(
+        lambda d: HistoricalFredProvider(FRED_API_KEY, d), stichtage,
+        ecb_factory=lambda d: EcbStubProvider(),
+        snb_factory=lambda d: SnbStubProvider(),
+    )
 
     # (A) Markt-Wahrheit: Benchmark region-abhängig via benchmark_for_market (USA→^GSPC).
     benchmark = benchmark_for_market(_REGION)

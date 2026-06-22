@@ -8,7 +8,7 @@ from core.domain.models import MarketRegime
 from core.utils.backtest import forward_return, is_correct, hit_rate_ci
 
 _BULLISH = {MarketRegime.BOOM, MarketRegime.EXPANSION, MarketRegime.RECOVERY}
-RISK_OFF = {MarketRegime.SLOWDOWN, MarketRegime.RECESSION, MarketRegime.DEPRESSION}
+_RISK_OFF = {MarketRegime.SLOWDOWN, MarketRegime.RECESSION, MarketRegime.DEPRESSION}
 
 
 def regime_direction(regime: MarketRegime) -> str:
@@ -110,7 +110,7 @@ def evaluate_nber(judgments: list, usrec_by_month: dict) -> dict:
         actual = usrec_by_month.get(key)
         if actual is None:
             continue
-        called = j["regime"] in RISK_OFF
+        called = j["regime"] in _RISK_OFF
         if called:
             risk_off_keys.add(key)
         if called and actual == 1:
@@ -168,7 +168,7 @@ def build_report_md(market: dict, nber: dict, n_judgments: int, window: str,
         m = market[h]
         hr = f"{m['hit_rate']*100:.0f} %" if m["hit_rate"] is not None else "n/v"
         lines.append(f"| {h} M | {m['n']} | {hr} | {m['ci_low']*100:.0f}–{m['ci_high']*100:.0f} % |")
-    lines += ["", "### Je Regime (kürzester Horizont)", ""]  # No f-strings here; plain strings
+    lines += ["", "### Je Regime (kürzester Horizont)", ""]
     if market:
         h0 = sorted(market)[0]
         for rk, v in sorted(market[h0]["by_regime"].items()):
@@ -183,5 +183,5 @@ def build_report_md(market: dict, nber: dict, n_judgments: int, window: str,
         f"- Mittlerer **Vorlauf** vor Rezessionsbeginn: **{lead_str}** (positiv = antizipierend)",
         f"- Konfusion: TP={nber['tp']} FP={nber['fp']} TN={nber['tn']} FN={nber['fn']}",
         f"- Rezessions-Episoden im Fenster: {len(nber.get('episodes', []))}",
-    ]  # lead_str uses f-string interpolation; keep those f-strings
+    ]
     return "\n".join(lines)

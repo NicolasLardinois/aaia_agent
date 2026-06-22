@@ -6,7 +6,6 @@ from agents.market_cockpit.macro.money_supply_agent import MoneySupplyAgent
 from agents.market_cockpit.macro.credit_agent import CreditAgent
 from agents.market_cockpit.macro.labor_income_agent import LaborIncomeAgent
 from agents.market_cockpit.macro.buffett_indicator_agent import BuffettIndicatorAgent
-from adapters.data.ecb_snb_stub import EcbStubProvider, SnbStubProvider
 from core.domain.regime import RegimeDetector
 from core.domain.regime_inputs import assemble_regime_inputs
 
@@ -15,14 +14,19 @@ class _NullBus:
     def publish(self, event): pass
 
 
-# Default-Quellen-Fabriken: Stubs (EU/CH leer, wie Produktion heute). Region/Quelle ist
-# steckbar — ein HistoricalEcbProvider/-SnbProvider ist später ein reiner Drop-in (Spec §4.4).
-def _default_ecb(as_of):
-    return EcbStubProvider()
+class _NullRegionProvider:
+    """Leerer Regional-Provider (EU/CH ohne Daten). Hängt NUR vom Port-Verhalten ab,
+    nicht von einem konkreten Adapter (AGENTS.md §1: Agenten importieren keine Adapter).
+    Die konkrete Stub-/Historical-Verdrahtung liegt im Composition-Root (app/replay_regime.py).
+    Liefert für die einzig genutzten Sub-Signal-Eingaben (M2/M3-Wachstum) None — wie die Stubs."""
+    def get_m2_growth(self): return None
+    def get_m3_growth(self): return None
 
 
-def _default_snb(as_of):
-    return SnbStubProvider()
+# Default-Quellen-Fabrik: leeres Regional-Objekt (EU/CH leer, wie Produktion heute). Region/Quelle
+# ist steckbar — ein HistoricalEcbProvider/-SnbProvider ist später ein reiner Drop-in (Spec §4.4).
+def _default_region(as_of):
+    return _NullRegionProvider()
 
 
 async def _sub_signals(provider, bus, ecb, snb) -> dict:
@@ -53,7 +57,7 @@ def replay_step(provider, bus, ecb, snb) -> dict:
 
 
 def run_replay(provider_factory, stichtage: list, bus=None,
-               ecb_factory=_default_ecb, snb_factory=_default_snb) -> list:
+               ecb_factory=_default_region, snb_factory=_default_region) -> list:
     """Iteriert die Stichtage, pflegt die Composite-Historie, liefert Regime-Urteile.
     ecb_factory/snb_factory(as_of) sind steckbar (Default = Stubs)."""
     bus = bus or _NullBus()

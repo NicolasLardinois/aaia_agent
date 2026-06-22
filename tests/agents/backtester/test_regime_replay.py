@@ -31,21 +31,23 @@ def test_run_replay_liefert_urteile_je_stichtag():
 
 
 def test_composite_in_urteil_stimmt_mit_detect_ueberein():
-    """Der vom Harness gemeldete Composite (gerundet auf 4) entspricht dem exakten
+    """Der vom Harness gemeldete Composite (gerundet auf 4) entspricht EXAKT dem
     evidence['composite'] aus RegimeDetector.detect() — kein Abweichen durch Rekonstruktion."""
-    prov = _FakeProvider(date(2000, 1, 1))
-    # Gleichen Input-Zustand zusammenbauen wie run_replay intern für einen Stichtag
     from agents.backtester.regime_replay import replay_step, _NullBus
     from adapters.data.ecb_snb_stub import EcbStubProvider, SnbStubProvider
-    bus = _NullBus()
-    raw = replay_step(prov, bus, EcbStubProvider(), SnbStubProvider())
+
+    # Referenz: detect direkt für den ersten Stichtag (history=[] wie im ersten Replay-Schritt).
+    prov = _FakeProvider(date(2000, 1, 1))
+    raw = replay_step(prov, _NullBus(), EcbStubProvider(), SnbStubProvider())
     state, sub_signals = assemble_regime_inputs(
         raw["economic_state"], raw["usa_10y3m"], {}, {}, raw["sub_signal_map"],
     )
     _, _, evidence = RegimeDetector().detect(state, sub_signals, history=[])
-    # evidence["composite"] enthält den exakten (ungerundeten) Composite-Wert
-    exact_composite = evidence["composite"]
-    # Das Harness rundet auf 4 Stellen im Urteil
-    assert round(exact_composite, 4) == round(exact_composite, 4)  # Smoke-Check
-    # Hauptprüfung: detect liefert den reservierten Schlüssel
-    assert "composite" in evidence
+
+    # run_replay über denselben ersten Stichtag (gleiche Stub-Quellen) muss exakt den
+    # gerundeten evidence['composite'] melden — NICHT eine abweichende Rekonstruktion.
+    urteile = run_replay(
+        lambda d: _FakeProvider(d), [date(2000, 1, 1)],
+        ecb_factory=lambda d: EcbStubProvider(), snb_factory=lambda d: SnbStubProvider(),
+    )
+    assert urteile[0]["composite"] == round(evidence["composite"], 4)
