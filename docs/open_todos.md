@@ -418,6 +418,8 @@ v1 der Web-API-Schicht für den Cockpit-Flow:
 - Spec: `docs/superpowers/specs/2026-06-22-api-bridge-cockpit-design.md`, Plan: `docs/superpowers/plans/2026-06-22-api-bridge-cockpit.md`.
 - TDD vollständig (Serialisierung, Event-Dict, subscribe_all, Broadcaster/Run, Endpunkte via TestClient).
 
+**✅ PR #24 am 2026-06-22 gemergt** (nach zweitem Blick des Users). Im Review noch ergänzt: siehe Review-Fixes direkt unten. Verbleibende Folge-Aufgaben #3–#7 bleiben offen (weiter unten).
+
 **Review-Fixes (PR #24, 2026-06-22):**
 - ✅ **UNAVAILABLE ≠ NEUTRAL im Serializer:** `cockpit_to_dict` liefert für eine ausgefallene Domäne jetzt `signal=null` statt des erfundenen `"neutral"` (Default-Signal). AGENTS.md §3 / Spec §6: eine Quelle ohne Daten darf kein echtes Signal vortäuschen. Neuer Helfer `_domain(...)`; 2 neue Tests (`test_unavailable_domain_signal_is_null_not_neutral`, `test_all_unavailable_domains_have_null_signal`). Suite: 763 grün.
 - ✅ **Logbuch-Hygiene:** die unten als „Minor-Aufräumen" notierten Typ-Hint- und Docstring-Punkte waren im finalen Code bereits umgesetzt → abgehakt (siehe dort).
