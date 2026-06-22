@@ -101,4 +101,40 @@ describe("useCockpit", () => {
     act(() => { ws.onmessage!({ data: JSON.stringify({ type: "CockpitResultReady", source: "run_manager", payload: overview, timestamp: "t", run_id: "r1" }) }); });
     expect(result.current.events.map((e) => e.type)).toEqual(["MacroChiefReady"]);
   });
+
+  it("RunInProgressError (POST 409) laesst phase 'running' und setzt keinen Fehler", async () => {
+    const ws = makeFakeWs();
+    const fetchFn = fakeFetch({
+      "GET http://x/api/cockpit": { status: 204 },
+      "POST http://x/api/cockpit/run": { status: 409 },
+    });
+    const { result } = renderHook(() => useCockpit({ base: "http://x", fetchFn, wsFactory: () => ws }));
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+
+    act(() => { result.current.startAnalysis(); });
+    act(() => { ws.onopen!(); });
+
+    // Nach dem POST (409 = RunInProgressError) bleibt phase "running", kein Fehler.
+    await waitFor(() => expect(result.current.phase).toBe("running"));
+    expect(result.current.error).toBeNull();
+  });
+
+  it("UnauthorizedError bei startRun (POST 401) ruft onUnauthorized und setzt NICHT phase 'error'", async () => {
+    const ws = makeFakeWs();
+    const fetchFn = fakeFetch({
+      "GET http://x/api/cockpit": { status: 204 },
+      "POST http://x/api/cockpit/run": { status: 401 },
+    });
+    const onUnauthorized = vi.fn();
+    const { result } = renderHook(() =>
+      useCockpit({ base: "http://x", fetchFn, wsFactory: () => ws, onUnauthorized }),
+    );
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+
+    act(() => { result.current.startAnalysis(); });
+    act(() => { ws.onopen!(); });
+
+    await waitFor(() => expect(onUnauthorized).toHaveBeenCalled());
+    expect(result.current.phase).not.toBe("error");
+  });
 });

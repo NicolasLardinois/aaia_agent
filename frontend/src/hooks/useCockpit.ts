@@ -30,6 +30,12 @@ export function useCockpit(deps: UseCockpitDeps = {}): UseCockpit {
   const token = deps.token;
   const onUnauthorized = deps.onUnauthorized;
 
+  // Ref-Pattern: onUnauthorized in einem Ref halten, damit Stale-Closure-Effekte
+  // verhindert werden, ohne die Mount-/startAnalysis-Deps zu erweitern (was bei
+  // inline-Arrows einen Refetch-Loop ausloesen wuerde).
+  const onUnauthorizedRef = useRef(onUnauthorized);
+  useEffect(() => { onUnauthorizedRef.current = onUnauthorized; });
+
   const [overview, setOverview] = useState<CockpitOverview | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
   const [events, setEvents] = useState<CockpitEvent[]>([]);
@@ -42,7 +48,7 @@ export function useCockpit(deps: UseCockpitDeps = {}): UseCockpit {
       .then((data) => { if (!cancelled) { setOverview(data); setPhase("ready"); } })
       .catch((e) => {
         if (cancelled) return;
-        if (e instanceof UnauthorizedError) { onUnauthorized?.(); return; }
+        if (e instanceof UnauthorizedError) { onUnauthorizedRef.current?.(); return; }
         setError("Backend nicht erreichbar"); setPhase("error");
       });
     return () => { cancelled = true; };
@@ -63,7 +69,7 @@ export function useCockpit(deps: UseCockpitDeps = {}): UseCockpit {
         onOpen: () => {
           startRun(base, fetchFn, token).catch((e) => {
             if (e instanceof RunInProgressError) return;       // laeuft schon -> WS liefert das Ergebnis
-            if (e instanceof UnauthorizedError) { onUnauthorized?.(); return; }
+            if (e instanceof UnauthorizedError) { onUnauthorizedRef.current?.(); return; }
             setError("Start fehlgeschlagen"); setPhase("error");
           });
         },
