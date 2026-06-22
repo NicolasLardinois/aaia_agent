@@ -1,0 +1,6 @@
+# Test-/Entwicklungs-Abhängigkeiten — NICHT für die Laufzeit nötig.
+# Werden nur in der CI (und lokal zum Testen) installiert.
+#
+# pytest reicht: Die Tests nutzen `asyncio.run(...)` direkt, es gibt KEINE
+# `@pytest.mark.asyncio`-Tests → kein pytest-asyncio-Plugin erforderlich.
+pytest

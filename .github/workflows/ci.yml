@@ -1,0 +1,43 @@
+name: CI
+
+# Prüft den Code automatisch:
+#  - bei jedem Pull Request (das ist der Hauptzweck: PRs werden geprüft)
+#  - bei Pushes auf master (Status/Badge für den Hauptzweig nach dem Merge)
+# Feature-Branch-Pushes lösen KEINEN separaten Lauf aus — der PR-Lauf genügt
+# (vermeidet doppelte Läufe).
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  tests:
+    name: pytest (Python 3.12)
+    runs-on: ubuntu-latest
+
+    # Dummy-Werte, KEINE echten Secrets: config/settings.py wirft beim Import
+    # einen Fehler, wenn diese Keys fehlen. Die Tests mocken alle echten
+    # Datenquellen (Hexagonal-Ports), nutzen die Keys also nie für echte Calls —
+    # sie müssen nur vorhanden (nicht leer) sein, damit der Import durchläuft.
+    env:
+      FRED_API_KEY: dummy-key-for-ci
+      ANTHROPIC_API_KEY: dummy-key-for-ci
+      FINNHUB_API_KEY: dummy-key-for-ci
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Abhängigkeiten installieren
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Tests ausführen
+        run: python -m pytest -q
