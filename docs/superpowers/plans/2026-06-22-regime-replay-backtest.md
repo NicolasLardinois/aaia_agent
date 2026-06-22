@@ -780,12 +780,11 @@ def evaluate_nber(judgments: list, usrec_by_month: dict) -> dict:
     # Vorlauf: erster risk-off-Monat im Fenster [-12, +6] um den Episoden-Start
     leads = []
     for start, _end in _nber_episodes(usrec_by_month):
-        candidates = [k for k in risk_off_keys if -12 <= _key_diff_months(start, k) <= 6
-                      or -6 <= _key_diff_months(k, start) <= 12]
+        # risk-off-Monate im Fenster [Start-12, Start+6]: k-start liegt in [-12, +6]
         window = [k for k in risk_off_keys if -12 <= _key_diff_months(k, start) <= 6]
         if window:
             first = min(window)
-            leads.append(_key_diff_months(start, first))  # >0 = vor dem Start
+            leads.append(_key_diff_months(start, first))  # >0 = vor dem Start (antizipierend)
 
     precision = round(tp / (tp + fp), 3) if (tp + fp) else None
     recall    = round(tp / (tp + fn), 3) if (tp + fn) else None
@@ -796,8 +795,6 @@ def evaluate_nber(judgments: list, usrec_by_month: dict) -> dict:
         "episodes": [{"start": s, "end": e} for s, e in _nber_episodes(usrec_by_month)],
     }
 ```
-
-*(Hinweis: Die `candidates`-Zeile ist redundant zur `window`-Zeile — beim Implementieren nur `window` behalten.)*
 
 - [ ] **Step 4: Run test to verify it passes**
 
