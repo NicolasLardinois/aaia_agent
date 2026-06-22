@@ -39,6 +39,8 @@ def assemble_regime_inputs(
     sub_signals = {}
     for key, sig in sub_signal_map.items():
         score = _sig_score(sig)
+        # Keys mit None-Score (unbekanntes Signal) entfallen — verhaltensgleich zum
+        # früheren Inline-Code, da RegimeDetector.detect() None-Werte ohnehin überspringt
         if score is not None:
             sub_signals[key] = score
     return state, sub_signals

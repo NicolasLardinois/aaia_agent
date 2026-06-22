@@ -28,3 +28,15 @@ def test_fehlende_spreads_werden_uebersprungen():
     state, subs = assemble_regime_inputs({"gdp_growth": 1.0}, None, {}, {}, {})
     assert "yield_curve_10y3m_usa" not in state   # None → kein Key
     assert subs == {}
+
+
+def test_unbekanntes_signal_wird_aus_sub_signals_entfernt():
+    """Ein Wert, der kein bekanntes Signal-Enum ist → _sig_score None → Key entfällt."""
+    _, subs = assemble_regime_inputs(
+        {"gdp_growth": 1.0},
+        None,
+        {},
+        {},
+        {"money_supply": "kein_signal"},  # Invalid signal value
+    )
+    assert "money_supply" not in subs
