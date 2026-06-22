@@ -60,4 +60,35 @@ describe("useCockpit", () => {
     await waitFor(() => expect(result.current.phase).toBe("ready"));
     expect(result.current.overview).toEqual(overview);
   });
+
+  it("setzt phase error, wenn der Mount-Load fehlschlaegt", async () => {
+    const fetchFn = fakeFetch({ "GET http://x/api/cockpit": { status: 500 } });
+    const { result } = renderHook(() => useCockpit({ base: "http://x", fetchFn, wsFactory: makeFakeWs }));
+    await waitFor(() => expect(result.current.phase).toBe("error"));
+  });
+
+  it("schliesst den WebSocket beim Unmount", async () => {
+    const ws = makeFakeWs();
+    const fetchFn = fakeFetch({ "GET http://x/api/cockpit": { status: 204 } });
+    const { result, unmount } = renderHook(() => useCockpit({ base: "http://x", fetchFn, wsFactory: () => ws }));
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    act(() => { result.current.startAnalysis(); });
+    unmount();
+    expect(ws.close).toHaveBeenCalled();
+  });
+
+  it("nimmt das terminale CockpitResultReady NICHT in die Live-Events auf", async () => {
+    const ws = makeFakeWs();
+    const fetchFn = fakeFetch({
+      "GET http://x/api/cockpit": { status: 204 },
+      "POST http://x/api/cockpit/run": { status: 202, body: { run_id: "r1" } },
+    });
+    const { result } = renderHook(() => useCockpit({ base: "http://x", fetchFn, wsFactory: () => ws }));
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    act(() => { result.current.startAnalysis(); });
+    act(() => { ws.onopen!(); });
+    act(() => { ws.onmessage!({ data: JSON.stringify({ type: "MacroChiefReady", source: "m", payload: {}, timestamp: "t", run_id: "r1" }) }); });
+    act(() => { ws.onmessage!({ data: JSON.stringify({ type: "CockpitResultReady", source: "run_manager", payload: overview, timestamp: "t", run_id: "r1" }) }); });
+    expect(result.current.events.map((e) => e.type)).toEqual(["MacroChiefReady"]);
+  });
 });

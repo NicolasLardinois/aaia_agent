@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getCockpit, startRun } from "../api/client";
-import { openCockpitSocket, type CockpitEvent, type WebSocketFactory } from "../api/cockpitSocket";
+import { openCockpitSocket, type CockpitEvent, type WebSocketFactory, type WebSocketLike } from "../api/cockpitSocket";
 import type { CockpitOverview } from "../lib/contract";
 
 export type Phase = "loading" | "ready" | "running" | "error";
@@ -30,6 +30,7 @@ export function useCockpit(deps: UseCockpitDeps = {}): UseCockpit {
   const [phase, setPhase] = useState<Phase>("loading");
   const [events, setEvents] = useState<CockpitEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const wsRef = useRef<WebSocketLike | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,19 +40,25 @@ export function useCockpit(deps: UseCockpitDeps = {}): UseCockpit {
     return () => { cancelled = true; };
   }, [base, fetchFn]);
 
+  // Offenen WebSocket beim Unmount schliessen (kein Leak / kein setState nach Unmount).
+  useEffect(() => () => { wsRef.current?.close(); }, []);
+
   const startAnalysis = useCallback(() => {
     setPhase("running");
     setEvents([]);
     setError(null);
+    wsRef.current?.close(); // evtl. vorherigen Lauf schliessen (z. B. Doppelklick)
     // Reihenfolge: erst WS oeffnen, POST erst in onOpen -> keine fruehen Events verloren.
-    const ws = openCockpitSocket(
+    wsRef.current = openCockpitSocket(
       base,
       {
         onOpen: () => {
           startRun(base, fetchFn).catch(() => { setError("Start fehlgeschlagen"); setPhase("error"); });
         },
-        onEvent: (e) => setEvents((prev) => [...prev, e]),
-        onResult: (ov) => { setOverview(ov); setPhase("ready"); ws.close(); },
+        // onEvent feuert fuer JEDE Nachricht; das terminale CockpitResultReady gehoert
+        // nicht in den Fortschritts-Stream (es wird ueber onResult behandelt).
+        onEvent: (e) => { if (e.type !== "CockpitResultReady") setEvents((prev) => [...prev, e]); },
+        onResult: (ov) => { setOverview(ov); setPhase("ready"); wsRef.current?.close(); },
         onError: () => { setError("WebSocket-Fehler"); setPhase("error"); },
       },
       wsFactory,
