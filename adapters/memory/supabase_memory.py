@@ -168,12 +168,12 @@ class SupabaseMemory(MemoryPort):
                         ticker, asset_class, market, regime, regime_confidence,
                         top_down_context, alignment, dominant_signal, recommendation,
                         short_action,
-                        confidence, xai_explanation, price_at_analysis,
+                        confidence, xai_explanation, short_xai, price_at_analysis,
                         top_down_anomaly_severity, bottom_up_anomaly_severity,
                         indicators_snapshot,
                         risk_affinity
                     ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     """,
                     (
@@ -192,6 +192,10 @@ class SupabaseMemory(MemoryPort):
                         result.short_action.value,
                         result.confidence,
                         result.xai_explanation,
+                        # Short-XAI separat persistieren (eigene Spalte), symmetrisch zur
+                        # Long-Begründung xai_explanation — sonst ginge die erklärbare
+                        # Short-Begründung in der History verloren.
+                        result.short_xai,
                         resolved_price,
                         result.top_down_anomaly.severity if result.top_down_anomaly else "none",
                         result.bottom_up_anomaly.severity if result.bottom_up_anomaly else "none",

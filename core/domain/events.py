@@ -203,3 +203,7 @@ class DeepDiveResultReady(AgentEvent): pass
 
 @dataclass
 class ConflictResolutionReady(AgentEvent): pass
+
+# --- Short-Thesis-Agent: ausformulierte Leerverkaufs-These bereit ---
+@dataclass
+class ShortThesisReady(AgentEvent): pass

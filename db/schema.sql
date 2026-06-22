@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS analysis_memory (
     indicators_snapshot         jsonb             DEFAULT '{}'::jsonb,
     short_action                text,                                     -- Short-Aktion (SHORT/SHORT+/HOLD/COVER/NONE); 2026-06-20 nachträglich ergänzt (steht daher physisch am Ende)
     risk_affinity               text,                                     -- Bond-Risikoaffinität (konservativ/neutral/risikofreudig); 2026-06-21 nachträglich ergänzt (steht daher physisch am Ende)
+    short_xai                   text,                                     -- Erklärbare Short-Begründung (XAI), symmetrisch zu xai_explanation; 2026-06-22 nachträglich ergänzt (steht daher physisch am Ende)
     CONSTRAINT analysis_memory_pkey PRIMARY KEY (id)
 );
 
@@ -89,5 +90,8 @@ CREATE TABLE IF NOT EXISTS portfolio_snapshots (
 --             ALTER TABLE portfolio_snapshots ADD COLUMN IF NOT EXISTS metrics jsonb DEFAULT '{}'::jsonb;
 -- 2026-06-21  analysis_memory: Spalte risk_affinity ergänzt (feat/bond-risikoaffinitaet — Bond-Recompute-Bausteine).
 --             ALTER TABLE analysis_memory ADD COLUMN IF NOT EXISTS risk_affinity text;
+-- 2026-06-22  analysis_memory: Spalte short_xai ergänzt (feat/short-thesis-agent — erklärbare Short-Begründung, symmetrisch zu xai_explanation).
+--             ALTER TABLE analysis_memory ADD COLUMN IF NOT EXISTS short_xai text;
 -- ⚠️ DEPLOY: vor Merge einmalig auf Supabase ausführen:
 --             ALTER TABLE analysis_memory ADD COLUMN IF NOT EXISTS risk_affinity text;
+--             ALTER TABLE analysis_memory ADD COLUMN IF NOT EXISTS short_xai text;

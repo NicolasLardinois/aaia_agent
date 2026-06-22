@@ -822,3 +822,6 @@ class DeepDiveResult:
     conflict: bool = False
     conflict_reason: str = ""
     conflict_resolution: Optional["ConflictResolution"] = None
+    # Short-Thesis-Agent-Output: ausformulierte Leerverkaufs-Begründung + XAI-Erklärung
+    short_thesis: str = ""
+    short_xai: str = ""
