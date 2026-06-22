@@ -33,4 +33,8 @@ describe("startRun", () => {
     const id = await startRun("http://x", fakeFetch(202, { run_id: "abc" }));
     expect(id).toBe("abc");
   });
+
+  it("wirft bei Fehlerstatus", async () => {
+    await expect(startRun("http://x", fakeFetch(500))).rejects.toThrow();
+  });
 });

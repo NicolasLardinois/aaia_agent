@@ -30,4 +30,15 @@ describe("openCockpitSocket", () => {
     expect(onResult).toHaveBeenCalledOnce();
     expect(onResult).toHaveBeenCalledWith(ovPayload, expect.objectContaining({ type: "CockpitResultReady" }));
   });
+
+  it("ruft onError und onClose", () => {
+    const ws = fakeWs();
+    const onError = vi.fn();
+    const onClose = vi.fn();
+    openCockpitSocket("http://x", { onError, onClose }, () => ws);
+    ws.onerror!();
+    ws.onclose!();
+    expect(onError).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
 });
