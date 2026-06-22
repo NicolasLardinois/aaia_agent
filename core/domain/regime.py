@@ -88,7 +88,7 @@ def _save_history(history: list[tuple[str, float]], current: float, today: Optio
 
 def _trend(history: list[tuple[str, float]], current: float) -> float | None:
     """Positiv = Composite verbessert sich, Negativ = verschlechtert sich.
-    Steigung der letzten N datierten Punkte statt current − mean (misst echte Dynamik)."""
+    Berechnung: current − mean(history) — misst die Abweichung vom Durchschnitt (shift-invariant)."""
     values = [v for _, v in history]
     if len(values) < 2:
         return None

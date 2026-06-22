@@ -302,7 +302,7 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 
 #### Regime-Kalibrierung Stufe ②-v1 — Risk-off-Grenze kalibrieren (2026-06-22, Branch `worktree-regime-calibration`)
 - [x] **Stufe ②-v1 umgesetzt:** Walk-Forward-Kalibrierung der Risk-off-Grenze (`_REGIME_BIAS`) gegen NBER-Wahrheit (F1-Metrik).
-  Spec `docs/superpowers/specs/2026-06-22-regime-replay-backtest-stage2.md`; Plan `docs/superpowers/plans/`.
+  Spec `docs/superpowers/specs/2026-06-22-regime-kalibrierung-design.md`; Plan `docs/superpowers/plans/2026-06-22-regime-kalibrierung.md`.
   **Implementiert (5 Tasks):**
   Task 1: `_REGIME_BIAS`-Knopf + Trend-Invarianz in `core/domain/regime.py`.
   Task 2: `evidence["trend"]` + `urteil["trend"]` in `regime_replay.py`.

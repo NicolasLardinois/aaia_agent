@@ -21,7 +21,7 @@ from core.utils.regime_calibration import calibrate, build_calib_report_md
 _REGION = "USA"   # v1: USA (Composition-Root; Region-Steckbarkeit wie in ①)
 
 
-def _monatserste(start: date, end: date) -> list:
+def _monatserste(start: date, end: date) -> list[date]:
     """Erzeugt eine Liste aller Monatsersten zwischen start und end (inkl.)."""
     out, cur = [], start
     while cur <= end:
@@ -51,7 +51,7 @@ def _usrec_by_month(fred: Fred) -> dict:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description="Regime-Kalibrierung ②-v1 — schlägt einen Risk-off-Grenz-Bias vor (kein Auto-Apply).")
     ap.add_argument("--start", default="1960-01")
     ap.add_argument("--end", default=date.today().strftime("%Y-%m"))
     ap.add_argument("--folds", type=int, default=4)
@@ -65,6 +65,7 @@ def main() -> None:
     urteile = run_replay(
         lambda d: HistoricalFredProvider(FRED_API_KEY, d), stichtage,
         ecb_factory=lambda d: EcbStubProvider(), snb_factory=lambda d: SnbStubProvider())
+    # Hinweis: u["composite"] ist auf 4 Stellen gerundet; der Bias-Gitter-Schritt 0.02 ist 400x groesser → unkritisch.
     records = [(u["as_of"], u["composite"], u["trend"]) for u in urteile]
 
     fred = Fred(api_key=FRED_API_KEY)
