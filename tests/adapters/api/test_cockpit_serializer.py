@@ -91,3 +91,31 @@ def test_partial_availability_excludes_only_the_unavailable_domain():
     assert by_key["sentiment"]["status"] == "available"
     assert d["sources_total"] == 5
     assert d["sources_active"] == 4   # Macro + 3 Sub-Domaenen verfuegbar
+
+
+def test_unavailable_domain_signal_is_null_not_neutral():
+    # AGENTS.md §3 / Spec §6: UNAVAILABLE ≠ NEUTRAL. Eine ausgefallene Domaene
+    # traegt im Default Signal.NEUTRAL — die API darf das NICHT als echtes
+    # "neutral" ausliefern (sonst sieht ein Consumer ein erfundenes Signal fuer
+    # eine Quelle ohne Daten). Bei status=unavailable muss signal None sein.
+    result = _available_cockpit()
+    result.commodities.status = SignalStatus.UNAVAILABLE
+    d = cockpit_to_dict(result)
+    by_key = {e["key"]: e for e in d["domains"]}
+    assert by_key["commodities"]["signal"] is None        # nicht "neutral"
+    assert by_key["commodities"]["status"] == "unavailable"
+    # Verfuegbare Domaene traegt weiterhin ihr echtes Signal.
+    assert by_key["sentiment"]["signal"] == "bearish"
+
+
+def test_all_unavailable_domains_have_null_signal():
+    # Alle-Default-Cockpit => jede Sub-Domaene unavailable => signal ueberall None.
+    result = CockpitResult(
+        macro=MacroChiefAgent.default(),
+        commodities=CommodityChiefAgentMakro.default(),
+        sentiment=SentimentChiefAgent.default(),
+        yield_curve=YieldCurveChiefAgent.default(),
+        sectors=SectorChiefAgent.default(),
+    )
+    d = cockpit_to_dict(result)
+    assert all(e["signal"] is None for e in d["domains"])
