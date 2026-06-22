@@ -1,7 +1,10 @@
 """Baut die FastAPI-App. CORS-Origins: aus Env (Render-Frontend) ODER localhost-Dev."""
+import logging
 import os
 
 from fastapi import FastAPI
+
+_logger = logging.getLogger(__name__)
 from fastapi.middleware.cors import CORSMiddleware
 
 from adapters.api.routes_cockpit import build_router
@@ -19,6 +22,8 @@ def _allowed_origins(env: str | None) -> list[str]:
 
 
 def create_app(run_manager: RunManager) -> FastAPI:
+    if not os.environ.get("AAIA_ACCESS_TOKEN"):
+        _logger.warning("AAIA_ACCESS_TOKEN ist leer -> API ist UNGESCHUETZT (nur fuer lokale Entwicklung).")
     app = FastAPI(title="AAIA API", version="0.1.0")
     app.add_middleware(
         CORSMiddleware,
