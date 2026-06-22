@@ -2,6 +2,8 @@
 gegen die NBER-Wahrheit (Ziel F1), per Walk-Forward (Train/Test getrennt). Kein I/O —
 Kursabruf/NBER werden injiziert. Nutzt die Trend-Shift-Invarianz: jedes `b` ist aus den
 gespeicherten (composite, trend) je Stichtag nachrechenbar, ohne den Replay neu zu fahren."""
+from datetime import date
+
 from core.domain.regime import _regime_from
 from core.utils.regime_eval import evaluate_nber
 
@@ -11,7 +13,7 @@ def bias_grid() -> list[float]:
     return [round(-0.40 + 0.02 * i, 2) for i in range(41)]
 
 
-def _confusion_for_bias(records: list, usrec_by_month: dict, b: float) -> tuple:
+def _confusion_for_bias(records: list[tuple[date, float, float | None]], usrec_by_month: dict, b: float) -> tuple[int, int, int]:
     """Konfusionszähler (tp, fp, fn) für einen Bias `b`: Regime via _regime_from(composite+b, trend),
     abgeglichen gegen NBER über die bestehende evaluate_nber."""
     biased = [{"as_of": d, "regime": _regime_from(c + b, t)} for (d, c, t) in records]
@@ -26,13 +28,13 @@ def f1_from_counts(tp: int, fp: int, fn: int) -> float:
     return 2 * p * r / (p + r) if (p + r) else 0.0
 
 
-def f1_for_bias(records: list, usrec_by_month: dict, b: float) -> float:
+def f1_for_bias(records: list[tuple[date, float, float | None]], usrec_by_month: dict, b: float) -> float:
     """F1 (risk-off vs. NBER-Rezession) für einen einzelnen Bias-Wert `b`."""
     tp, fp, fn = _confusion_for_bias(records, usrec_by_month, b)
     return f1_from_counts(tp, fp, fn)
 
 
-def best_bias_on(records: list, usrec_by_month: dict, grid: list) -> tuple:
+def best_bias_on(records: list[tuple[date, float, float | None]], usrec_by_month: dict, grid: list[float]) -> tuple[float, float]:
     """Bias mit maximalem F1 auf `records`. Tie-Break: betragskleinster Bias (Richtung Default 0)."""
     best_b, best_f1 = 0.0, -1.0
     for b in grid:
