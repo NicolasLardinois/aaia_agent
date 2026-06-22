@@ -20,13 +20,17 @@ Flags/Archetypen/Regime/Squeeze. Bleib bei den gelieferten Fakten."""
 
 def _assessment_block(sa) -> str:
     """Formatiert das ShortAssessment als lesbaren Text-Block für die LLM-Prompts."""
+    # Größe/Stop sind Optional[float] (None möglich) → 'n/v' statt eines irreführenden
+    # 'None%' im Prompt (analog zur 'n/v'-Konvention im ConflictAgent).
+    size = f"{sa.suggested_size_pct}%" if sa.suggested_size_pct is not None else "n/v"
+    stop = f"{sa.stop_pct}%" if sa.stop_pct is not None else "n/v"
     return (
         f"Short-Aktion: {sa.short_action.value} | Konfidenz: {sa.confidence:.0%}\n"
         f"Archetypen: {', '.join(sa.archetypes) or 'keine'}\n"
         f"Befunde (Flags): {'; '.join(sa.thesis_flags) or 'keine'}\n"
         f"Regime-Effekt: {sa.regime_effect} | Squeeze-Risiko: {sa.squeeze_risk} | "
         f"Hard-to-borrow: {sa.hard_to_borrow}\n"
-        f"Größe: {sa.suggested_size_pct}% | Stop: {sa.stop_pct}%"
+        f"Größe: {size} | Stop: {stop}"
     )
 
 
@@ -71,13 +75,18 @@ class ShortThesisAgent:
                 f"Erkläre ausführlich, warum diese Short-Einschätzung getroffen wurde."
             )
             xai = await asyncio.to_thread(self.llm.complete, xai_prompt, SHORT_XAI_SYSTEM_PROMPT)
+        except Exception:
+            # Jeder LLM-Fehler (Timeout, API-Fehler, …) → sicherer Default, kein Crash
+            return "", ""
 
-            # Event veröffentlichen (konsistent mit den übrigen Agenten; Daten fließen via Rückgabewert)
+        # Event veröffentlichen (konsistent mit den übrigen Agenten; Daten fließen via Rückgabewert).
+        # Bewusst SEPARAT umhüllt: ein Bus-Fehler darf die bereits berechneten (teuren)
+        # LLM-Texte NICHT verwerfen — These/XAI werden trotzdem zurückgegeben.
+        try:
             self.bus.publish(ShortThesisReady(
                 source="short_thesis_agent",
                 payload={"ticker": ticker},
             ))
-            return thesis, xai
         except Exception:
-            # Jeder Fehler (LLM-Timeout, API-Fehler, …) → sicherer Default, kein Crash
-            return "", ""
+            pass
+        return thesis, xai
