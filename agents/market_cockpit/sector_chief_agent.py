@@ -3,7 +3,7 @@ import asyncio
 from agents.market_cockpit.sector.sector_performance_agent import SectorPerformanceAgent
 from agents.market_cockpit.sector.sector_rotation_agent import SectorRotationAgent
 from core.domain.events import SectorChiefReady
-from core.domain.models import MarketRegime, SectorChiefResult, SectorRotationSnapshot, Signal
+from core.domain.models import MarketRegime, SectorChiefResult, SectorRotationSnapshot, Signal, SignalStatus
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 
@@ -50,4 +50,5 @@ class SectorChiefAgent:
         return SectorChiefResult(
             performance=SectorPerformanceAgent.default(),
             rotation=_DEFAULT_ROTATION,
+            status=SignalStatus.UNAVAILABLE,
         )

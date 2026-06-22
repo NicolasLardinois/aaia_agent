@@ -96,4 +96,5 @@ class CommodityChiefAgentMakro:
             precious_metals=PreciousMetalsMacroAgent.default(),
             agricultural=AgriculturalAgent.default(),
             signal=Signal.NEUTRAL,
+            status=SignalStatus.UNAVAILABLE,
         )

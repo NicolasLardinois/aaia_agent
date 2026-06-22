@@ -75,4 +75,5 @@ class YieldCurveChiefAgent:
             yield_spreads=YieldSpreadAgent.default(),
             sovereign_spreads=SovereignSpreadAgent.default(),
             signal=Signal.NEUTRAL,
+            status=SignalStatus.UNAVAILABLE,
         )

@@ -8,3 +8,6 @@ python-dotenv
 psycopg2-binary
 yfinance
 requests
+fastapi
+uvicorn[standard]
+httpx

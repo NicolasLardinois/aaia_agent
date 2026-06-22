@@ -8,7 +8,7 @@ from agents.market_cockpit.macro.labor_income_agent import LaborIncomeAgent
 from agents.market_cockpit.macro.credit_agent import CreditAgent
 from agents.market_cockpit.macro.buffett_indicator_agent import BuffettIndicatorAgent
 from core.domain.events import MacroChiefReady
-from core.domain.models import MacroChiefResult, MarketRegime
+from core.domain.models import MacroChiefResult, MarketRegime, SignalStatus
 from core.domain.regime import RegimeDetector
 from core.ports.data_provider import EcbDataProvider, MacroDataProvider, SnbDataProvider
 from core.ports.event_bus import EventBus
@@ -127,4 +127,5 @@ class MacroChiefAgent:
             labor_income=LaborIncomeAgent.default(),
             credit=CreditAgent.default(),
             buffett_indicator=BuffettIndicatorAgent.default(),
+            status=SignalStatus.UNAVAILABLE,
         )

@@ -62,4 +62,5 @@ class SentimentChiefAgent:
             fear_greed=FearGreedAgent.default(),
             put_call=PutCallAgent.default(),
             signal=Signal.NEUTRAL,
+            status=SignalStatus.UNAVAILABLE,
         )

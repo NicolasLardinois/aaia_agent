@@ -13,6 +13,7 @@ class InMemoryEventBus(EventBus):
 
     def __init__(self):
         self._handlers: dict[type, list[Callable]] = defaultdict(list)
+        self._all_handlers: list[Callable] = []
         self._log: list[AgentEvent] = []
 
     def publish(self, event: AgentEvent) -> None:
@@ -25,9 +26,21 @@ class InMemoryEventBus(EventBus):
                     "Handler %s raised for %s — skipping",
                     handler, type(event).__name__,
                 )
+        for handler in self._all_handlers:
+            try:
+                handler(event)
+            except Exception:
+                _logger.exception(
+                    "Wildcard-Handler %s raised for %s — skipping",
+                    handler, type(event).__name__,
+                )
 
     def subscribe(self, event_type: type, handler: Callable[[AgentEvent], None]) -> None:
         self._handlers[event_type].append(handler)
+
+    def subscribe_all(self, handler: Callable[[AgentEvent], None]) -> None:
+        """Ruft handler bei JEDEM publish auf (erster echter Bus-Zuhoerer — speist den WebSocket-Broadcast; vgl. open_todos §7)."""
+        self._all_handlers.append(handler)
 
     def get_log(self) -> list[AgentEvent]:
         return list(self._log)
