@@ -44,7 +44,10 @@ class JsonPortfolioProvider(PortfolioPort):
         return out
 
     def position_state_for(self, ticker: str) -> PositionState:
+        # Ticker kanonisch in Großschrift abgleichen — System-Ticker sind upper;
+        # toleriert abweichende CLI-/Depot-Schreibweise ('aapl' findet 'AAPL').
+        want = ticker.upper()
         for p in self.get_positions():
-            if p.ticker == ticker:
+            if p.ticker.upper() == want:
                 return PositionState.LONG if p.direction == "long" else PositionState.SHORT
         return PositionState.NONE

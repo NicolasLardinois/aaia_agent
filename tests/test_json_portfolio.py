@@ -55,3 +55,15 @@ def test_missing_buy_price_raises(tmp_path):
     path = _write(tmp_path, [{"ticker": "AAPL", "shares": 10, "direction": "long"}])
     with pytest.raises(PortfolioError):
         JsonPortfolioProvider(path).get_positions()
+
+
+def test_position_state_case_insensitive(tmp_path):
+    """Ticker-Abgleich ist case-insensitiv: CLI-Eingabe 'aapl' findet Depot-'AAPL'
+    und 'NOK' findet Depot-'nok' (kanonische Ticker-Schreibweise im System ist Großschrift)."""
+    path = _write(tmp_path, [
+        {"ticker": "AAPL", "shares": 10, "buy_price": 150, "direction": "long"},
+        {"ticker": "nok", "shares": 50, "buy_price": 4, "direction": "short"},
+    ])
+    p = JsonPortfolioProvider(path)
+    assert p.position_state_for("aapl") == PositionState.LONG   # Eingabe klein, Depot groß
+    assert p.position_state_for("NOK") == PositionState.SHORT   # Eingabe groß, Depot klein

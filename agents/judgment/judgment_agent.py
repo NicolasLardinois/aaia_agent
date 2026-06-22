@@ -83,10 +83,12 @@ def _backtester_summary(context: dict) -> str:
     return notes or "Backtesting-Daten vorhanden."
 
 
-def _short_position_pnl_pct(port, ticker: str, position: PositionState, bottom_up) -> float | None:
+def _short_position_pnl_pct(port: PortfolioPort | None, ticker: str,
+                            position: PositionState, bottom_up: BottomUpResult) -> float | None:
     """P&L-% einer gehaltenen Short-Position (Gewinn, wenn der Kurs unter den Einstand fällt).
     Formel: (Einstand - aktueller Kurs) / Einstand * 100
-    Defensiv: fehlt Port/Position/Einstand/Kurs oder wirft das Depot einen Fehler → None (→ kein SHORT+)."""
+    Defensiv: fehlt Port/Position/Einstand/Kurs oder ist die Depotquelle defekt → None.
+    Dann entfällt nur SHORT+ (→ HOLD); das übrige Urteil bleibt intakt (kein Crash)."""
     if position != PositionState.SHORT or port is None:
         return None
     # Aktuellen Kurs aus dem Bewertungsbereich lesen
@@ -94,12 +96,17 @@ def _short_position_pnl_pct(port, ticker: str, position: PositionState, bottom_u
     cur = getattr(vr, "current_price", None) if vr else None
     if cur is None:
         return None
+    # Ticker kanonisch in Großschrift abgleichen — System-Ticker sind upper
+    # (bottom_up.ticker = .upper()); toleriert abweichende CLI-/Depot-Schreibweise.
+    want = ticker.upper()
     try:
         for p in port.get_positions():
-            if p.ticker == ticker and p.direction == "short" and p.entry_price > 0:
+            if p.ticker.upper() == want and p.direction == "short" and p.entry_price > 0:
                 # Positiver Wert = Short im Gewinn (Kurs unter Einstand gefallen)
                 return (p.entry_price - cur) / p.entry_price * 100
-    except PortfolioError:
+    except (PortfolioError, OSError, ValueError):
+        # Depotquelle defekt/unlesbar (PortfolioError, OSError, JSONDecodeError ⊂ ValueError)
+        # → kein SHORT+. Programmierfehler (AttributeError/TypeError) bleiben bewusst ungefangen.
         return None
     return None
 

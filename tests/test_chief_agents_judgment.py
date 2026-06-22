@@ -214,6 +214,28 @@ def test_pnl_none_on_portfolio_error():
     assert _short_position_pnl_pct(NS(get_positions=_raise), "AAPL", PositionState.SHORT, _bu_price(90.0)) is None
 
 
+def test_pnl_short_ticker_case_insensitive():
+    """Depot-Ticker klein, Analyse-Ticker groß → trotzdem Treffer
+    (kanonische Ticker-Schreibweise im System ist Großschrift)."""
+    port = _port([NS(ticker="aapl", direction="short", entry_price=100.0)])
+    assert _short_position_pnl_pct(port, "AAPL", PositionState.SHORT, _bu_price(90.0)) == 10.0
+
+
+def test_pnl_none_on_value_error():
+    """Defekte/unparsebare Depotquelle (JSONDecodeError ⊂ ValueError) → None statt Crash;
+    nur SHORT+ entfällt, das übrige Urteil bleibt intakt."""
+    def _raise():
+        raise ValueError("malformed json")
+    assert _short_position_pnl_pct(NS(get_positions=_raise), "AAPL", PositionState.SHORT, _bu_price(90.0)) is None
+
+
+def test_pnl_none_on_os_error():
+    """I/O-Fehler beim Depot-Zugriff (OSError, z. B. PermissionError) → None statt Crash."""
+    def _raise():
+        raise OSError("disk")
+    assert _short_position_pnl_pct(NS(get_positions=_raise), "AAPL", PositionState.SHORT, _bu_price(90.0)) is None
+
+
 def test_backtester_chief_load_context_empty():
     bus = MagicMock()
     memory = MagicMock()
