@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { CockpitPage } from "./CockpitPage";
 import type { WebSocketLike } from "../api/cockpitSocket";
 
@@ -39,5 +39,14 @@ describe("CockpitPage", () => {
   it("zeigt einen Fehlerhinweis, wenn das Backend nicht erreichbar ist", async () => {
     render(<CockpitPage deps={{ base: "http://x", fetchFn: fakeFetch(500), wsFactory: fakeWs }} />);
     await waitFor(() => expect(screen.getByText(/nicht erreichbar/i)).toBeInTheDocument());
+  });
+
+  it("zeigt waehrend eines laufenden Laufs keinen Leerzustand mehr", async () => {
+    const ws = fakeWs();
+    render(<CockpitPage deps={{ base: "http://x", fetchFn: fakeFetch(204), wsFactory: () => ws }} />);
+    await waitFor(() => expect(screen.getByText(/Noch keine Analyse/i)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Analyse starten/i }));
+    expect(screen.queryByText(/Noch keine Analyse/i)).not.toBeInTheDocument();
+    expect(screen.getByText("läuft …")).toBeInTheDocument();
   });
 });

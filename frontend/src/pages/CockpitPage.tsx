@@ -20,7 +20,7 @@ export function CockpitPage({ deps }: { deps?: UseCockpitDeps }) {
       {phase === "loading" && <p className="text-slate-500">Lädt …</p>}
       {phase === "error" && <p className="text-red-600">{error ?? "Backend nicht erreichbar"}</p>}
 
-      {phase !== "loading" && phase !== "error" && !overview && (
+      {phase !== "loading" && phase !== "error" && phase !== "running" && !overview && (
         <p className="text-slate-500">Noch keine Analyse — starte eine über „Analyse starten".</p>
       )}
 

@@ -5,6 +5,7 @@ export function RunControl({ phase, onStart }: { phase: Phase; onStart: () => vo
   return (
     <div className="flex items-center gap-3">
       <button
+        type="button"
         onClick={onStart}
         disabled={running}
         className="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
