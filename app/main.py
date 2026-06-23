@@ -24,6 +24,7 @@ from adapters.data.fred_api import FredDataProvider
 from adapters.data.yahoo_finance import YahooFinanceProvider
 from adapters.data.finnhub import FinnhubProvider
 from adapters.data.ecb_sdw import EcbSdwProvider
+from adapters.data.eurostat import EurostatEcbProvider
 from adapters.data.fred_snb import FredSnbProvider
 from adapters.data.cnn_fear_greed import CnnFearGreedProvider
 from adapters.event_bus.redis_bus import InMemoryEventBus
@@ -98,7 +99,7 @@ async def run_dashboard() -> None:
     fred  = FredDataProvider(FRED_API_KEY)
     orch  = TopDownOrchestrator(
         macro=fred,
-        ecb=EcbSdwProvider(),
+        ecb=EurostatEcbProvider(EcbSdwProvider()),
         snb=FredSnbProvider(FRED_API_KEY),
         market=YahooFinanceProvider(),
         bus=bus,
