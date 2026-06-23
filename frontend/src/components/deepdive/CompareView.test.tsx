@@ -1,0 +1,16 @@
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { CompareView } from "./CompareView";
+import { demoDeepDive } from "../../data/demo/deepdive";
+
+describe("CompareView (Gold-Future vs. physisches ETC)", () => {
+  it("zeigt Roll-Yield/Hebel-Unterschied und beide Urteile", () => {
+    render(<CompareView left={demoDeepDive("GC=F")} right={demoDeepDive("4GLD")} />);
+    expect(screen.getByText(/-3\.1/)).toBeInTheDocument();        // Future-Roll-Yield
+    expect(screen.getByText(/kein Roll/i)).toBeInTheDocument();   // ETC ohne Roll
+    expect(screen.getByText(/voll besichert/i)).toBeInTheDocument(); // ETC Hebel 1x
+    // GC=F Konfidenz 0.47 -> HOLD; 4GLD Konfidenz 0.58 -> BUY (Wrapper-Unterschied)
+    expect(screen.getByText(/^HOLD/)).toBeInTheDocument();          // GC=F Long-Urteil
+    expect(screen.getByText(/^BUY/)).toBeInTheDocument();           // 4GLD Long-Urteil
+  });
+});
