@@ -13,7 +13,7 @@ Abgedeckte Fälle:
 """
 import pytest
 
-from app.main import _resolve_taxonomy
+from app.main import _is_legacy_call, _resolve_taxonomy
 from core.domain.taxonomy import Underlying, Wrapper
 
 
@@ -46,3 +46,86 @@ def test_invalid_raises_value_error():
     """Unbekannter Wert → ValueError (wird vom main()-Aufrufer abgefangen und als Exit-1 angezeigt)."""
     with pytest.raises(ValueError):
         _resolve_taxonomy("bogus", None)
+
+
+# --- CLI-Härtung (Review PR #37): Legacy↔neu-Überlappung + getrennte Fehlertexte ---
+
+def test_commodity_with_explicit_single_overrides_legacy_future():
+    """Bugfix (a): 'commodity single' ist neuer Stil → (COMMODITY, SINGLE).
+
+    Vorher wurde 'commodity' als Legacy abgefangen und stillschweigend auf FUTURE
+    gezwungen (legacy_to_taxonomy('commodity') → FUTURE), 'single' rutschte in den Sektor.
+    Ab Phase 2 zählt der Wrapper → ein explizit gesetzter Wrapper muss respektiert werden.
+    """
+    assert _resolve_taxonomy("commodity", "single") == (Underlying.COMMODITY, Wrapper.SINGLE)
+
+
+def test_commodity_with_explicit_future():
+    """'commodity future' (neuer Stil) → (COMMODITY, FUTURE) — Wrapper explizit gesetzt."""
+    assert _resolve_taxonomy("commodity", "future") == (Underlying.COMMODITY, Wrapper.FUTURE)
+
+
+def test_precious_metal_with_physical_etc():
+    """'precious_metal physical_etc' → physisch hinterlegtes ETC (reiner Spot), nicht FUTURE."""
+    assert _resolve_taxonomy("precious_metal", "physical_etc") == (
+        Underlying.PRECIOUS_METAL, Wrapper.PHYSICAL_ETC)
+
+
+def test_commodity_without_wrapper_keeps_legacy_future():
+    """Rückwärtskompatibel: 'commodity' ohne Wrapper bleibt Legacy-Default (COMMODITY, FUTURE).
+
+    Historische Annahme: ein nacktes Rohstoff-Exposure läuft i. d. R. über Futures.
+    Nur ein explizit gesetzter, gültiger Wrapper schaltet auf den neuen Stil um.
+    """
+    assert _resolve_taxonomy("commodity", None) == (Underlying.COMMODITY, Wrapper.FUTURE)
+
+
+def test_commodity_with_sector_like_token_stays_legacy():
+    """'commodity Energy' — 'Energy' ist kein gültiger Wrapper → Legacy (COMMODITY, FUTURE).
+
+    Sektor-Strings (Energy/Technology/…) kollidieren nie mit Wrapper-Namen, deshalb darf
+    ein Nicht-Wrapper-Token den alten Legacy-Pfad (Sektor an pos[3]) nicht zerstören.
+    """
+    assert _resolve_taxonomy("commodity", "Energy") == (Underlying.COMMODITY, Wrapper.FUTURE)
+
+
+def test_invalid_wrapper_error_names_wrapper():
+    """Bugfix (b): ungültiger Wrapper bei gültigem underlying → Fehlertext nennt *wrapper*.
+
+    Vorher meldete 'bottomup AAPL equity_index Technology' fälschlich
+    'unbekannter underlying-Wert' — obwohl equity_index gültig ist und Technology der
+    ungültige Wrapper war.
+    """
+    with pytest.raises(ValueError, match="wrapper"):
+        _resolve_taxonomy("equity_index", "Technology")
+
+
+def test_invalid_underlying_error_names_underlying():
+    """Ungültiges underlying → Fehlertext nennt *underlying* (klar getrennt vom Wrapper-Fall)."""
+    with pytest.raises(ValueError, match="underlying"):
+        _resolve_taxonomy("bogus", None)
+
+
+# --- _is_legacy_call: steuert auch den Positions-Offset in main() (sector-Spalte) ---
+
+def test_is_legacy_call_legacy_only_token():
+    """'etf'/'index' haben kein neues Äquivalent → immer Legacy."""
+    assert _is_legacy_call("etf", None) is True
+    assert _is_legacy_call("index", None) is True
+
+
+def test_is_legacy_call_overlap_with_wrapper_is_new_style():
+    """Überlappender Token + gültiger Wrapper → neuer Stil (nicht Legacy)."""
+    assert _is_legacy_call("commodity", "future") is False
+
+
+def test_is_legacy_call_overlap_without_wrapper_is_legacy():
+    """Überlappender Token ohne Wrapper bzw. mit Sektor-Token → Legacy."""
+    assert _is_legacy_call("commodity", None) is True
+    assert _is_legacy_call("commodity", "Energy") is True
+
+
+def test_is_legacy_call_new_only_and_none():
+    """'equity_index' = neuer Stil; None = kein Argument → kein Legacy."""
+    assert _is_legacy_call("equity_index", "fund") is False
+    assert _is_legacy_call(None, None) is False
