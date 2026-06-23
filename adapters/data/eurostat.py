@@ -28,6 +28,10 @@ def _parse_jsonstat_latest(data: dict) -> float | None:
     Die juengste befuellte Beobachtung ist daher der groesste Integer-Key.
     None bei fehlendem/leerem value oder nicht-numerischem Wert.
     """
+    # Verlaesst sich bewusst auf die sparse-dict-Form von `value` (Position→Wert), die
+    # Eurostats Dissemination-API durchgaengig liefert. JSON-stat 2.0 erlaubt theoretisch
+    # auch eine dichte Array-Form; die kaeme als list an und faellt hier sicher auf None
+    # (→ UNAVAILABLE), nie auf einen falschen Wert.
     value = data.get("value")
     if not isinstance(value, dict) or not value:
         return None
