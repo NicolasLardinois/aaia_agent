@@ -100,17 +100,18 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
   Jede Umbenennung von `CockpitResult`-Unterfeldern führt zu einem leeren Snapshot ohne Fehlermeldung.
   **✅ Audit 2026-06-20 → behoben (TDD).** Befund: das stille `except AttributeError: pass` lag **3×** in der Datei (`_build_indicators_snapshot` + 2× in `save_analysis`: Bottom-Up-Indikatoren + Regime). **Lösung:** modul-lokaler Defensiv-Helfer `_safe_value(getter, what=…)` (loggt via `logging.warning(..., exc_info=True)` statt still zu schlucken, liefert `_MISSING`-Sentinel) + `_put(snap, key, getter, allow_none=…)`. Alle 3 Stellen lesen jetzt **granular**: ein umbenanntes Feld überspringt nur sich selbst (+ Log), reißt die folgenden Indikatoren nicht mehr mit. 4 neue Tests (Granularität + Logging für alle 3 Stellen); Gesamtsuite **719 grün**. **Bewusst klein gehalten** — der projektweite zentrale `_safe`-Helfer für Provider-Calls bleibt das separate Feature aus §7 (PR #14). *(PR: `fix/bug46-supabase-silent-except`.)*
 
-- [ ] **Bug #47** — `agents/stock_deep_dive/equity_chief_agent.py`, `bond_chief_agent.py`, `commodity_chief_agent_mikro.py`
+- [x] **Bug #47** — `agents/stock_deep_dive/equity_chief_agent.py`, `bond_chief_agent.py`, `commodity_chief_agent_mikro.py`
   Chief Agents sammeln Sub-Agent-Ergebnisse, synthetisieren aber kein aggregiertes Gesamt-Signal.
   Downstream-Consumer müssen die Aggregation selbst reimplementieren.
   *(Teilweise durch ChiefAgents-Plan adressiert — `docs/superpowers/plans/2026-06-04-chief-agents.md`)*
-  **⚠️ Audit 2026-06-20 → in drei Teilen abgearbeitet (Eintrag bleibt offen bis beide PRs gemergt):**
+  **✅ Audit 2026-06-20 → in drei Teilen abgearbeitet — alle drei gemergt:**
   (a) `equity_chief` aggregierte bereits via `weighted_signal` (vor dem Audit erledigt).
   (b) `bond_chief` (eigenes Credit-Voting+Veto) → bewusst durch ein **Risikoaffinität-Modell** ersetzt (Veto entfiel) → **PR #19** (`feat/bond-risikoaffinitaet`).
   (c) `commodity_chief_agent_mikro` aggregierte **gar nicht** → **dieser PR**: `weighted_signal` über die 4 Sub-Signale (Supply/Demand 0.35, Bewertung 0.30, COT 0.20, Saisonalität 0.15 — Saisonalität bewusst am niedrigsten; `UNAVAILABLE` re-normalisiert), `overall_signal`+`confidence` im `CommodityBottomUpResult` + Event. 4 Tests; Suite 743 grün. *(PR: `fix/bug47-commodity-mikro-aggregation`.)*
   **Review-Feinschliff 2026-06-21:** Event-Payload trägt jetzt zusätzlich `confidence` (gerundet, analog `equity_chief`/`index_chief`) — Event-Consumer kennen die Urteilssicherheit, ohne sie nachzurechnen.
   **✅ Teil (c): PR #20 am 2026-06-21 gemergt** (Review ohne blockierende Mängel; im Review nur `confidence` ins Event ergänzt — siehe oben).
-  → **Abhaken**, sobald **auch PR #19** (Teil b) gemergt ist — dann ist Bug #47 vollständig erledigt.
+  **✅ Teil (b): PR #19 am 2026-06-21 gemergt** (Merge-Commit `13eef3e`) — Credit-Veto durch Risikoaffinität-Modell ersetzt. Code-Beleg gegen `master` (2026-06-23): `bond_chief_agent.py:56` aggregiert via `aggregate_bond_signal(...)` und gibt `overall_signal`+`confidence` im `BondResult` zurück (Zeilen 64–68); Event trägt `overall_signal`.
+  → **Damit Bug #47 vollständig erledigt** (alle drei Chiefs aggregieren ein Gesamtsignal: equity via `weighted_signal`, bond via `aggregate_bond_signal`, commodity-mikro via `weighted_signal`). Die separate Folge-Aufgabe „effektive Gewichtung" (unten) bleibt offen — sie ist ein eigenes Thema, kein Rest von #47.
 
 - [ ] **Folge-Aufgabe (aus Review PR #20, 2026-06-21)** — effektive Gewichtung im Produktions-Normalfall
   `commodity_chief_agent_mikro`: Ohne Supply-/COT-Adapter liefern beide Agenten `UNAVAILABLE` (0.35 + 0.20 fallen weg). Nach Re-Normalisierung bestimmen dann allein Bewertung (0.30) und Saisonalität (0.15) das Signal → **effektiv 67 % Bewertung / 33 % Saisonalität**. Damit trägt die bewusst niedrigst gewichtete, als „verrauscht" markierte Saisonalität im realen Default ein Drittel des Urteils. Mathematik korrekt, aber die austarierte Gewichts-Leiter kollabiert teilweise (Datenrealität, AGENTS.md §3).
