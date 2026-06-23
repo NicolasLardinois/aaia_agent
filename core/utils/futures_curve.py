@@ -6,7 +6,7 @@ Einheiten: r/u/y und Rückgaben als Dezimal p. a. (0.03 = 3 %); Tage = Kalendert
 """
 import math
 
-from core.domain.models import Signal
+from core.domain.models import Signal, FuturesCurveSnapshot, FuturesAssessment
 
 
 def slope_ann(front: float, next_: float, days_between: int) -> float | None:
@@ -61,3 +61,26 @@ def roll_warning(days_to_front_expiry: int | None) -> bool:
     if days_to_front_expiry is None:
         return False
     return days_to_front_expiry < 5
+
+
+def assess_futures_curve(snap: FuturesCurveSnapshot | None) -> FuturesAssessment:
+    """Aggregiert die reine Kurven-Mathematik zu einem Bewertungsblock (Design §6.3).
+
+    Defensiv: fehlt der Snapshot → unavailable (nie Crash). Convenience-Yield wird implizit
+    aus den Preisen abgeleitet; der Cost-of-Carry-Fairwert nutzt y=0 (reiner Carry-Anker)."""
+    if snap is None:
+        return FuturesAssessment.unavailable()
+    s = slope_ann(snap.front, snap.next_, snap.days_between_expiries)
+    t_years = snap.days_to_front_expiry / 365.0
+    return FuturesAssessment(
+        signal=curve_signal(s),
+        slope_ann=s,
+        roll_yield_long_ann=roll_yield_long_ann(s) if s is not None else None,
+        basis=basis(snap.spot, snap.front),
+        fair_value=cost_of_carry_fair(snap.spot, snap.risk_free_rate, snap.storage_cost, 0.0, t_years),
+        implied_convenience_yield=implied_convenience_yield(
+            snap.spot, snap.front, snap.risk_free_rate, snap.storage_cost, t_years),
+        leverage=(1.0 / snap.margin_quote) if snap.margin_quote else None,
+        roll_warning=roll_warning(snap.days_to_front_expiry),
+        available=True,
+    )
