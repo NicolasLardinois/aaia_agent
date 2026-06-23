@@ -37,8 +37,35 @@ from orchestrators.bottom_up_orchestrator import BottomUpOrchestrator
 from orchestrators.judgment_orchestrator import JudgmentOrchestrator
 
 
-# Legacy-CLI-Werte (alter asset_class-String) — als Modul-Konstante, nie inline neu anlegen.
-_LEGACY_VALUES: frozenset[str] = frozenset({"equity", "bond", "commodity", "precious_metal", "etf", "index"})
+# Legacy-CLI-Werte, die KEIN neues underlying-Äquivalent haben → immer Legacy-Pfad.
+_LEGACY_ONLY: frozenset[str] = frozenset({"etf", "index"})
+# Legacy-Werte, die zugleich gültige neue `underlying`-Werte sind (Überlappung).
+# Diese sind nur dann „neuer Stil", wenn ein gültiger Wrapper folgt — sonst Legacy.
+_LEGACY_OVERLAP: frozenset[str] = frozenset({"equity", "bond", "commodity", "precious_metal"})
+# Gültige Wrapper-Strings (für die Legacy↔neu-Unterscheidung).
+_WRAPPER_VALUES: frozenset[str] = frozenset(w.value for w in Wrapper)
+_UNDERLYING_VALUES: frozenset[str] = frozenset(u.value for u in Underlying)
+
+
+def _is_legacy_call(raw_underlying: str | None, raw_wrapper: str | None) -> bool:
+    """Entscheidet, ob ein CLI-Aufruf als Legacy-`asset_class` zu lesen ist.
+
+    Wird von `_resolve_taxonomy()` UND vom Positions-Offset in `main()` genutzt (beide
+    müssen synchron entscheiden, sonst rutscht der Sektor in die falsche Spalte).
+
+    - `etf`/`index`: kein neues Äquivalent → immer Legacy.
+    - Überlappende Werte (`equity`/`bond`/`commodity`/`precious_metal`): nur dann **neuer Stil**,
+      wenn ein **gültiger Wrapper** folgt. Ohne Wrapper (oder mit einem Sektor-String wie
+      "Energy") bleibt es Legacy → bewahrt z. B. den historischen Default commodity→FUTURE.
+    - Alles andere (`equity_index`, Unbekanntes, None): kein Legacy.
+    """
+    if raw_underlying is None:
+        return False
+    if raw_underlying in _LEGACY_ONLY:
+        return True
+    if raw_underlying in _LEGACY_OVERLAP:
+        return raw_wrapper not in _WRAPPER_VALUES
+    return False
 
 
 def _resolve_taxonomy(
@@ -47,26 +74,36 @@ def _resolve_taxonomy(
 ) -> tuple["Underlying", "Wrapper"]:
     """Zwei-Stufen-Auflösung: CLI-Strings → (Underlying, Wrapper).
 
-    Stufe 1 – Legacy-Wert (z. B. "equity", "etf", "index"):
-      Wird via legacy_to_taxonomy() gemappt. Die Funktion kennt das vollständige Mapping
-      (equity→EQUITY/SINGLE, etf→EQUITY_INDEX/FUND usw.) und ist die einzige Stelle, an
-      der dieses Mapping gepflegt wird (core/domain/taxonomy.py).
+    Stufe 1 – Legacy-Wert (siehe `_is_legacy_call`, z. B. "etf", "index" oder ein
+      überlappender Wert ohne expliziten Wrapper):
+      Wird via legacy_to_taxonomy() gemappt — die einzige Stelle, an der dieses Mapping
+      gepflegt wird (core/domain/taxonomy.py).
 
-    Stufe 2 – Neuer Stil (z. B. "equity_index", "fund"):
-      raw_underlying → Underlying(raw_underlying), raw_wrapper → Wrapper(raw_wrapper or "single").
-      Ein ungültiger Enum-Wert wirft ValueError — der Aufrufer (main()) fängt das ab und
-      gibt eine benutzerfreundliche Fehlermeldung mit sys.exit(1) aus.
+    Stufe 2 – Neuer Stil (z. B. "equity_index fund" oder "commodity single"):
+      raw_underlying → Underlying(...), raw_wrapper → Wrapper(... or "single").
+      Ungültige Werte werfen **getrennte** ValueErrors (underlying vs. wrapper), damit der
+      Aufrufer (main()) eine präzise Fehlermeldung mit den erlaubten Werten ausgeben kann.
 
     Stufe 0 – kein Argument (None):
       Gibt den sicheren Default zurück: (EQUITY, SINGLE).
     """
     if raw_underlying is None:
         return (Underlying.EQUITY, Wrapper.SINGLE)
-    if raw_underlying in _LEGACY_VALUES:
-        # Legacy-Aufruf: "bottomup AAPL equity" oder "bottomup XLE etf"
+    if _is_legacy_call(raw_underlying, raw_wrapper):
         return legacy_to_taxonomy(raw_underlying)
-    # Neuer Stil: "bottomup AAPL equity_index fund" — ValueError bei ungültigem Wert propagieren
-    return (Underlying(raw_underlying), Wrapper(raw_wrapper or "single"))
+    # Neuer Stil: underlying und wrapper getrennt validieren → präzise Fehlertexte.
+    if raw_underlying not in _UNDERLYING_VALUES:
+        raise ValueError(
+            f"unbekannter underlying-Wert {raw_underlying!r}. "
+            "Erlaubt: equity | equity_index | bond | commodity | precious_metal"
+        )
+    raw_wrapper = raw_wrapper or "single"
+    if raw_wrapper not in _WRAPPER_VALUES:
+        raise ValueError(
+            f"unbekannter wrapper-Wert {raw_wrapper!r}. "
+            "Erlaubt: single | fund | future | physical_etc"
+        )
+    return (Underlying(raw_underlying), Wrapper(raw_wrapper))
 
 
 def _parse_risk_affinity(args: list[str], underlying: "Underlying") -> "RiskAffinity | None":
@@ -278,12 +315,12 @@ def main() -> None:
         # Details siehe _resolve_taxonomy() oben; ValueError → Fehlermeldung + Exit 1.
         raw_pos2 = pos[2] if len(pos) >= 3 else None
         raw_pos3 = pos[3] if len(pos) >= 4 else None
-        is_legacy = raw_pos2 in _LEGACY_VALUES if raw_pos2 else False
+        is_legacy = _is_legacy_call(raw_pos2, raw_pos3)
         try:
             underlying, wrapper = _resolve_taxonomy(raw_pos2, raw_pos3)
-        except ValueError:
-            print(f"Fehler: unbekannter underlying-Wert {raw_pos2!r}.")
-            print("Erlaubt: equity | equity_index | bond | commodity | precious_metal")
+        except ValueError as exc:
+            # exc benennt bereits getrennt underlying vs. wrapper inkl. erlaubter Werte.
+            print(f"Fehler: {exc}")
             sys.exit(1)
         # Positions-Offset: Legacy belegt pos[2] allein; neuer Stil belegt pos[2]+pos[3].
         if is_legacy:
