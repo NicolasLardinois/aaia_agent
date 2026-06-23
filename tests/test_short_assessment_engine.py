@@ -4,10 +4,13 @@ from core.domain.models import (
 )
 from core.domain.short_assessment import derive_short_assessment
 from core.domain.recommendation import _position_size_pct
+from core.domain.taxonomy import Underlying, Wrapper
 
 
 def _bu(**kw):
-    base = dict(asset_class="equity", quality=None, earnings_trend=None, fundamentals=None,
+    # underlying/wrapper statt asset_class — entspricht dem neuen Taxonomie-Schema (Task 2/4)
+    base = dict(underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE,
+                quality=None, earnings_trend=None, fundamentals=None,
                 valuation_range=None, moat=None, insider=None, short_interest=None)
     base.update(kw)
     return NS(**base)
@@ -94,9 +97,13 @@ def test_bearish_anomaly_boosts():
     assert _run(bu, bua=bear).confidence > _run(bu).confidence
 
 
-def test_non_equity_fallback():
-    a = _run(_bu(asset_class="commodity"))
+def test_nicht_equity_underlying_faellt_neutral_zurueck():
+    # Nicht-Equity (z. B. COMMODITY/FUTURE) → neutraler Fallback (NONE, confidence 0.10)
+    bu = _bu(underlying=Underlying.COMMODITY, wrapper=Wrapper.FUTURE)
+    a = _run(bu)
     assert a.short_action == ShortAction.NONE
+    assert a.confidence == 0.10
+    assert a.underlying == Underlying.COMMODITY
     assert "Fallback" in a.thesis_flags[0]
 
 

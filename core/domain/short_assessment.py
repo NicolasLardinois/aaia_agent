@@ -59,18 +59,17 @@ def _mk(underlying, wrapper, action, conf, archetypes, flags, regime, squeeze, h
 def derive_short_assessment(bottom_up, cockpit, current_position,
                             top_down_available, bu_anomaly, td_anomaly,
                             position_pnl_pct=None) -> ShortAssessment:
-    # underlying/wrapper direkt lesen wenn vorhanden; SimpleNamespace-Stubs tragen
-    # ggf. nur asset_class → Fallback via legacy_to_taxonomy (verhaltens-erhaltend).
+    # underlying/wrapper direkt lesen (neue Schema); Legacy-Stubs ohne diese Felder
+    # werden über legacy_to_taxonomy (verhaltens-erhaltend) auf Underlying/Wrapper gemappt.
     if hasattr(bottom_up, "underlying") and hasattr(bottom_up, "wrapper"):
         underlying = bottom_up.underlying
         wrapper    = bottom_up.wrapper
     else:
         underlying, wrapper = legacy_to_taxonomy(getattr(bottom_up, "asset_class", "equity"))
-    asset_class = getattr(bottom_up, "asset_class", "equity")
     regime = _regime_effect(cockpit)
     squeeze, htb, dtc = _squeeze(getattr(bottom_up, "short_interest", None))
 
-    if asset_class != "equity":
+    if underlying != Underlying.EQUITY:
         action = ShortAction.HOLD if current_position == PositionState.SHORT else ShortAction.NONE
         return _mk(underlying, wrapper, action, 0.10, [],
                    ["Fallback: klassenspezifische Short-Logik folgt"], regime, squeeze, htb)
