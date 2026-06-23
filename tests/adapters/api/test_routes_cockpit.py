@@ -12,6 +12,18 @@ from adapters.api.run_manager import RunManager
 from adapters.api.app_factory import create_app
 
 
+@pytest.fixture(autouse=True)
+def _auth_disabled(monkeypatch):
+    """Hermetik: diese Tests prüfen das Verhalten OHNE Auth (204/202 ohne Token).
+
+    Ohne dieses Clearing leckt in der vollen Suite ein via `config.settings` →
+    `load_dotenv()` aus der lokalen `.env` geladenes `AAIA_ACCESS_TOKEN` in `os.environ`
+    (sobald irgendein früher Test `config` importiert) → die token-losen Requests hier
+    bekämen 401 statt 204/202. Das Leeren macht die Tests unabhängig vom Ambient-Env.
+    """
+    monkeypatch.delenv("AAIA_ACCESS_TOKEN", raising=False)
+
+
 def _default_cockpit() -> CockpitResult:
     return CockpitResult(
         macro=MacroChiefAgent.default(),
