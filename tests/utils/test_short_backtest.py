@@ -57,3 +57,40 @@ def test_grade_exit_wrong_when_stock_kept_falling():
     correct, payoff = grade_exit(-0.04)
     assert correct is False
     assert payoff == -0.04
+
+
+from core.utils.short_backtest import aggregate_by_reason, payoff_warning
+
+
+def test_payoff_warning_high_hitrate_but_losing():
+    assert payoff_warning(0.55, 0.9) is True      # exakt an der Schwelle, PF < 1
+
+
+def test_payoff_warning_off_when_profitable():
+    assert payoff_warning(0.80, 1.0) is False      # PF == 1.0 → keine Warnung
+
+
+def test_payoff_warning_off_when_hitrate_unknown():
+    assert payoff_warning(None, 0.1) is False      # n < MIN_SAMPLE → keine Warnung
+
+
+def test_aggregate_splits_by_archetype_and_counts_each():
+    graded = [
+        {"archetypes": ["distress", "valuation_extreme"], "correct": True, "payoff": 0.05},
+        {"archetypes": ["distress"], "correct": False, "payoff": -0.03},
+    ]
+    out = aggregate_by_reason(graded)
+    assert out["distress"]["n"] == 2
+    assert out["valuation_extreme"]["n"] == 1
+
+
+def test_aggregate_empty_archetypes_bucket():
+    out = aggregate_by_reason([{"archetypes": [], "correct": True, "payoff": 0.02}])
+    assert "(ohne Grund)" in out
+    assert out["(ohne Grund)"]["n"] == 1
+
+
+def test_aggregate_below_min_sample_hides_hitrate():
+    out = aggregate_by_reason([{"archetypes": ["x"], "correct": True, "payoff": 0.02}])
+    assert out["x"]["hit_rate"] is None        # n=1 < MIN_SAMPLE
+    assert out["x"]["mean_payoff"] == 0.02

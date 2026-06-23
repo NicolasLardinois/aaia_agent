@@ -48,3 +48,58 @@ def grade_exit(post_adj_return: float) -> tuple[bool, float]:
     (kontrafaktische Mess-Größe, kein realisierter Trade).
     """
     return (post_adj_return > 0, post_adj_return)
+
+
+PAYOFF_WARN_HIT_RATE: float = 0.55       # "oft recht"
+PAYOFF_WARN_PROFIT_FACTOR: float = 1.0   # aber unterm Strich Verlust
+_NO_REASON = "(ohne Grund)"
+
+
+def payoff_warning(hit_rate: float | None, pf: float) -> bool:
+    """True, wenn oft recht (≥ 55 %) ABER Profit-Faktor < 1 (Squeeze-Asymmetrie).
+
+    Gibt an, dass ein Archetyp eine hohe Trefferquote hat, aber die Durchschnittsverluste
+    die Durchschnittsgewinne übersteigen → Asymmetrie zwischen Häufigkeit und Betrag.
+    """
+    if hit_rate is None:
+        return False
+    return hit_rate >= PAYOFF_WARN_HIT_RATE and pf < PAYOFF_WARN_PROFIT_FACTOR
+
+
+def aggregate_by_reason(graded: list[dict]) -> dict[str, dict]:
+    """Je Short-Grund (Archetyp) ein Bucket mit Kennzahlen.
+
+    Ein Eintrag mit mehreren Archetypen zählt in JEDEN zugehörigen Bucket;
+    leere Archetypen → Bucket "(ohne Grund)". Trefferquote erst ab MIN_SAMPLE.
+
+    graded: Liste von {"archetypes": list[str], "correct": bool, "payoff": float}
+    out: dict[str, dict] mit Schlüsseln "n", "hit_rate", "ci_low", "ci_high",
+         "mean_payoff", "profit_factor", "max_drawdown", "warning".
+    """
+    buckets: dict[str, list[dict]] = {}
+    for g in graded:
+        for reason in (g.get("archetypes") or [_NO_REASON]):
+            buckets.setdefault(reason, []).append(g)
+
+    out: dict[str, dict] = {}
+    for reason, items in buckets.items():
+        n = len(items)
+        payoffs = [it["payoff"] for it in items]
+        correct = sum(1 for it in items if it["correct"])
+        if n >= MIN_SAMPLE:
+            hit = round(correct / n, 3)
+            lo, hi = hit_rate_ci(correct, n)
+        else:
+            hit, lo, hi = None, None, None
+        pf = profit_factor(payoffs)   # kann float("inf") sein (keine Verluste)
+        out[reason] = {
+            "n": n,
+            "hit_rate": hit,
+            "ci_low": lo,
+            "ci_high": hi,
+            "mean_payoff": round(sum(payoffs) / n, 4) if n else 0.0,
+            "profit_factor": None if pf == float("inf") else round(pf, 3),
+            "max_drawdown": round(max_drawdown(payoffs), 3),
+            "warning": payoff_warning(hit, pf),
+        }
+    return out
