@@ -63,3 +63,4 @@ def test_get_fear_greed_bei_http_error_none():
     resp.raise_for_status.side_effect = Exception("418 Teapot")
     with patch("adapters.data.cnn_fear_greed.requests.get", return_value=resp):
         assert CnnFearGreedProvider().get_fear_greed() is None
+

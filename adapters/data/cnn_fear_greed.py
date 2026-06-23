@@ -9,7 +9,6 @@ Datenrealitaet (bewusst behandelt):
 - Inoffizieller Endpoint: bei jeder Stoerung → None → Agent liefert UNAVAILABLE.
 """
 import requests
-from typing import Optional
 
 from core.ports.data_provider import SentimentDataProvider
 
@@ -22,7 +21,7 @@ _HEADERS = {
 }
 
 
-def _parse(data: dict) -> Optional[float]:
+def _parse(data: dict) -> float | None:
     """Rein: extrahiert den aktuellen Fear&Greed-Score (0–100) aus dem CNN-JSON.
 
     Rueckgabe: gerundeter Score, oder None falls die Struktur fehlt, der Wert
@@ -41,7 +40,7 @@ def _parse(data: dict) -> Optional[float]:
 class CnnFearGreedProvider(SentimentDataProvider):
     """SentimentDataProvider auf Basis des CNN-Fear-&-Greed-Endpoints."""
 
-    def get_fear_greed(self) -> Optional[float]:
+    def get_fear_greed(self) -> float | None:
         try:
             resp = requests.get(_URL, headers=_HEADERS, timeout=10)
             resp.raise_for_status()
