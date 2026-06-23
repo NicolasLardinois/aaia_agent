@@ -12,7 +12,8 @@ vi.mock("echarts", () => ({
 
 // fetch-Mock: GeoJSON-Download schlaegt fehl -> Fallback-Text soll erscheinen
 beforeAll(() => {
-  global.fetch = vi.fn(() =>
+  // globalThis statt global (TypeScript/Browser-kompatibel)
+  globalThis.fetch = vi.fn(() =>
     Promise.resolve({ ok: false, status: 404 } as Response)
   );
 });
