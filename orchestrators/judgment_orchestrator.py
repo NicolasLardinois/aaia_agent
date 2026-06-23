@@ -46,7 +46,7 @@ class JudgmentOrchestrator:
                 cockpit,
                 sector=sector,
                 market=market,
-                asset_class=bottom_up.asset_class,
+                underlying=bottom_up.underlying,
             )
             if top_down_available
             else f"Kein vollständiger Top-Down-Kontext verfügbar (Markt: {market})."

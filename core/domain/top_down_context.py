@@ -1,4 +1,5 @@
 from core.domain.models import CockpitResult, MarketRegime, Signal
+from core.domain.taxonomy import Underlying
 
 _REGIME_CONTEXT: dict[MarketRegime, dict[str, str]] = {
     MarketRegime.BOOM: {
@@ -103,18 +104,29 @@ def _buffett_fallback_note(code: str, ratio: float) -> list[str]:
     return []
 
 
-# Asset-Klassen für die der Buffett-Indikator relevant ist (Marktkapitalisierung / BIP)
-_BUFFETT_RELEVANT_ASSETS = {"equity", "etf", "index"}
+# Basiswerte, für die der Buffett-Indikator (Marktkapitalisierung / BIP) relevant ist.
+# Nur aktienartige Underlyings: Einzelaktien + Aktienindizes/-körbe.
+# Anleihen, Rohstoffe und Edelmetalle haben keinen sinnvollen Marktk./BIP-Bezug.
+_BUFFETT_RELEVANT_UNDERLYINGS: frozenset[Underlying] = frozenset({
+    Underlying.EQUITY,
+    Underlying.EQUITY_INDEX,
+})
 
 
-def _buffett_notes(countries: dict, market: str, asset_class: str) -> list[str]:
+def _is_buffett_relevant(underlying: Underlying) -> bool:
+    """Gibt True zurück, wenn der Buffett-Indikator für dieses Underlying sinnvoll ist."""
+    return underlying in _BUFFETT_RELEVANT_UNDERLYINGS
+
+
+def _buffett_notes(countries: dict, market: str, underlying: Underlying) -> list[str]:
     """
     Buffett-Kontexthinweis für das analysierte Land.
-    Nur relevant für Aktien, ETFs und Indizes — nicht für Anleihen, Rohstoffe, Edelmetalle.
+    Nur relevant für aktienartige Underlyings (EQUITY, EQUITY_INDEX) —
+    nicht für Anleihen, Rohstoffe, Edelmetalle.
     Verwendet Z-Score gegen die eigene 10J-Geschichte (falls vorhanden),
     sonst länderspezifischer Fallback-Korridor (kein globaler 75/135%-Fix).
     """
-    if asset_class.lower() not in _BUFFETT_RELEVANT_ASSETS:
+    if not _is_buffett_relevant(underlying):
         return []
     if not countries:
         return []
@@ -174,7 +186,7 @@ def derive_top_down_context(
     cockpit: CockpitResult,
     sector: str = "default",
     market: str = "USA",
-    asset_class: str = "equity",
+    underlying: Underlying = Underlying.EQUITY,
 ) -> str:
     regime      = cockpit.macro.regime
     context_map = _REGIME_CONTEXT.get(regime, {})
@@ -196,7 +208,7 @@ def derive_top_down_context(
         notes.append(f"Führender Sektor derzeit: {leading}")
 
     buffett_countries = getattr(cockpit.macro.buffett_indicator, "countries", {})
-    notes.extend(_buffett_notes(buffett_countries, market, asset_class))
+    notes.extend(_buffett_notes(buffett_countries, market, underlying))
 
     notes.extend(_sovereign_spread_note(market, cockpit.yield_curve.sovereign_spreads))
 

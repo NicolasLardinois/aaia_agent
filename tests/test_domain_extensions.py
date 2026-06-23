@@ -79,6 +79,16 @@ def test_signal_status_ist_str_enum():
     assert SignalStatus.AVAILABLE == "available"
 
 
+def test_buffett_relevant_nur_fuer_aktienartige_underlyings():
+    """Buffett-Indikator (Marktkap./BIP) ist nur für aktienartige Basiswerte sinnvoll."""
+    from core.domain.top_down_context import _is_buffett_relevant
+    assert _is_buffett_relevant(Underlying.EQUITY) is True
+    assert _is_buffett_relevant(Underlying.EQUITY_INDEX) is True
+    assert _is_buffett_relevant(Underlying.BOND) is False
+    assert _is_buffett_relevant(Underlying.COMMODITY) is False
+    assert _is_buffett_relevant(Underlying.PRECIOUS_METAL) is False
+
+
 def test_deepdive_has_short_thesis_fields():
     """DeepDiveResult hat short_thesis und short_xai als trailing-Default-Felder."""
     from core.domain.events import ShortThesisReady
