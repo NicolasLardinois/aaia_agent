@@ -83,7 +83,8 @@ class JsonPortfolioProvider(PortfolioPort):
                 sector=d.get("sector", "Unbekannt"),
                 underlying=underlying, wrapper=wrapper,
                 country=d.get("country", "Unbekannt"),
-                risk_affinity=affinity))
+                risk_affinity=affinity,
+                contract_multiplier=float(d.get("contract_multiplier", 1.0))))
         return out
 
     def position_state_for(self, ticker: str) -> PositionState:

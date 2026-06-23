@@ -12,6 +12,23 @@ def _write(tmp_path, positions):
     return str(f)
 
 
+def test_contract_multiplier_defaults_to_one(tmp_path):
+    """Ohne JSON-Key bleibt der Multiplikator 1.0 (rückwärtskompatibel)."""
+    path = _write(tmp_path, [{"ticker": "AAPL", "shares": 10, "buy_price": 100, "direction": "long"}])
+    pos = JsonPortfolioProvider(path).get_positions()
+    assert pos[0].contract_multiplier == 1.0
+
+
+def test_contract_multiplier_read_from_json(tmp_path):
+    """Future-Position liefert die Kontraktgröße fürs Notional."""
+    path = _write(tmp_path, [{
+        "ticker": "CL", "shares": 2, "buy_price": 80, "direction": "long",
+        "underlying": "commodity", "wrapper": "future", "contract_multiplier": 1000,
+    }])
+    pos = JsonPortfolioProvider(path).get_positions()
+    assert pos[0].contract_multiplier == 1000.0
+
+
 def test_valid_long_and_short(tmp_path):
     path = _write(tmp_path, [
         {"ticker": "AAPL", "shares": 10, "buy_price": 150, "direction": "long",
