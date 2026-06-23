@@ -61,6 +61,28 @@ class PositionState(str, Enum):
 
 
 @dataclass(frozen=True)
+class FundInfo:
+    """Fonds/ETF-Info-Schicht (§6.6): TER-Kosten-Drag + Tracking-Error. Rein informativ.
+
+    available=True, sobald mindestens die TER vorliegt; der Tracking-Error kann separat
+    fehlen (Benchmark unbekannt), ohne die TER zu entwerten."""
+    ter: float | None
+    tracking_error: float | None
+    available: bool
+
+    @classmethod
+    def of(cls, ter: float | None, tracking_error: float | None) -> "FundInfo":
+        """Baut FundInfo und leitet `available` aus den Daten ab, statt es frei setzen zu
+        lassen: verfügbar, sobald mindestens die TER vorliegt (§6.6) — der Tracking-Error
+        darf separat fehlen (Benchmark unbekannt), ohne die TER zu entwerten."""
+        return cls(ter, tracking_error, available=ter is not None)
+
+    @classmethod
+    def unavailable(cls) -> "FundInfo":
+        return cls(None, None, False)
+
+
+@dataclass(frozen=True)
 class FuturesCurveSnapshot:
     """Roh-Terminkurvendaten (Output des FuturesCurveProvider-Ports, Phase 2a)."""
     spot: float
@@ -800,6 +822,8 @@ class BottomUpResult:
     momentum: Optional["MomentumSnapshot"] = None
     # Phase 2a: Futures-Mechanik-Schicht — nur bei wrapper=FUTURE befüllt, sonst None.
     futures_curve: Optional["FuturesAssessment"] = None
+    # Phase 2b: Fund-Info-Schicht — nur bei wrapper=FUND befüllt, sonst None.
+    fund_info: Optional["FundInfo"] = None
 
 
 # ─────────────────────────────────────────────

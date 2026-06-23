@@ -3,10 +3,11 @@ from agents.stock_deep_dive.bond_chief_agent import BondChiefAgent
 from agents.stock_deep_dive.index_chief_agent import IndexChiefAgent
 from agents.stock_deep_dive.commodity_chief_agent_mikro import CommodityChiefAgentMikro
 from agents.stock_deep_dive.precious_metals_chief_agent import PreciousMetalsChiefAgent
-from core.domain.models import BottomUpResult, FuturesAssessment, RiskAffinity
+from core.domain.models import BottomUpResult, FundInfo, FuturesAssessment, RiskAffinity
 from core.domain.taxonomy import Underlying, Wrapper
 from core.ports.data_provider import FundamentalsProvider, MacroDataProvider, MarketDataProvider
 from core.ports.event_bus import EventBus
+from core.ports.fund_info import FundInfoProvider
 from core.ports.futures_curve import FuturesCurveProvider
 from core.ports.llm_provider import LLMProvider
 from core.utils.futures_curve import assess_futures_curve
@@ -25,6 +26,7 @@ class BottomUpOrchestrator:
         market_provider: MarketDataProvider,
         llm: LLMProvider,
         bus: EventBus,
+        fund_info_provider: "FundInfoProvider | None" = None,
         futures_curve_provider: "FuturesCurveProvider | None" = None,
     ):
         self.equity_chief          = EquityChiefAgent(fundamentals_provider, market_provider, llm, bus)
@@ -32,6 +34,7 @@ class BottomUpOrchestrator:
         self.index_chief           = IndexChiefAgent(market_provider, bus)
         self.commodity_chief       = CommodityChiefAgentMikro(market_provider, bus)
         self.precious_metals_chief = PreciousMetalsChiefAgent(macro_provider, market_provider, bus)
+        self.fund_info_provider     = fund_info_provider
         self.futures_curve_provider = futures_curve_provider
 
     async def run(
@@ -44,21 +47,30 @@ class BottomUpOrchestrator:
         rate_direction: str = "stable",
         risk_affinity: "RiskAffinity | None" = None,
     ) -> BottomUpResult:
-        # Dispatch nach Basiswert-Typ (underlying) — nicht mehr nach Legacy-String.
-        # wrapper wird nur an _run_index weitergereicht (SINGLE vs. FUND unterscheidet
-        # Direkt-Index von ETF/Fonds-Korb).
+        # Dispatch nach Basiswert-Typ (underlying). wrapper geht an die Pfade, die ihn
+        # auswerten (_run_index, _run_commodity, _run_precious_metals); danach wird die
+        # Fund-Info-Schicht zentral über jedes Ergebnis gelegt. Die Futures-Mechanik-Schicht
+        # bleibt pfadlokal (Commodity/Edelmetall, Phase 2a).
         match underlying:
             case Underlying.PRECIOUS_METAL:
-                return await self._run_precious_metals(ticker, wrapper)
+                result = await self._run_precious_metals(ticker, wrapper)
             case Underlying.BOND:
-                return await self._run_bond(ticker, bond_type, rate_direction, risk_affinity)
+                result = await self._run_bond(ticker, bond_type, rate_direction, risk_affinity)
             case Underlying.EQUITY_INDEX:
-                return await self._run_index(ticker, wrapper)
+                result = await self._run_index(ticker, wrapper)
             case Underlying.COMMODITY:
-                return await self._run_commodity(ticker, wrapper)
+                result = await self._run_commodity(ticker, wrapper)
             case _:
                 # Default: EQUITY (Einzelaktie)
-                return await self._run_equity(ticker, sector)
+                result = await self._run_equity(ticker, sector)
+
+        # Fund-Info-Schicht (§6.6): hängt am WRAPPER, nicht am Basiswert. Jeder ETF/Fonds
+        # bekommt sie — Aktien-Index-ETF ebenso wie Anleihe-, Rohstoff- oder Edelmetall-ETF
+        # (z. B. GLD). Andere Wrapper → None (keine Schicht).
+        fund = await self._fund_overlay(ticker, wrapper)
+        if fund is not None:
+            result.fund_info = fund
+        return result
 
     async def _run_equity(self, ticker: str, sector: str) -> BottomUpResult:
         try:
@@ -113,6 +125,19 @@ class BottomUpOrchestrator:
             insider=None, earnings_trend=None, moat=None, valuation_range=None,
             precious_metals=None, bond=None, index=index_result, commodity_deep=None,
         )
+
+    async def _fund_overlay(self, symbol: str, wrapper: Wrapper) -> "FundInfo | None":
+        """Info-Schicht nur bei wrapper=FUND (Design §6.6). Defensiv: fehlender Provider
+        oder Datenfehler → unavailable statt Crash. Andere Wrapper → None (keine Schicht)."""
+        if wrapper != Wrapper.FUND:
+            return None
+        if self.fund_info_provider is None:
+            return FundInfo.unavailable()
+        try:
+            info = await self.fund_info_provider.get_fund_info(symbol)
+        except Exception:
+            info = None
+        return info if info is not None else FundInfo.unavailable()
 
     async def _futures_overlay(self, symbol: str, wrapper: Wrapper) -> "FuturesAssessment | None":
         """Mechanik-Schicht nur bei wrapper=FUTURE (Design §6.5). Defensiv: fehlender Provider
