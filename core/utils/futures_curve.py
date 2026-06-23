@@ -6,6 +6,8 @@ Einheiten: r/u/y und Rückgaben als Dezimal p. a. (0.03 = 3 %); Tage = Kalendert
 """
 import math
 
+from core.domain.models import Signal
+
 
 def slope_ann(front: float, next_: float, days_between: int) -> float | None:
     """Annualisierte Kurvenneigung (next_/front − 1)·(365/Δtage). Contango ⇒ > 0."""
@@ -37,3 +39,25 @@ def implied_convenience_yield(spot: float, front: float, r: float, u: float, T_y
     if not spot or T_years <= 0:
         return None
     return r + u - math.log(front / spot) / T_years
+
+
+def curve_signal(slope: float | None) -> Signal:
+    """±5 %-Bänder (Design §6.3a). Lückenlos — jeder Wert fällt in genau eine Klasse.
+
+    Unter ~5 % p. a. liegt die Neigung im Bereich normaler Lager-/Zins-Carry und ist
+    nicht richtungsweisend (NEUTRAL); Backwardation ⇒ Knappheit + positiver Roll (BULLISH);
+    Contango ⇒ Überangebot + negativer Roll (BEARISH)."""
+    if slope is None:
+        return Signal.NEUTRAL
+    if slope <= -0.05:
+        return Signal.BULLISH
+    if slope >= 0.05:
+        return Signal.BEARISH
+    return Signal.NEUTRAL
+
+
+def roll_warning(days_to_front_expiry: int | None) -> bool:
+    """True, wenn der Front-Kontrakt < 5 Handelstage vor Verfall steht (Roll steht an)."""
+    if days_to_front_expiry is None:
+        return False
+    return days_to_front_expiry < 5
