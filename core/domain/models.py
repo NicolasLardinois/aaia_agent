@@ -60,6 +60,21 @@ class PositionState(str, Enum):
     SHORT = "short"
 
 
+@dataclass(frozen=True)
+class FundInfo:
+    """Fonds/ETF-Info-Schicht (§6.6): TER-Kosten-Drag + Tracking-Error. Rein informativ.
+
+    available=True, sobald mindestens die TER vorliegt; der Tracking-Error kann separat
+    fehlen (Benchmark unbekannt), ohne die TER zu entwerten."""
+    ter: float | None
+    tracking_error: float | None
+    available: bool
+
+    @classmethod
+    def unavailable(cls) -> "FundInfo":
+        return cls(None, None, False)
+
+
 class ShortType(str, Enum):
     DEFENSIVE  = "DEFENSIV"
     AGGRESSIVE = "AGGRESSIV"
