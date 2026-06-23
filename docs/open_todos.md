@@ -180,8 +180,10 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - [ ] **`agents/stock_deep_dive/commodity/supply_demand_agent.py` (Zeile 61)**
   EIA API (Öl/Gas), USDA (Agrar), LME (Metalle) nicht angebunden.
 
-- [ ] **`agents/market_cockpit/sentiment/fear_greed_agent.py` (Zeile 28)**
-  CNN Fear & Greed API nicht angebunden. Gibt immer `None` zurück.
+- [x] **`agents/market_cockpit/sentiment/fear_greed_agent.py`** — CNN Fear & Greed API **angebunden** (PR #34, 2026-06-23). **Lösung:** `adapters/data/cnn_fear_greed.py` (`CnnFearGreedProvider`), injiziert via `TopDownOrchestrator(sentiment=…)` in `app/main.py` + `app/server.py`; Ausfall/Strukturbruch → `WARNING`-Log → `None` → `UNAVAILABLE`. Redundanter `sentiment_stub.py` entfernt. (Siehe auch Plan-E-Eintrag unten.)
+
+- [ ] **Folge-Task (Review PR #34, 2026-06-23) — `fear_greed_agent.py`: 75er-Grenze vereinheitlichen.**
+  Bei exakt `75.0` liefert `_label` „Greed" (`<= 75`), `_signal` aber BEARISH (`>= 75`). Offizielles CNN-Band ist 75–100 = Extreme Greed → `_label` sollte `< 75 → "Greed"` nutzen, damit `75.0` als „Extreme Greed" labelt (konsistent mit Signal + CNN-Definition). Praktisch selten (Rundung auf 1 Stelle), aber sauberer Fix, wenn ohnehin an der Schwellenlogik gearbeitet wird. *Eigener kleiner PR — Agentenlogik, bewusst nicht im Daten-PR #34.*
 
 - [ ] **`agents/stock_deep_dive/equity/valuation_range_agent.py` (Zeile 55)**
   Vollständige Implementierung wartet auf Finnhub/FMP Adapter.
@@ -447,7 +449,7 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   Plan E hat Ports + Agenten-Logik gebaut; die Agenten liefern korrekt `UNAVAILABLE`, bis echte Quellen angebunden sind:
   - **COT** (`COTProvider`): CFTC Commitments of Traders (wöchentlich, CSV) → `adapters/data/cftc_cot.py`.
   - **Commodity Supply** (`CommoditySupplyProvider`): EIA (Öl/Gas), USDA (Agrar), LME (Metalle) → Lagerbalancen + Produktionskosten-Kurve.
-  - **Fear&Greed** (`SentimentDataProvider`): CNN Fear&Greed API → `adapters/data/cnn_fear_greed.py` (URL im `sentiment_stub.py` dokumentiert).
+  - [x] **Fear&Greed live angebunden** — `adapters/data/cnn_fear_greed.py` (`CnnFearGreedProvider`), injiziert in `app/main.py` + `app/server.py` via `TopDownOrchestrator(sentiment=…)`. **Lösung:** echter CNN-Adapter (0–100, Sanity-Cap, Browser-UA, verschachteltes JSON `fear_and_greed.score`); reine `_parse`-Funktion getestet; Fehler → `None` → `UNAVAILABLE`. Redundanter `sentiment_stub.py` entfernt (PR-Branch `feat/cnn-fear-greed`).
   - **Index-Daten** (`MarketDataProvider.get_index_constituents` / `get_constituent_histories` / `get_index_fundamentals` / `get_index_holdings`) — aktuell Default-Stubs (leer).
   **Ansatz:** je Quelle einen Adapter implementieren, der die jeweilige Port-Methode befüllt; die Agenten schalten dann automatisch von `UNAVAILABLE` auf echte Signale (keine Agenten-Änderung nötig).
   *(`get_real_rate_history` (FRED DFII10) ist erledigt — siehe gemergte Realzins-/Zins-Adapter.)*

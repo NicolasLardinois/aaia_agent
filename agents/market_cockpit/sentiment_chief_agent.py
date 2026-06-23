@@ -5,7 +5,7 @@ from agents.market_cockpit.sentiment.fear_greed_agent import FearGreedAgent
 from agents.market_cockpit.sentiment.put_call_agent import PutCallAgent
 from core.domain.events import SentimentChiefReady
 from core.domain.models import SentimentChiefResult, Signal, SignalStatus
-from core.ports.data_provider import MarketDataProvider
+from core.ports.data_provider import MarketDataProvider, SentimentDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.aggregation import weighted_signal
 
@@ -17,10 +17,11 @@ def _aggregate(items):
 
 
 class SentimentChiefAgent:
-    def __init__(self, market: MarketDataProvider, bus: EventBus):
+    def __init__(self, market: MarketDataProvider, bus: EventBus,
+                 sentiment: SentimentDataProvider | None = None):
         self.bus = bus
         self.vix_agent        = VIXAgent(market, bus)
-        self.fear_greed_agent = FearGreedAgent(bus)
+        self.fear_greed_agent = FearGreedAgent(bus, provider=sentiment)
         self.put_call_agent   = PutCallAgent(market, bus)
 
     async def run(self) -> SentimentChiefResult:
