@@ -4,7 +4,7 @@ from agents.stock_deep_dive.index_chief_agent import IndexChiefAgent
 from agents.stock_deep_dive.commodity_chief_agent_mikro import CommodityChiefAgentMikro
 from agents.stock_deep_dive.precious_metals_chief_agent import PreciousMetalsChiefAgent
 from core.domain.models import BottomUpResult, RiskAffinity
-from core.domain.taxonomy import Underlying, Wrapper, legacy_to_taxonomy
+from core.domain.taxonomy import Underlying, Wrapper
 from core.ports.data_provider import FundamentalsProvider, MacroDataProvider, MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider

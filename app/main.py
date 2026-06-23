@@ -35,6 +35,38 @@ from orchestrators.bottom_up_orchestrator import BottomUpOrchestrator
 from orchestrators.judgment_orchestrator import JudgmentOrchestrator
 
 
+# Legacy-CLI-Werte (alter asset_class-String) — als Modul-Konstante, nie inline neu anlegen.
+_LEGACY_VALUES: frozenset[str] = frozenset({"equity", "bond", "commodity", "precious_metal", "etf", "index"})
+
+
+def _resolve_taxonomy(
+    raw_underlying: str | None,
+    raw_wrapper: str | None,
+) -> tuple["Underlying", "Wrapper"]:
+    """Zwei-Stufen-Auflösung: CLI-Strings → (Underlying, Wrapper).
+
+    Stufe 1 – Legacy-Wert (z. B. "equity", "etf", "index"):
+      Wird via legacy_to_taxonomy() gemappt. Die Funktion kennt das vollständige Mapping
+      (equity→EQUITY/SINGLE, etf→EQUITY_INDEX/FUND usw.) und ist die einzige Stelle, an
+      der dieses Mapping gepflegt wird (core/domain/taxonomy.py).
+
+    Stufe 2 – Neuer Stil (z. B. "equity_index", "fund"):
+      raw_underlying → Underlying(raw_underlying), raw_wrapper → Wrapper(raw_wrapper or "single").
+      Ein ungültiger Enum-Wert wirft ValueError — der Aufrufer (main()) fängt das ab und
+      gibt eine benutzerfreundliche Fehlermeldung mit sys.exit(1) aus.
+
+    Stufe 0 – kein Argument (None):
+      Gibt den sicheren Default zurück: (EQUITY, SINGLE).
+    """
+    if raw_underlying is None:
+        return (Underlying.EQUITY, Wrapper.SINGLE)
+    if raw_underlying in _LEGACY_VALUES:
+        # Legacy-Aufruf: "bottomup AAPL equity" oder "bottomup XLE etf"
+        return legacy_to_taxonomy(raw_underlying)
+    # Neuer Stil: "bottomup AAPL equity_index fund" — ValueError bei ungültigem Wert propagieren
+    return (Underlying(raw_underlying), Wrapper(raw_wrapper or "single"))
+
+
 def _parse_risk_affinity(args: list[str], underlying: "Underlying") -> "RiskAffinity | None":
     """Liest --risk-affinity aus der Argument-Liste.
 
@@ -239,31 +271,23 @@ def main() -> None:
         if "--risk-affinity" in pos:
             i = pos.index("--risk-affinity")
             del pos[i:i + 2]
-        # Abwärtskompat: ist pos[2] ein Legacy-Wert (equity|bond|etf|...), via legacy_to_taxonomy mappen.
-        # Andernfalls: neuer Stil → pos[2] = underlying-Wert, pos[3] = wrapper-Wert.
-        _LEGACY_VALUES = {"equity", "bond", "commodity", "precious_metal", "etf", "index"}
-        raw_pos2 = pos[2] if len(pos) >= 3 else "equity"
-        if raw_pos2 in _LEGACY_VALUES:
-            # Legacy-Aufruf: bottomup AAPL equity → mappt auf (EQUITY, SINGLE) usw.
-            underlying, wrapper = legacy_to_taxonomy(raw_pos2)
+        # Zwei-Stufen-Auflösung: Legacy-Wert oder neuer underlying/wrapper-Stil.
+        # Details siehe _resolve_taxonomy() oben; ValueError → Fehlermeldung + Exit 1.
+        raw_pos2 = pos[2] if len(pos) >= 3 else None
+        raw_pos3 = pos[3] if len(pos) >= 4 else None
+        is_legacy = raw_pos2 in _LEGACY_VALUES if raw_pos2 else False
+        try:
+            underlying, wrapper = _resolve_taxonomy(raw_pos2, raw_pos3)
+        except ValueError:
+            print(f"Fehler: unbekannter underlying-Wert {raw_pos2!r}.")
+            print("Erlaubt: equity | equity_index | bond | commodity | precious_metal")
+            sys.exit(1)
+        # Positions-Offset: Legacy belegt pos[2] allein; neuer Stil belegt pos[2]+pos[3].
+        if is_legacy:
             sector         = pos[3] if len(pos) >= 4 else "default"
             bond_type      = pos[4] if len(pos) >= 5 else "government"
             rate_direction = pos[5] if len(pos) >= 6 else "stable"
         else:
-            # Neuer Stil: bottomup AAPL equity_index fund
-            try:
-                underlying = Underlying(raw_pos2)
-            except ValueError:
-                print(f"Fehler: unbekannter underlying-Wert {raw_pos2!r}.")
-                print("Erlaubt: equity | equity_index | bond | commodity | precious_metal")
-                sys.exit(1)
-            raw_pos3 = pos[3] if len(pos) >= 4 else "single"
-            try:
-                wrapper = Wrapper(raw_pos3)
-            except ValueError:
-                print(f"Fehler: unbekannter wrapper-Wert {raw_pos3!r}.")
-                print("Erlaubt: single | fund | future | physical_etc")
-                sys.exit(1)
             sector         = pos[4] if len(pos) >= 5 else "default"
             bond_type      = pos[5] if len(pos) >= 6 else "government"
             rate_direction = pos[6] if len(pos) >= 7 else "stable"
