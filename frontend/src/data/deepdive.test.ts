@@ -18,4 +18,12 @@ describe("loadDeepDive (Tausch-Naht)", () => {
     const v = await loadDeepDive("ZZZZ");
     expect(v.found).toBe(false);
   });
+  it("AAPL: failed-Zaehler-Invariante (failed.length === sourcesTotal - sourcesActive)", async () => {
+    const v = await loadDeepDive("AAPL");
+    expect(v.failed.length).toBe(v.sourcesTotal - v.sourcesActive);
+    // AAPL: sourcesTotal=6, sourcesActive=5, failed.length=1 (Earnings-Trend Stub)
+    expect(v.sourcesTotal).toBe(6);
+    expect(v.sourcesActive).toBe(5);
+    expect(v.failed.length).toBe(1);
+  });
 });

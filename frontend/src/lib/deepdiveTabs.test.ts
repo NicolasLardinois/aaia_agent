@@ -41,6 +41,11 @@ describe("tabsFor", () => {
     expect(keys(v({ underlying: "commodity", wrapper: "future" })))
       .toEqual(["commodity", "futures", "backtest"]);
   });
+  it("Futures-Tab wrapper-agnostisch: equity+wrapper:future => Futures-Tab vor Backtest", () => {
+    // Futures-Tab erscheint unabhäng vom underlying — wrapper:future ist das Kriterium
+    expect(keys(v({ underlying: "equity", wrapper: "future" })))
+      .toEqual(["valuation", "quality", "signals", "futures", "backtest"]);
+  });
   it("nicht gefunden => keine Tabs", () => {
     expect(keys(v({ found: false }))).toEqual([]);
   });

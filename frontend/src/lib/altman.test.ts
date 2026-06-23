@@ -18,12 +18,21 @@ describe("altmanClass", () => {
   it("Manufacturing: 1.5 < 1.81 => distress", () => {
     expect(altmanClass(1.5, "Materials")).toBe("distress");
   });
+  it("Manufacturing: genau 1.81 => grey (strikt kleiner fuer distress)", () => {
+    expect(altmanClass(1.81, "Industrials")).toBe("grey");
+  });
   // Nicht-Manufacturing (Z''): safe>2.6, distress<1.1
   it("Dienstleister: 2.7 > 2.6 => safe", () => {
     expect(altmanClass(2.7, "Technology")).toBe("safe");
   });
+  it("Dienstleister: genau 2.6 => grey (strikt groesser fuer safe)", () => {
+    expect(altmanClass(2.6, "Technology")).toBe("grey");
+  });
   it("Dienstleister: 1.0 < 1.1 => distress", () => {
     expect(altmanClass(1.0, "Technology")).toBe("distress");
+  });
+  it("Dienstleister: genau 1.1 => grey (strikt kleiner fuer distress)", () => {
+    expect(altmanClass(1.1, "Technology")).toBe("grey");
   });
   it("Dienstleister: 2.0 zwischen 1.1 und 2.6 => grey", () => {
     expect(altmanClass(2.0, "Technology")).toBe("grey");

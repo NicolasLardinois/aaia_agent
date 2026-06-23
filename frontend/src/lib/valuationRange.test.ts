@@ -16,6 +16,16 @@ describe("combineValuationRange", () => {
     const out = combineValuationRange([m("KGV", 90, 130), m("EV", 100, 150), m("DCF", 120, 170)]);
     expect(out).toEqual({ low: 100, high: 150 });
   });
+  it("mit zwei Methoden: gemittelter Median der zwei Mittleren", () => {
+    // zwei Methoden -> Median nimmt Durchschnitt der zwei Mittleren (= nur zwei)
+    // lows 100/120 -> Median (100+120)/2 = 110; highs 200/220 -> Median (200+220)/2 = 210
+    const out = combineValuationRange([m("KGV", 100, 200), m("DCF", 120, 220)]);
+    expect(out).toEqual({ low: 110, high: 210 });
+    // Preis 110 ist genau auf low -> fair (not < 0.95*110=104.5)
+    expect(valuationPosition(110, 110, 210)).toBe("fair");
+    // Preis 210 ist genau auf high -> fair (not > 1.05*210=220.5)
+    expect(valuationPosition(210, 110, 210)).toBe("fair");
+  });
 });
 
 describe("valuationPosition", () => {
