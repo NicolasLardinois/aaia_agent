@@ -11,6 +11,7 @@ import psycopg2
 import psycopg2.extras
 
 from core.domain.models import SignalStatus
+from core.domain.taxonomy import legacy_asset_class, Underlying, Wrapper
 from core.ports.memory_port import MemoryPort
 
 _log = logging.getLogger(__name__)
@@ -178,7 +179,16 @@ class SupabaseMemory(MemoryPort):
                     """,
                     (
                         result.ticker,
-                        result.asset_class,
+                        # DB-Spalte asset_class bleibt VARCHAR (kein Schema-Change in Phase 1).
+                        # Der gespeicherte String wird via legacy_asset_class abgeleitet —
+                        # identischer Wert wie die alte Übergangs-Property. Persistierung von
+                        # underlying/wrapper als eigene Spalten ist Phase-2-Folgearbeit.
+                        (
+                            legacy_asset_class(result.underlying, result.wrapper)
+                            if isinstance(getattr(result, "underlying", None), Underlying)
+                            and isinstance(getattr(result, "wrapper", None), Wrapper)
+                            else getattr(result, "asset_class", "equity")
+                        ),
                         result.market,
                         regime,
                         regime_conf,

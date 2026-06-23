@@ -3,6 +3,7 @@ from core.domain.models import (
 )
 from core.domain.short_flags import SHORT_FLAGS
 from core.domain.recommendation import _position_size_pct
+from core.domain.taxonomy import Underlying, Wrapper, legacy_to_taxonomy
 
 _RISK_ON  = {MarketRegime.BOOM, MarketRegime.EXPANSION, MarketRegime.RECOVERY}
 _RISK_OFF = {MarketRegime.SLOWDOWN, MarketRegime.RECESSION, MarketRegime.DEPRESSION}
@@ -47,9 +48,10 @@ def _action(pos, confidence, pnl_pct=None, squeeze="low") -> ShortAction:
     return ShortAction.SHORT if confidence >= _THRESHOLD else ShortAction.NONE
 
 
-def _mk(asset_class, action, conf, archetypes, flags, regime, squeeze, htb, size=None, stop=None):
+def _mk(underlying, wrapper, action, conf, archetypes, flags, regime, squeeze, htb, size=None, stop=None):
     return ShortAssessment(
-        asset_class=asset_class, short_action=action, confidence=round(conf, 2),
+        underlying=underlying, wrapper=wrapper,
+        short_action=action, confidence=round(conf, 2),
         archetypes=archetypes, thesis_flags=flags, regime_effect=regime,
         squeeze_risk=squeeze, hard_to_borrow=htb, suggested_size_pct=size, stop_pct=stop)
 
@@ -57,18 +59,24 @@ def _mk(asset_class, action, conf, archetypes, flags, regime, squeeze, htb, size
 def derive_short_assessment(bottom_up, cockpit, current_position,
                             top_down_available, bu_anomaly, td_anomaly,
                             position_pnl_pct=None) -> ShortAssessment:
-    asset_class = getattr(bottom_up, "asset_class", "equity")
+    # underlying/wrapper direkt lesen (neue Schema); Legacy-Stubs ohne diese Felder
+    # werden über legacy_to_taxonomy (verhaltens-erhaltend) auf Underlying/Wrapper gemappt.
+    if hasattr(bottom_up, "underlying") and hasattr(bottom_up, "wrapper"):
+        underlying = bottom_up.underlying
+        wrapper    = bottom_up.wrapper
+    else:
+        underlying, wrapper = legacy_to_taxonomy(getattr(bottom_up, "asset_class", "equity"))
     regime = _regime_effect(cockpit)
     squeeze, htb, dtc = _squeeze(getattr(bottom_up, "short_interest", None))
 
-    if asset_class != "equity":
+    if underlying != Underlying.EQUITY:
         action = ShortAction.HOLD if current_position == PositionState.SHORT else ShortAction.NONE
-        return _mk(asset_class, action, 0.10, [],
+        return _mk(underlying, wrapper, action, 0.10, [],
                    ["Fallback: klassenspezifische Short-Logik folgt"], regime, squeeze, htb)
 
     if not top_down_available:
         action = ShortAction.HOLD if current_position == PositionState.SHORT else ShortAction.NONE
-        return _mk(asset_class, action, 0.10, [],
+        return _mk(underlying, wrapper, action, 0.10, [],
                    ["Kein Top-Down — Short nicht bewertbar"], regime, squeeze, htb)
 
     kern, verst, details, archetypes = [], [], [], []
@@ -87,7 +95,7 @@ def derive_short_assessment(bottom_up, cockpit, current_position,
 
     if not kern:
         conf = 0.10
-        return _mk(asset_class, _action(current_position, conf), conf, [],
+        return _mk(underlying, wrapper, _action(current_position, conf), conf, [],
                    details or ["Keine Kern-These"], regime, squeeze, htb)
 
     bases = [_BASE[f.archetype] for f in kern]
@@ -118,4 +126,4 @@ def derive_short_assessment(bottom_up, cockpit, current_position,
     elif action == ShortAction.SHORT_PLUS:
         size = round(_position_size_pct(conf) * 0.25, 1)   # konservativer Top-up
     stop = 10.0 if squeeze == "high" else 15.0
-    return _mk(asset_class, action, conf, archetypes, details, regime, squeeze, htb, size, stop)
+    return _mk(underlying, wrapper, action, conf, archetypes, details, regime, squeeze, htb, size, stop)

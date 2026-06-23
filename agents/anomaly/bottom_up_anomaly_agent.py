@@ -1,4 +1,5 @@
 from core.domain.models import AnomalyReport, Signal
+from core.domain.taxonomy import Underlying
 from core.utils.statistics import (
     ROBUST_Z_THRESHOLD, bonferroni_z_threshold, compute_severity, robust_z_score,
 )
@@ -29,7 +30,10 @@ class BottomUpAnomalyAgent:
         contradictions: list[str] = []
         lean: dict[str, int] = {"bearish": 0, "bullish": 0}
 
-        is_equity = bottom_up.asset_class in ("equity", "etf")
+        # Equity-Zweig: Einzelaktie (EQUITY) oder Aktien-Index (EQUITY_INDEX) — beide tragen
+        # KGV/Short-Float/Insider und profitieren von den Z-Score-Checks.
+        # "etf" (alt: asset_class) ist identisch mit EQUITY_INDEX/FUND → bleibt inkludiert.
+        is_equity = bottom_up.underlying in (Underlying.EQUITY, Underlying.EQUITY_INDEX)
         snapshots = [
             h.get("indicators_snapshot") or {}
             for h in history

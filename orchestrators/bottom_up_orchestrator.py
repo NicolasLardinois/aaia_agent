@@ -4,6 +4,7 @@ from agents.stock_deep_dive.index_chief_agent import IndexChiefAgent
 from agents.stock_deep_dive.commodity_chief_agent_mikro import CommodityChiefAgentMikro
 from agents.stock_deep_dive.precious_metals_chief_agent import PreciousMetalsChiefAgent
 from core.domain.models import BottomUpResult, RiskAffinity
+from core.domain.taxonomy import Underlying, Wrapper
 from core.ports.data_provider import FundamentalsProvider, MacroDataProvider, MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
@@ -12,7 +13,7 @@ from core.ports.llm_provider import LLMProvider
 class BottomUpOrchestrator:
     """
     Modus 2 — Bottom-Up Analyse.
-    Verzweigt nach asset_class und delegiert an den zuständigen ChiefAgent.
+    Verzweigt nach underlying (Basiswert-Typ) und delegiert an den zuständigen ChiefAgent.
     """
 
     def __init__(
@@ -32,29 +33,38 @@ class BottomUpOrchestrator:
     async def run(
         self,
         ticker: str,
-        asset_class: str = "equity",
+        underlying: Underlying = Underlying.EQUITY,
+        wrapper: Wrapper = Wrapper.SINGLE,
         sector: str = "default",
         bond_type: str = "government",
         rate_direction: str = "stable",
         risk_affinity: "RiskAffinity | None" = None,
     ) -> BottomUpResult:
-        if asset_class == "precious_metal":
-            return await self._run_precious_metals(ticker)
-        if asset_class == "bond":
-            return await self._run_bond(ticker, bond_type, rate_direction, risk_affinity)
-        if asset_class == "index":
-            return await self._run_index(ticker)
-        if asset_class == "commodity":
-            return await self._run_commodity(ticker)
-        return await self._run_equity(ticker, asset_class, sector)
+        # Dispatch nach Basiswert-Typ (underlying) — nicht mehr nach Legacy-String.
+        # wrapper wird nur an _run_index weitergereicht (SINGLE vs. FUND unterscheidet
+        # Direkt-Index von ETF/Fonds-Korb).
+        match underlying:
+            case Underlying.PRECIOUS_METAL:
+                return await self._run_precious_metals(ticker)
+            case Underlying.BOND:
+                return await self._run_bond(ticker, bond_type, rate_direction, risk_affinity)
+            case Underlying.EQUITY_INDEX:
+                return await self._run_index(ticker, wrapper)
+            case Underlying.COMMODITY:
+                return await self._run_commodity(ticker)
+            case _:
+                # Default: EQUITY (Einzelaktie)
+                return await self._run_equity(ticker, sector)
 
-    async def _run_equity(self, ticker: str, asset_class: str, sector: str) -> BottomUpResult:
+    async def _run_equity(self, ticker: str, sector: str) -> BottomUpResult:
         try:
             result = await self.equity_chief.run(ticker, sector)
         except Exception:
             result = EquityChiefAgent.default()
         return BottomUpResult(
-            ticker=ticker, asset_class=asset_class,
+            ticker=ticker,
+            underlying=Underlying.EQUITY,
+            wrapper=Wrapper.SINGLE,
             fundamentals=result.fundamentals,
             quality=result.quality,
             short_interest=result.short_interest,
@@ -73,19 +83,28 @@ class BottomUpOrchestrator:
         except Exception:
             bond_result = BondChiefAgent.default(ticker, bond_type)
         return BottomUpResult(
-            ticker=ticker, asset_class="bond",
+            ticker=ticker,
+            underlying=Underlying.BOND,
+            wrapper=Wrapper.SINGLE,
             fundamentals=None, quality=None, short_interest=None,
             insider=None, earnings_trend=None, moat=None, valuation_range=None,
             precious_metals=None, bond=bond_result, index=None, commodity_deep=None,
         )
 
-    async def _run_index(self, ticker: str) -> BottomUpResult:
+    async def _run_index(self, ticker: str, wrapper: Wrapper = Wrapper.SINGLE) -> BottomUpResult:
+        """Index-Engine: nimmt wrapper entgegen (SINGLE für direkte Indizes, FUND für ETFs).
+
+        Reklassifizierung (Task 2): "etf" landet hier statt im Equity-Zweig — behebt den
+        XLE-Durchfall (etf fiel stillschweigend in _run_equity, falsche Analyse-Engine).
+        """
         try:
             index_result = await self.index_chief.run(ticker)
         except Exception:
             index_result = IndexChiefAgent.default(ticker)
         return BottomUpResult(
-            ticker=ticker, asset_class="index",
+            ticker=ticker,
+            underlying=Underlying.EQUITY_INDEX,
+            wrapper=wrapper,
             fundamentals=None, quality=None, short_interest=None,
             insider=None, earnings_trend=None, moat=None, valuation_range=None,
             precious_metals=None, bond=None, index=index_result, commodity_deep=None,
@@ -97,7 +116,9 @@ class BottomUpOrchestrator:
         except Exception:
             commodity_result = CommodityChiefAgentMikro.default(ticker)
         return BottomUpResult(
-            ticker=ticker, asset_class="commodity",
+            ticker=ticker,
+            underlying=Underlying.COMMODITY,
+            wrapper=Wrapper.FUTURE,
             fundamentals=None, quality=None, short_interest=None,
             insider=None, earnings_trend=None, moat=None, valuation_range=None,
             precious_metals=None, bond=None, index=None, commodity_deep=commodity_result,
@@ -109,7 +130,9 @@ class BottomUpOrchestrator:
         except Exception:
             pm_result = PreciousMetalsChiefAgent.default(metal)
         return BottomUpResult(
-            ticker=metal, asset_class="precious_metal",
+            ticker=metal,
+            underlying=Underlying.PRECIOUS_METAL,
+            wrapper=Wrapper.FUTURE,
             fundamentals=None, quality=None, short_interest=None,
             insider=None, earnings_trend=None, moat=None,
             valuation_range=pm_result.valuation_range,

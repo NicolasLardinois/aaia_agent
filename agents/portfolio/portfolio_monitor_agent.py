@@ -5,6 +5,7 @@ import pandas as pd
 import yfinance as yf
 
 from core.domain.portfolio import Position, PortfolioError
+from core.domain.taxonomy import Underlying, Wrapper, legacy_asset_class
 from core.ports.data_provider import MarketDataProvider
 from core.ports.memory_port import MemoryPort
 from core.ports.portfolio_port import PortfolioPort
@@ -62,11 +63,23 @@ _EUROZONE = {
     "Deutschland", "Frankreich", "Eurozone",
 }
 
-# Anlageklassen, die ins net_beta einfließen: nur Aktien/Indizes. net_beta dimensioniert
-# einen AKTIEN-Index-Hedge (Track B), der nur Aktien-Exposure absichern kann. Bonds,
-# Rohstoffe und Edelmetalle haben kein Aktienmarkt-Beta (eine Anleihe ≠ Aktie) → sie
-# gehören nicht in die Zahl; ihr Risiko fängt die Portfolio-Vola ab (komplementär).
-_EQUITY_CLASSES = {"equity", "index"}
+# Prädikat: trägt eine Position zum Aktien-Beta bei?
+# Verhaltens-erhaltend zur alten _EQUITY_CLASSES = {"equity","index"}:
+#   - EQUITY/SINGLE → "equity" → ja
+#   - EQUITY_INDEX/SINGLE → "index" → ja
+#   - EQUITY_INDEX/FUND  → "etf"  → nein (Index-ETF NICHT im net_beta; Phase-2-Entscheid)
+# Bonds, Rohstoffe und Edelmetalle haben kein Aktienmarkt-Beta → nein.
+def _traegt_zu_equity_beta(p: "Position") -> bool:
+    """True für Positionen, die Aktien-Beta tragen (Einzelaktie oder Direkt-Index, nicht ETF).
+
+    Index-ETFs (EQUITY_INDEX/FUND) sind bewusst ausgeschlossen — sie bilden einen Korb ab,
+    ihr Beta ist schon implizit in der Diversifikation; Net-Beta-Einbezug wäre Doppelzählung.
+    Diese Entscheidung ist Phase-2 vorbehalten (AGENTS.md §3, finanzielle Korrektheit).
+    """
+    return (
+        p.underlying == Underlying.EQUITY
+        or (p.underlying == Underlying.EQUITY_INDEX and p.wrapper != Wrapper.FUND)
+    )
 
 
 def _region_of(country: str) -> str:
@@ -80,6 +93,16 @@ def _region_of(country: str) -> str:
     return c or "Unbekannt"
 
 
+def _asset_class_bucket(p: "Position") -> str:
+    """Lesbarer Asset-Klassen-String für Klumpen-Bucketing — abgeleitet aus underlying/wrapper.
+
+    Verwendet legacy_asset_class(), damit die Buckets identisch zu den bisherigen
+    asset_class-Strings sind (equity/bond/commodity/precious_metal/index/etf).
+    Verhaltens-erhaltend: kein stiller Bruch in bestehender Klumpen-Logik (Task 8).
+    """
+    return legacy_asset_class(p.underlying, p.wrapper)
+
+
 def _check_cluster_risks(positions: list[Position], values: list[float], gross: float) -> list[dict]:
     if gross == 0:
         return []
@@ -89,7 +112,12 @@ def _check_cluster_risks(positions: list[Position], values: list[float], gross: 
         buckets: dict[str, float] = {}
         for p, val in zip(positions, values):
             signed = val if p.direction == "long" else -val
-            name = getattr(p, dim, "Unbekannt")
+            # asset_class-Bucket: über underlying/wrapper ableiten (keine Property mehr).
+            # sector/country: direkte Attribute auf Position.
+            if dim == "asset_class":
+                name = _asset_class_bucket(p)
+            else:
+                name = getattr(p, dim, "Unbekannt")
             buckets[name] = buckets.get(name, 0.0) + signed
         for name, net in buckets.items():
             pct = abs(net) / gross
@@ -290,7 +318,7 @@ class PortfolioMonitorAgent:
         net_beta: dict[str, float] = {}
         equity_gross: dict[str, float] = {}   # je Region das Aktien-Brutto (Nenner für net_beta_pct)
         for i, (p, val) in enumerate(zip(positions, values)):
-            if p.asset_class not in _EQUITY_CLASSES:
+            if not _traegt_zu_equity_beta(p):
                 continue
             signed = val if p.direction == "long" else -val
             region = _region_of(p.country)
@@ -310,7 +338,7 @@ class PortfolioMonitorAgent:
         # str-Enum würde sonst als "RiskAffinity.NEUTRAL" formatiert.
         bond_risk_affinities = [
             {"ticker": p.ticker, "risk_affinity": p.risk_affinity.value}
-            for p in positions if p.asset_class == "bond" and p.risk_affinity is not None
+            for p in positions if p.underlying == Underlying.BOND and p.risk_affinity is not None
         ]
 
         return {

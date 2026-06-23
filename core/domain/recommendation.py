@@ -4,6 +4,7 @@ from core.domain.models import (
     AnomalyReport, CockpitResult,
     InvestmentRecommendation, PositionState, Recommendation, ShortType, Signal,
 )
+from core.domain.taxonomy import Underlying, Wrapper
 
 # Alle Märkte mit vollständigem Top-Down-Kontext (Makrodaten vorhanden):
 # USA → FRED, CH → SNB, Eurozone-Länder → EZB
@@ -28,16 +29,16 @@ SHORT_WARNINGS = {
     ),
 }
 
-ETF_ASSET_CLASSES       = {"etf", "index"}
-
 _SEVERITY_DEDUCTION = {"none": 0.0, "low": -0.05, "medium": -0.15, "high": -0.25}
 _SEVERITY_ORDER = {"none": 0, "low": 1, "medium": 2, "high": 3}
 _CALIB_MIN_N = 10
 _DTC_SQUEEZE_THRESHOLD = 5.0   # Days-to-Cover ab dem ein Squeeze-Risiko vermerkt wird
 
 
-def _short_type(asset_class: str) -> ShortType:
-    if asset_class.lower() in ETF_ASSET_CLASSES:
+def _short_type(underlying: Underlying, wrapper: Wrapper) -> ShortType:
+    # Defensiv (marktbreite Absicherung): Aktienindex ODER Fonds-Hülle. Sonst aggressiv
+    # (gezielte Einzel-/Future-Wette). Spec §8.4 — ersetzt die alten String-Mengen.
+    if underlying == Underlying.EQUITY_INDEX or wrapper == Wrapper.FUND:
         return ShortType.DEFENSIVE
     return ShortType.AGGRESSIVE
 
@@ -110,7 +111,8 @@ def compute_confidence(
 def derive_recommendation(
     alignment: str,
     signal: Signal,
-    asset_class: str,
+    underlying: Underlying,
+    wrapper: Wrapper,
     current_position: PositionState,
     market: str,
     cockpit: Optional[CockpitResult],

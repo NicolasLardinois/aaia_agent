@@ -1,13 +1,15 @@
 """
 Verwendung:
-  python -m app.main dashboard                              → Modus 1: Market Dashboard
-  python -m app.main bottomup AAPL [asset_class] [sector]  → Modus 2: Bottom-Up Analyse
-  python -m app.main judge AAPL [market]                   → Modus 3: Kombinations-Urteil
-  python -m app.main conflicts                             → Modus 4: Offene Konflikte auflisten
-  python -m app.main resolve <id> <held|closed>            → Modus 5: Konflikt-Entscheidung protokollieren (kein Trade)
+  python -m app.main dashboard                                      → Modus 1: Market Dashboard
+  python -m app.main bottomup AAPL [underlying] [wrapper] [sector]  → Modus 2: Bottom-Up Analyse
+  python -m app.main judge AAPL [market]                            → Modus 3: Kombinations-Urteil
+  python -m app.main conflicts                                      → Modus 4: Offene Konflikte auflisten
+  python -m app.main resolve <id> <held|closed>                     → Modus 5: Konflikt-Entscheidung protokollieren (kein Trade)
 
-asset_class:  equity | bond | commodity | precious_metal | etf  (default: equity)
-market:       USA | CH | ISO-2 (DE/FR/IT/ES/NL/AT/BE/PT/FI/IE/GR/...)  (default: USA)
+underlying:  equity | equity_index | bond | commodity | precious_metal  (default: equity)
+wrapper:     single | fund | future | physical_etc                      (default: single)
+  Legacy-Werte werden automatisch gemappt (z. B. 'etf' → equity_index/fund, 'index' → equity_index/single).
+market:      USA | CH | ISO-2 (DE/FR/IT/ES/NL/AT/BE/PT/FI/IE/GR/...)  (default: USA)
 """
 
 import asyncio
@@ -16,6 +18,7 @@ import sys
 from config.settings import FRED_API_KEY, ANTHROPIC_API_KEY, FINNHUB_API_KEY
 from core.domain.models import PositionState, RiskAffinity
 from core.domain.portfolio import PortfolioError
+from core.domain.taxonomy import Underlying, Wrapper, legacy_to_taxonomy
 from adapters.persistence.json_portfolio import JsonPortfolioProvider
 from adapters.data.fred_api import FredDataProvider
 from adapters.data.yahoo_finance import YahooFinanceProvider
@@ -33,19 +36,51 @@ from orchestrators.bottom_up_orchestrator import BottomUpOrchestrator
 from orchestrators.judgment_orchestrator import JudgmentOrchestrator
 
 
-def _parse_risk_affinity(args: list[str], asset_class: str) -> "RiskAffinity | None":
+# Legacy-CLI-Werte (alter asset_class-String) — als Modul-Konstante, nie inline neu anlegen.
+_LEGACY_VALUES: frozenset[str] = frozenset({"equity", "bond", "commodity", "precious_metal", "etf", "index"})
+
+
+def _resolve_taxonomy(
+    raw_underlying: str | None,
+    raw_wrapper: str | None,
+) -> tuple["Underlying", "Wrapper"]:
+    """Zwei-Stufen-Auflösung: CLI-Strings → (Underlying, Wrapper).
+
+    Stufe 1 – Legacy-Wert (z. B. "equity", "etf", "index"):
+      Wird via legacy_to_taxonomy() gemappt. Die Funktion kennt das vollständige Mapping
+      (equity→EQUITY/SINGLE, etf→EQUITY_INDEX/FUND usw.) und ist die einzige Stelle, an
+      der dieses Mapping gepflegt wird (core/domain/taxonomy.py).
+
+    Stufe 2 – Neuer Stil (z. B. "equity_index", "fund"):
+      raw_underlying → Underlying(raw_underlying), raw_wrapper → Wrapper(raw_wrapper or "single").
+      Ein ungültiger Enum-Wert wirft ValueError — der Aufrufer (main()) fängt das ab und
+      gibt eine benutzerfreundliche Fehlermeldung mit sys.exit(1) aus.
+
+    Stufe 0 – kein Argument (None):
+      Gibt den sicheren Default zurück: (EQUITY, SINGLE).
+    """
+    if raw_underlying is None:
+        return (Underlying.EQUITY, Wrapper.SINGLE)
+    if raw_underlying in _LEGACY_VALUES:
+        # Legacy-Aufruf: "bottomup AAPL equity" oder "bottomup XLE etf"
+        return legacy_to_taxonomy(raw_underlying)
+    # Neuer Stil: "bottomup AAPL equity_index fund" — ValueError bei ungültigem Wert propagieren
+    return (Underlying(raw_underlying), Wrapper(raw_wrapper or "single"))
+
+
+def _parse_risk_affinity(args: list[str], underlying: "Underlying") -> "RiskAffinity | None":
     """Liest --risk-affinity aus der Argument-Liste.
 
-    Für Anleihen (asset_class=='bond') ist der Parameter Pflicht;
+    Für Anleihen (underlying==Underlying.BOND) ist der Parameter Pflicht;
     fehlt er oder ist er ungültig, wird mit Exit-Code 1 abgebrochen.
-    Für alle anderen Asset-Klassen wird None zurückgegeben.
+    Für alle anderen Basiswert-Typen wird None zurückgegeben.
     """
     val = None
     if "--risk-affinity" in args:
         i = args.index("--risk-affinity")
         if i + 1 < len(args):
             val = args[i + 1]
-    if asset_class != "bond":
+    if underlying != Underlying.BOND:
         return None
     if val is None:
         print("Fehler: Anleihe-Analyse erfordert --risk-affinity {konservativ|neutral|risikofreudig}")
@@ -96,7 +131,8 @@ async def run_dashboard() -> None:
 
 async def run_bottom_up(
     ticker: str,
-    asset_class: str = "equity",
+    underlying: "Underlying" = Underlying.EQUITY,
+    wrapper: "Wrapper" = Wrapper.SINGLE,
     sector: str = "default",
     bond_type: str = "government",
     rate_direction: str = "stable",
@@ -113,7 +149,7 @@ async def run_bottom_up(
         bus=bus,
     )
     result = await orch.run(
-        ticker.upper(), asset_class=asset_class, sector=sector,
+        ticker.upper(), underlying=underlying, wrapper=wrapper, sector=sector,
         bond_type=bond_type, rate_direction=rate_direction,
         risk_affinity=risk_affinity,
     )
@@ -237,12 +273,28 @@ def main() -> None:
         if "--risk-affinity" in pos:
             i = pos.index("--risk-affinity")
             del pos[i:i + 2]
-        asset_class    = pos[2] if len(pos) >= 3 else "equity"
-        sector         = pos[3] if len(pos) >= 4 else "default"
-        bond_type      = pos[4] if len(pos) >= 5 else "government"
-        rate_direction = pos[5] if len(pos) >= 6 else "stable"
-        risk_affinity  = _parse_risk_affinity(args, asset_class)
-        asyncio.run(run_bottom_up(pos[1], asset_class=asset_class, sector=sector,
+        # Zwei-Stufen-Auflösung: Legacy-Wert oder neuer underlying/wrapper-Stil.
+        # Details siehe _resolve_taxonomy() oben; ValueError → Fehlermeldung + Exit 1.
+        raw_pos2 = pos[2] if len(pos) >= 3 else None
+        raw_pos3 = pos[3] if len(pos) >= 4 else None
+        is_legacy = raw_pos2 in _LEGACY_VALUES if raw_pos2 else False
+        try:
+            underlying, wrapper = _resolve_taxonomy(raw_pos2, raw_pos3)
+        except ValueError:
+            print(f"Fehler: unbekannter underlying-Wert {raw_pos2!r}.")
+            print("Erlaubt: equity | equity_index | bond | commodity | precious_metal")
+            sys.exit(1)
+        # Positions-Offset: Legacy belegt pos[2] allein; neuer Stil belegt pos[2]+pos[3].
+        if is_legacy:
+            sector         = pos[3] if len(pos) >= 4 else "default"
+            bond_type      = pos[4] if len(pos) >= 5 else "government"
+            rate_direction = pos[5] if len(pos) >= 6 else "stable"
+        else:
+            sector         = pos[4] if len(pos) >= 5 else "default"
+            bond_type      = pos[5] if len(pos) >= 6 else "government"
+            rate_direction = pos[6] if len(pos) >= 7 else "stable"
+        risk_affinity  = _parse_risk_affinity(args, underlying)
+        asyncio.run(run_bottom_up(pos[1], underlying=underlying, wrapper=wrapper, sector=sector,
                                   bond_type=bond_type, rate_direction=rate_direction,
                                   risk_affinity=risk_affinity))
     elif args[0] == "judge" and len(args) >= 2:

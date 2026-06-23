@@ -1,10 +1,64 @@
-from core.domain.models import Recommendation, PositionState, Signal
-from core.domain.recommendation import derive_recommendation
+import pytest
 
+from core.domain.taxonomy import Underlying, Wrapper
+from core.domain.recommendation import _short_type, derive_recommendation
+from core.domain.models import (
+    Recommendation, PositionState, Signal, ShortType,
+)
+
+
+# ---------------------------------------------------------------------------
+# Matrix-Test für _short_type(underlying, wrapper) — Spec §8.4
+# Regel: DEFENSIV wenn underlying == EQUITY_INDEX ODER wrapper == FUND,
+# sonst AGGRESSIV. Ersetzt ETF_ASSET_CLASSES + alten String-Vergleich.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("underlying, wrapper, expected", [
+    # Spec §8.4: DEFENSIV wenn underlying == EQUITY_INDEX ODER wrapper == FUND, sonst AGGRESSIV
+    # Lückenlose 20er-Matrix über alle (Underlying × Wrapper) Kombinationen
+
+    # EQUITY (5 Kombinationen)
+    (Underlying.EQUITY, Wrapper.SINGLE,         ShortType.AGGRESSIVE),
+    (Underlying.EQUITY, Wrapper.FUND,           ShortType.DEFENSIVE),
+    (Underlying.EQUITY, Wrapper.FUTURE,         ShortType.AGGRESSIVE),
+    (Underlying.EQUITY, Wrapper.PHYSICAL_ETC,   ShortType.AGGRESSIVE),
+
+    # EQUITY_INDEX (4 Kombinationen) — immer DEFENSIV
+    (Underlying.EQUITY_INDEX, Wrapper.SINGLE,         ShortType.DEFENSIVE),
+    (Underlying.EQUITY_INDEX, Wrapper.FUND,           ShortType.DEFENSIVE),
+    (Underlying.EQUITY_INDEX, Wrapper.FUTURE,         ShortType.DEFENSIVE),
+    (Underlying.EQUITY_INDEX, Wrapper.PHYSICAL_ETC,   ShortType.DEFENSIVE),
+
+    # BOND (4 Kombinationen)
+    (Underlying.BOND, Wrapper.SINGLE,         ShortType.AGGRESSIVE),
+    (Underlying.BOND, Wrapper.FUND,           ShortType.DEFENSIVE),
+    (Underlying.BOND, Wrapper.FUTURE,         ShortType.AGGRESSIVE),
+    (Underlying.BOND, Wrapper.PHYSICAL_ETC,   ShortType.AGGRESSIVE),
+
+    # COMMODITY (4 Kombinationen)
+    (Underlying.COMMODITY, Wrapper.SINGLE,         ShortType.AGGRESSIVE),
+    (Underlying.COMMODITY, Wrapper.FUND,           ShortType.DEFENSIVE),
+    (Underlying.COMMODITY, Wrapper.FUTURE,         ShortType.AGGRESSIVE),
+    (Underlying.COMMODITY, Wrapper.PHYSICAL_ETC,   ShortType.AGGRESSIVE),
+
+    # PRECIOUS_METAL (3 Kombinationen — kein Wrapper.FUTURE in Spec)
+    (Underlying.PRECIOUS_METAL, Wrapper.SINGLE,         ShortType.AGGRESSIVE),
+    (Underlying.PRECIOUS_METAL, Wrapper.FUND,           ShortType.DEFENSIVE),
+    (Underlying.PRECIOUS_METAL, Wrapper.FUTURE,         ShortType.AGGRESSIVE),
+    (Underlying.PRECIOUS_METAL, Wrapper.PHYSICAL_ETC,   ShortType.AGGRESSIVE),
+])
+def test_short_type_matrix(underlying, wrapper, expected):
+    assert _short_type(underlying, wrapper) == expected
+
+
+# ---------------------------------------------------------------------------
+# derive_recommendation — Regressions-Tests mit neuer Signatur (underlying/wrapper)
+# ---------------------------------------------------------------------------
 
 def _rec(signal, pos, conf=0.7, alignment="mixed"):
     return derive_recommendation(
-        alignment=alignment, signal=signal, asset_class="equity",
+        alignment=alignment, signal=signal,
+        underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE,
         current_position=pos, market="USA", cockpit=None,
         top_down_available=True, confidence=conf,
     ).action

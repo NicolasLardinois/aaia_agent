@@ -2,12 +2,15 @@ from core.domain.models import (
     ShortAssessment, ShortAction, PositionState, Signal,
 )
 from core.domain.recommendation import detect_conflict
+from core.domain.taxonomy import Underlying, Wrapper
 
 
 def _sa(conf, archetypes):
-    return ShortAssessment(asset_class="equity", short_action=ShortAction.NONE, confidence=conf,
-                           archetypes=archetypes, thesis_flags=[], regime_effect="neutral",
-                           squeeze_risk="low", hard_to_borrow=False)
+    return ShortAssessment(
+        underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE,
+        short_action=ShortAction.NONE, confidence=conf,
+        archetypes=archetypes, thesis_flags=[], regime_effect="neutral",
+        squeeze_risk="low", hard_to_borrow=False)
 
 
 def test_long_held_strong_short_is_conflict():

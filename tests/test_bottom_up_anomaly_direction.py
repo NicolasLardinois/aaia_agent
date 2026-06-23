@@ -5,6 +5,7 @@ import pytest
 
 from agents.anomaly.bottom_up_anomaly_agent import BottomUpAnomalyAgent
 from core.domain.models import Signal
+from core.domain.taxonomy import legacy_to_taxonomy
 
 
 def _make_bottom_up(
@@ -19,7 +20,8 @@ def _make_bottom_up(
     asset_class="equity",
 ):
     bu = MagicMock()
-    bu.asset_class = asset_class
+    # Task 8: underlying/wrapper statt asset_class-Property setzen.
+    bu.underlying, bu.wrapper = legacy_to_taxonomy(asset_class)
     bu.fundamentals.pe_ratio = pe
     bu.fundamentals.signal = fund_signal
     bu.short_interest.short_float_pct = short_float

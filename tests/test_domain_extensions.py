@@ -1,5 +1,6 @@
 from core.domain.models import AnomalyReport, DeepDiveResult, Signal
 from core.domain.recommendation import InvestmentRecommendation, Recommendation
+from core.domain.taxonomy import Underlying, Wrapper
 
 
 def test_anomaly_report_no_anomalies():
@@ -37,7 +38,8 @@ def test_deep_dive_result_has_new_fields():
     )
     result = DeepDiveResult(
         ticker="AAPL",
-        asset_class="equity",
+        underlying=Underlying.EQUITY,
+        wrapper=Wrapper.SINGLE,
         market="USA",
         top_down_context="Test context",
         top_down_available=True,
@@ -53,6 +55,9 @@ def test_deep_dive_result_has_new_fields():
     assert result.xai_explanation == "Ausführliche Erklärung..."
     assert result.market == "USA"
     assert result.dominant_signal == "bullish"
+    # Task 8: Übergangs-Property entfernt — direkt underlying/wrapper prüfen.
+    assert result.underlying == Underlying.EQUITY
+    assert result.wrapper == Wrapper.SINGLE
 
 
 def test_anomaly_report_empty_factory():
@@ -76,6 +81,16 @@ def test_signal_status_ist_str_enum():
     assert SignalStatus.AVAILABLE == "available"
 
 
+def test_buffett_relevant_nur_fuer_aktienartige_underlyings():
+    """Buffett-Indikator (Marktkap./BIP) ist nur für aktienartige Basiswerte sinnvoll."""
+    from core.domain.top_down_context import _is_buffett_relevant
+    assert _is_buffett_relevant(Underlying.EQUITY) is True
+    assert _is_buffett_relevant(Underlying.EQUITY_INDEX) is True
+    assert _is_buffett_relevant(Underlying.BOND) is False
+    assert _is_buffett_relevant(Underlying.COMMODITY) is False
+    assert _is_buffett_relevant(Underlying.PRECIOUS_METAL) is False
+
+
 def test_deepdive_has_short_thesis_fields():
     """DeepDiveResult hat short_thesis und short_xai als trailing-Default-Felder."""
     from core.domain.events import ShortThesisReady
@@ -89,7 +104,8 @@ def test_deepdive_has_short_thesis_fields():
     # Pflichtfelder wie in Nachbartests; short_thesis/short_xai greifen als Default
     r = DeepDiveResult(
         ticker="AAPL",
-        asset_class="equity",
+        underlying=Underlying.EQUITY,
+        wrapper=Wrapper.SINGLE,
         market="USA",
         top_down_context="Test context",
         top_down_available=True,

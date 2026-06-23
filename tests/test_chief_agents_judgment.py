@@ -2,6 +2,7 @@ import asyncio
 from unittest.mock import MagicMock, AsyncMock
 from agents.anomaly_chief_agent import AnomalyChiefAgent
 from core.domain.models import AnomalyReport
+from core.domain.taxonomy import Underlying, Wrapper
 
 
 def _make_cockpit():
@@ -24,7 +25,9 @@ def _make_cockpit():
 
 def _make_bottom_up():
     bu = MagicMock()
-    bu.asset_class = "equity"
+    # Task 8: underlying/wrapper statt asset_class-Property setzen.
+    bu.underlying = Underlying.EQUITY
+    bu.wrapper = Wrapper.SINGLE
     bu.fundamentals = None
     bu.short_interest = None
     bu.insider = None
@@ -62,7 +65,7 @@ from core.domain.models import DeepDiveResult, PositionState, Recommendation, In
 
 def _make_deep_dive_result():
     return DeepDiveResult(
-        ticker="AAPL", asset_class="equity", market="USA",
+        ticker="AAPL", underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE, market="USA",
         top_down_context="neutral", top_down_available=True,
         judgment="Hold", alignment="mixed",
         recommendation=InvestmentRecommendation(
@@ -78,7 +81,9 @@ def test_judgment_chief_returns_result():
     llm = MagicMock()
     bottom_up = MagicMock()
     bottom_up.ticker = "AAPL"
-    bottom_up.asset_class = "equity"
+    # Task 8: underlying/wrapper statt asset_class-Property setzen.
+    bottom_up.underlying = Underlying.EQUITY
+    bottom_up.wrapper = Wrapper.SINGLE
 
     chief = JudgmentChiefAgent(llm, bus)
     chief.judgment_agent.run = AsyncMock(return_value=_make_deep_dive_result())
@@ -104,10 +109,12 @@ def test_judgment_chief_short_action_hold_when_short():
     llm = MagicMock()
     bottom_up = MagicMock()
     bottom_up.ticker = "TSLA"
-    bottom_up.asset_class = "equity"
+    # Task 8: underlying/wrapper statt asset_class-Property setzen.
+    bottom_up.underlying = Underlying.EQUITY
+    bottom_up.wrapper = Wrapper.SINGLE
 
     deep_dive_short = DeepDiveResult(
-        ticker="TSLA", asset_class="equity", market="USA",
+        ticker="TSLA", underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE, market="USA",
         top_down_context="neutral", top_down_available=True,
         judgment="Hold", alignment="mixed",
         recommendation=InvestmentRecommendation(
@@ -141,7 +148,9 @@ def test_judgment_chief_short_action_none_when_none():
     llm = MagicMock()
     bottom_up = MagicMock()
     bottom_up.ticker = "AAPL"
-    bottom_up.asset_class = "equity"
+    # Task 8: underlying/wrapper statt asset_class-Property setzen.
+    bottom_up.underlying = Underlying.EQUITY
+    bottom_up.wrapper = Wrapper.SINGLE
 
     chief = JudgmentChiefAgent(llm, bus)
     chief.judgment_agent.run = AsyncMock(return_value=_make_deep_dive_result())

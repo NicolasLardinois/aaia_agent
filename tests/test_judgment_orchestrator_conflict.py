@@ -7,13 +7,15 @@ from core.domain.models import (
     DeepDiveResult, InvestmentRecommendation, Recommendation, AnomalyReport,
     ConflictResolution, PositionState,
 )
+from core.domain.taxonomy import Underlying, Wrapper
 
 
 def _result(conflict):
     rec = InvestmentRecommendation(action=Recommendation.HOLD, short_type=None,
                                    short_warning=None, confidence=0.6, reasoning="x")
     return DeepDiveResult(
-        ticker="X", asset_class="equity", market="USA", top_down_context="",
+        ticker="X", underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE,
+        market="USA", top_down_context="",
         top_down_available=True, judgment="", alignment="mixed", recommendation=rec,
         conflict=conflict, conflict_reason=("Konflikt" if conflict else ""))
 
@@ -64,7 +66,7 @@ def test_orchestrator_fills_short_thesis():
 
     # DeepDiveResult mit gesetztem short_assessment (damit der Null-Schutz greift)
     sa = ShortAssessment(
-        asset_class="equity",
+        underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE,
         short_action=ShortAction.SHORT, confidence=0.62, archetypes=["distress"],
         thesis_flags=["Altman-Z 0.9"], regime_effect="tailwind",
         squeeze_risk="low", hard_to_borrow=False,
@@ -110,7 +112,7 @@ def test_orchestrator_short_thesis_error_is_safe():
     from core.domain.models import ShortAction, ShortAssessment
 
     sa = ShortAssessment(
-        asset_class="equity",
+        underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE,
         short_action=ShortAction.SHORT, confidence=0.62, archetypes=["distress"],
         thesis_flags=["Altman-Z 0.9"], regime_effect="tailwind",
         squeeze_risk="low", hard_to_borrow=False,

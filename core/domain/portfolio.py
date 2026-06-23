@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from core.domain.models import RiskAffinity
+from core.domain.taxonomy import Underlying, Wrapper
 
 
 @dataclass(frozen=True)
@@ -13,7 +14,9 @@ class Position:
     currency: str = "USD"
     current_price: Optional[float] = None
     sector: str = "Unbekannt"
-    asset_class: str = "equity"
+    # Taxonomie-Achsen (Task 6): underlying = Basiswert-Engine, wrapper = Hüllen-Mechanik.
+    underlying: Underlying = Underlying.EQUITY
+    wrapper: Wrapper = Wrapper.SINGLE
     country: str = "Unbekannt"
     risk_affinity: Optional[RiskAffinity] = None   # nur Anleihen (konservativ/neutral/risikofreudig)
 

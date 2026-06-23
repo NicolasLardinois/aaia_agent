@@ -9,11 +9,13 @@ from core.domain.models import (
     AnomalyReport, BottomUpResult, CreditBand, MarketRegime,
     PositionState, RiskAffinity, Signal,
 )
+from core.domain.taxonomy import Underlying, Wrapper
 
 
-def _bu(**over):
+def _bu(underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE, **over):
+    """Hilfsfunktion: minimaler BottomUpResult; underlying/wrapper direkt setzen."""
     base = dict(
-        ticker="X", asset_class="equity",
+        ticker="X", underlying=underlying, wrapper=wrapper,
         fundamentals=None, quality=None, short_interest=None, insider=None,
         earnings_trend=None, moat=None, valuation_range=None,
         precious_metals=None, bond=None, index=None, commodity_deep=None,
@@ -26,7 +28,7 @@ def test_bond_overall_signal_drives_dominant_and_alignment():
     """Eine Anleihe trägt ihr Signal nur im BondResult.overall_signal — ohne Einspeisung
     bliebe die Empfehlung NEUTRAL (alle Equity-Bausteine sind None)."""
     bond = SimpleNamespace(overall_signal=Signal.BULLISH)
-    bu = _bu(asset_class="bond", bond=bond)
+    bu = _bu(underlying=Underlying.BOND, bond=bond)
     sigs = _bottom_up_signals(bu)
     assert Signal.BULLISH in sigs
     assert _dominant_signal(sigs) == Signal.BULLISH
@@ -71,7 +73,7 @@ def test_bond_signal_appears_in_judgment_prompt():
     bond = SimpleNamespace(overall_signal=Signal.BULLISH,
                            credit_band=CreditBand.MITTEL,
                            risk_affinity=RiskAffinity.RISIKOFREUDIG)
-    prompt = _run_and_capture_prompt(_bu(asset_class="bond", bond=bond))
+    prompt = _run_and_capture_prompt(_bu(underlying=Underlying.BOND, bond=bond))
     assert "bullish" in prompt.lower()
     assert "mittel" in prompt.lower()
     assert "risikofreudig" in prompt.lower()

@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
+from core.domain.taxonomy import Underlying, Wrapper
+
 
 class MarketRegime(str, Enum):
     BOOM       = "Boom"
@@ -749,7 +751,8 @@ class CommodityBottomUpResult:
 @dataclass
 class BottomUpResult:
     ticker: str
-    asset_class: str              # "equity" | "bond" | "commodity" | "precious_metal" | "index"
+    underlying: Underlying        # Basiswert-Achse (ersetzt asset_class-Feld, Task 2)
+    wrapper: Wrapper              # Hüllen-Achse (ersetzt asset_class-Feld, Task 2)
     fundamentals: Optional[FundamentalsSnapshot]
     quality: Optional[QualitySnapshot]
     short_interest: Optional[ShortInterestSnapshot]
@@ -806,7 +809,8 @@ class InvestmentRecommendation:
 
 @dataclass
 class ShortAssessment:
-    asset_class: str
+    underlying: Underlying        # Basiswert-Achse (ersetzt asset_class-Feld, Task 2)
+    wrapper: Wrapper              # Hüllen-Achse (ersetzt asset_class-Feld, Task 2)
     short_action: ShortAction
     confidence: float
     archetypes: list[str]
@@ -828,7 +832,8 @@ class ConflictResolution:
 @dataclass
 class DeepDiveResult:
     ticker: str
-    asset_class: str
+    underlying: Underlying            # Basiswert-Achse (ersetzt asset_class-Feld, Task 2)
+    wrapper: Wrapper                  # Hüllen-Achse (ersetzt asset_class-Feld, Task 2)
     market: str                       # neu
     top_down_context: str
     top_down_available: bool
