@@ -58,4 +58,21 @@ describe("AppRoutes", () => {
     await waitFor(() => expect(screen.getByText(/Sektor/i)).toBeInTheDocument());
     expect(screen.getByRole("link", { name: /zurück/i })).toBeInTheDocument();
   });
+
+  // Dispatch C: Buffett + Big-Mac-Routen (C3)
+  it("Navigation zu /cockpit/buffett rendert Buffett-Widget (Tabelle)", async () => {
+    renderAt("/cockpit/buffett");
+    await waitFor(() => expect(screen.getByText(/Buffett/i)).toBeInTheDocument());
+    // Tabelle-Default: USA-Zeile sichtbar
+    await waitFor(() => expect(screen.getByText("USA")).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: /zurück/i })).toBeInTheDocument();
+  });
+
+  it("Navigation zu /cockpit/big-mac rendert Big-Mac-Widget", async () => {
+    renderAt("/cockpit/big-mac");
+    await waitFor(() => expect(screen.getByText(/Big-Mac/i)).toBeInTheDocument());
+    // Publikationsdatum sichtbar
+    await waitFor(() => expect(screen.getByText(/2026-01/)).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: /zurück/i })).toBeInTheDocument();
+  });
 });

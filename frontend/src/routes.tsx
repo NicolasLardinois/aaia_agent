@@ -7,11 +7,13 @@ import { CommoditiesDrilldown } from "./pages/cockpit/CommoditiesDrilldown";
 import { SentimentDrilldown } from "./pages/cockpit/SentimentDrilldown";
 import { YieldCurveDrilldown } from "./pages/cockpit/YieldCurveDrilldown";
 import { SectorsDrilldown } from "./pages/cockpit/SectorsDrilldown";
+import { BuffettWidget } from "./pages/cockpit/BuffettWidget";
+import { BigMacWidget } from "./pages/cockpit/BigMacWidget";
 import type { UseCockpitDeps } from "./hooks/useCockpit";
 
 // Routen unter der Shell. Inbox-Anzahl ist in Slice 0 noch 0 (Slice 4 speist sie).
 // Drilldown-Routen (B7): /cockpit/<domain> -> jeweilige Drilldown-Seite.
-// Buffett (/cockpit/buffett) und Big-Mac (/cockpit/big-mac) werden in Dispatch C ergaenzt.
+// Buffett + Big-Mac (Dispatch C, C3): echte Widgets eingehaengt.
 export function AppRoutes({ deps, onLogout }: { deps?: UseCockpitDeps; onLogout?: () => void }) {
   return (
     <Routes>
@@ -26,9 +28,9 @@ export function AppRoutes({ deps, onLogout }: { deps?: UseCockpitDeps; onLogout?
         <Route path="/cockpit/yield-curve" element={<YieldCurveDrilldown />} />
         <Route path="/cockpit/sectors" element={<SectorsDrilldown />} />
 
-        {/* Platzhalter fuer Dispatch C (Buffett, Big-Mac) */}
-        <Route path="/cockpit/buffett" element={<PlaceholderPage title="Buffett-Indikator" />} />
-        <Route path="/cockpit/big-mac" element={<PlaceholderPage title="Big-Mac-Index" />} />
+        {/* Spezial-Widgets (Slice 1, Dispatch C) */}
+        <Route path="/cockpit/buffett" element={<BuffettWidget />} />
+        <Route path="/cockpit/big-mac" element={<BigMacWidget />} />
 
         <Route path="/deep-dive" element={<PlaceholderPage title="Deep-Dive — Titel über die Suche oben öffnen" />} />
         <Route path="/deep-dive/:ticker" element={<PlaceholderPage title="Deep-Dive" />} />
