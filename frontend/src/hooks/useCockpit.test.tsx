@@ -137,4 +137,69 @@ describe("useCockpit", () => {
     await waitFor(() => expect(onUnauthorized).toHaveBeenCalled());
     expect(result.current.phase).not.toBe("error");
   });
+
+  it("CockpitRunFailed -> phase error + Meldung aus dem Payload", async () => {
+    const ws = makeFakeWs();
+    const fetchFn = fakeFetch({
+      "GET http://x/api/cockpit": { status: 204 },
+      "POST http://x/api/cockpit/run": { status: 202, body: { run_id: "r1" } },
+    });
+    const { result } = renderHook(() => useCockpit({ base: "http://x", fetchFn, wsFactory: () => ws }));
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    act(() => { result.current.startAnalysis(); });
+    act(() => { ws.onopen!(); });
+    act(() => { ws.onmessage!({ data: JSON.stringify({ type: "CockpitRunFailed", source: "run_manager", payload: { message: "Analyse fehlgeschlagen" }, run_id: "r1" }) }); });
+    await waitFor(() => expect(result.current.phase).toBe("error"));
+    expect(result.current.error).toBe("Analyse fehlgeschlagen");
+  });
+
+  it("unaufgeforderter onClose waehrend des Laufs -> phase error", async () => {
+    const ws = makeFakeWs();
+    const fetchFn = fakeFetch({
+      "GET http://x/api/cockpit": { status: 204 },
+      "POST http://x/api/cockpit/run": { status: 202, body: { run_id: "r1" } },
+    });
+    const { result } = renderHook(() => useCockpit({ base: "http://x", fetchFn, wsFactory: () => ws }));
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    act(() => { result.current.startAnalysis(); });
+    act(() => { ws.onopen!(); });
+    act(() => { ws.onclose!(); });  // Kabel reisst, ohne Terminal
+    await waitFor(() => expect(result.current.phase).toBe("error"));
+    expect(result.current.error).toBe("Verbindung zum Server unterbrochen");
+  });
+
+  it("Guard: nach onResult ist onClose abgehaengt -> phase bleibt ready", async () => {
+    const ws = makeFakeWs();
+    const fetchFn = fakeFetch({
+      "GET http://x/api/cockpit": { status: 204 },
+      "POST http://x/api/cockpit/run": { status: 202, body: { run_id: "r1" } },
+    });
+    const { result } = renderHook(() => useCockpit({ base: "http://x", fetchFn, wsFactory: () => ws }));
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    act(() => { result.current.startAnalysis(); });
+    act(() => { ws.onopen!(); });
+    act(() => { ws.onmessage!({ data: JSON.stringify({ type: "CockpitResultReady", source: "run_manager", payload: overview, timestamp: "t", run_id: "r1" }) }); });
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    expect(ws.onclose).toBeNull();          // Handler abgehaengt -> kein Fehlalarm moeglich
+    expect(ws.close).toHaveBeenCalled();
+  });
+
+  it("Re-Run schliesst den alten Socket ohne Fehlalarm", async () => {
+    const ws1 = makeFakeWs();
+    const ws2 = makeFakeWs();
+    const queue = [ws1, ws2];
+    const factory = () => queue.shift()!;
+    const fetchFn = fakeFetch({
+      "GET http://x/api/cockpit": { status: 204 },
+      "POST http://x/api/cockpit/run": { status: 202, body: { run_id: "r1" } },
+    });
+    const { result } = renderHook(() => useCockpit({ base: "http://x", fetchFn, wsFactory: factory }));
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    act(() => { result.current.startAnalysis(); });  // oeffnet ws1
+    act(() => { result.current.startAnalysis(); });  // Re-Run: schliesst ws1, oeffnet ws2
+    expect(ws1.onclose).toBeNull();          // alter Handler abgehaengt
+    expect(ws1.close).toHaveBeenCalled();
+    expect(result.current.phase).toBe("running");
+    expect(result.current.error).toBeNull();
+  });
 });

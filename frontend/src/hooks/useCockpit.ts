@@ -23,6 +23,17 @@ export interface UseCockpit {
 
 const DEFAULT_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
 
+// Absichtliches Schliessen: WS-Handler abhaengen, BEVOR geschlossen wird, damit
+// onclose/onerror nicht mehr feuern. Sonst wuerde der normale Abschluss (onResult
+// schliesst den WS), ein Re-Run oder das Unmount faelschlich "Verbindung
+// unterbrochen" melden. So feuert onClose nur bei einem UNAUFGEFORDERTEN Abbruch.
+function closeSocket(ws: WebSocketLike | null): void {
+  if (!ws) return;
+  ws.onclose = null;
+  ws.onerror = null;
+  ws.close();
+}
+
 export function useCockpit(deps: UseCockpitDeps = {}): UseCockpit {
   const base = deps.base ?? DEFAULT_BASE;
   const fetchFn = deps.fetchFn;
@@ -55,13 +66,13 @@ export function useCockpit(deps: UseCockpitDeps = {}): UseCockpit {
   }, [base, fetchFn, token]);
 
   // Offenen WebSocket beim Unmount schliessen (kein Leak / kein setState nach Unmount).
-  useEffect(() => () => { wsRef.current?.close(); }, []);
+  useEffect(() => () => { closeSocket(wsRef.current); }, []);
 
   const startAnalysis = useCallback(() => {
     setPhase("running");
     setEvents([]);
     setError(null);
-    wsRef.current?.close(); // evtl. vorherigen Lauf schliessen (z. B. Doppelklick)
+    closeSocket(wsRef.current); // vorherigen Lauf abbrechen (Doppelklick/Re-Run) OHNE Fehlalarm
     // Reihenfolge: erst WS oeffnen, POST erst in onOpen -> keine fruehen Events verloren.
     wsRef.current = openCockpitSocket(
       base,
@@ -73,11 +84,20 @@ export function useCockpit(deps: UseCockpitDeps = {}): UseCockpit {
             setError("Start fehlgeschlagen"); setPhase("error");
           });
         },
-        // onEvent feuert fuer JEDE Nachricht; das terminale CockpitResultReady gehoert
-        // nicht in den Fortschritts-Stream (es wird ueber onResult behandelt).
-        onEvent: (e) => { if (e.type !== "CockpitResultReady") setEvents((prev) => [...prev, e]); },
-        onResult: (ov) => { setOverview(ov); setPhase("ready"); wsRef.current?.close(); },
-        onError: () => { setError("WebSocket-Fehler"); setPhase("error"); },
+        // onEvent feuert fuer JEDE Nachricht; die terminalen Events (Ergebnis/Fehler)
+        // gehoeren nicht in den Fortschritts-Stream.
+        onEvent: (e) => {
+          if (e.type !== "CockpitResultReady" && e.type !== "CockpitRunFailed") {
+            setEvents((prev) => [...prev, e]);
+          }
+        },
+        onResult: (ov) => { setOverview(ov); setPhase("ready"); closeSocket(wsRef.current); },
+        onFailed: (e) => {
+          const msg = typeof e.payload?.message === "string" ? e.payload.message : "Analyse fehlgeschlagen";
+          setError(msg); setPhase("error"); closeSocket(wsRef.current);
+        },
+        onError: () => { setError("WebSocket-Fehler"); setPhase("error"); closeSocket(wsRef.current); },
+        onClose: () => { setError("Verbindung zum Server unterbrochen"); setPhase("error"); },
       },
       wsFactory,
       token,
