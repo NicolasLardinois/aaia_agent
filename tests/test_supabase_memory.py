@@ -302,3 +302,33 @@ def test_load_portfolio_snapshot_unpacks_metrics(monkeypatch):
     assert snap["net_beta"] == {"USA": -8000.0}   # ins Top-Level entpackt
     assert snap["net_exposure"] == 300.0
     assert "metrics" not in snap                  # roher metrics-Container entfernt
+
+
+# ---------------------------------------------------------------------------
+# Task 1: short_meta (Grund/Konfidenz/Borrow-Flag) für Short-Backtester
+# ---------------------------------------------------------------------------
+
+from adapters.memory.supabase_memory import _build_short_meta  # noqa: E402
+
+
+def test_build_short_meta_full():
+    """Alle ShortAssessment-Felder müssen 1:1 in das jsonb-Dict übernommen werden."""
+    sa = SimpleNamespace(
+        archetypes=["distress", "valuation_extreme"],
+        confidence=0.62,
+        hard_to_borrow=True,
+        squeeze_risk="elevated",
+        borrow_rate_manual=0.05,
+    )
+    assert _build_short_meta(sa) == {
+        "archetypes": ["distress", "valuation_extreme"],
+        "confidence": 0.62,
+        "hard_to_borrow": True,
+        "squeeze_risk": "elevated",
+        "borrow_rate_manual": 0.05,
+    }
+
+
+def test_build_short_meta_none_is_empty():
+    """Kein ShortAssessment → leeres Dict (defensiv, kein KeyError im Backtester)."""
+    assert _build_short_meta(None) == {}
