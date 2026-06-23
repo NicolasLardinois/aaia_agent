@@ -138,4 +138,7 @@ export interface DeepDiveView extends DemoMeta, SourceHealthMeta {
   futures?: FuturesBlockDTO;   // nur wrapper=future
   cockpitWind?: CockpitWindDTO;
   backtestContext?: BacktestContextDTO;
+  // Vergleichsdimensionen (Konzept §5.2): optional, damit bestehende Fixtures unberührt bleiben.
+  runningCosts?: string;       // laufende Kosten je Hülle, z. B. "Roll-Kosten (Contango)" / "TER ~0,12 %/Jahr"
+  counterpartyRisk?: string;   // Gegenparteirisiko, z. B. "Börse/Clearing" / "physisch hinterlegt"
 }

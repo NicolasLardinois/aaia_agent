@@ -32,8 +32,8 @@ function verdictCell(v: DeepDiveView) {
 
 // Vergleichsmodus (US11, Konzept §5.2): gleicher underlying, zwei wrapper nebeneinander.
 // Zeigt Roll-Yield (Future negativ = Gegenwind, ohne Future = kein Roll), effektiver Hebel
-// (1x bei physisch/Fund) und Long-Urteil je Wrapper — damit der Nutzer die Hüllenwahl
-// informiert treffen kann (z. B. GC=F Future HOLD vs. 4GLD physisch BUY).
+// (1x bei physisch/Fund), laufende Kosten, Gegenparteirisiko und Long-Urteil je Wrapper —
+// damit der Nutzer die Hüllenwahl informiert treffen kann (z. B. GC=F Future HOLD vs. 4GLD physisch BUY).
 export function CompareView({ left, right }: { left: DeepDiveView; right: DeepDiveView }) {
   const cols = [left, right];
   const Row = ({
@@ -75,6 +75,8 @@ export function CompareView({ left, right }: { left: DeepDiveView; right: DeepDi
         />
         <Row label="Roll-Yield" render={rollCell} />
         <Row label="Hebel" render={levCell} />
+        <Row label="Laufende Kosten" render={(v) => v.runningCosts ?? "—"} />
+        <Row label="Gegenparteirisiko" render={(v) => v.counterpartyRisk ?? "—"} />
         <Row label="Long-Urteil" render={verdictCell} />
       </tbody>
     </table>

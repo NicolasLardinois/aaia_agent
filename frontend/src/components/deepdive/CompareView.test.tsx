@@ -13,4 +13,17 @@ describe("CompareView (Gold-Future vs. physisches ETC)", () => {
     expect(screen.getByText(/^HOLD/)).toBeInTheDocument();          // GC=F Long-Urteil
     expect(screen.getByText(/^BUY/)).toBeInTheDocument();           // 4GLD Long-Urteil
   });
+
+  it("zeigt laufende Kosten und Gegenparteirisiko je Wrapper (Konzept §5.2)", () => {
+    render(<CompareView left={demoDeepDive("GC=F")} right={demoDeepDive("4GLD")} />);
+    // Zeile-Label
+    expect(screen.getByText("Laufende Kosten")).toBeInTheDocument();
+    expect(screen.getByText("Gegenparteirisiko")).toBeInTheDocument();
+    // GC=F (Future): Roll-Kosten + Börse/Clearing
+    expect(screen.getByText("Roll-Kosten (Contango)")).toBeInTheDocument();
+    expect(screen.getByText("Börse/Clearing")).toBeInTheDocument();
+    // 4GLD (physisches ETC): TER + vollbesichert
+    expect(screen.getByText("TER ~0,12 %/Jahr")).toBeInTheDocument();
+    expect(screen.getByText("physisch hinterlegt")).toBeInTheDocument();
+  });
 });

@@ -114,6 +114,9 @@ function gcFuture(): DeepDiveView {
       signal: "neutral", note: "Edelmetall-Treiber im Cockpit aktuell neutral.",
     },
     backtestContext: { hitRatePct: 55, sampleSize: 18, history: [] },
+    // Vergleichsdimensionen §5.2: Future = Roll-Kosten (Contango-Gegenwind) + Clearinghouse als Gegenpartei
+    runningCosts: "Roll-Kosten (Contango)",
+    counterpartyRisk: "Börse/Clearing",
   };
 }
 
@@ -241,6 +244,9 @@ function goldEtc(): DeepDiveView {
     },
     // KEIN futures-Block (physical_etc) — Futures-Tab erscheint nicht.
     backtestContext: { hitRatePct: 57, sampleSize: 12, history: [] },
+    // Vergleichsdimensionen §5.2: physisches ETC = laufende TER + vollbesicherte Goldlagerung (kein Gegenparteirisiko im Insolvenzfall)
+    runningCosts: "TER ~0,12 %/Jahr",
+    counterpartyRisk: "physisch hinterlegt",
   };
 }
 

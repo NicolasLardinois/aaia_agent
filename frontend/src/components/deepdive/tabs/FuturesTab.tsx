@@ -28,7 +28,9 @@ export function FuturesTab({ block }: { block: FuturesBlockDTO }) {
       <div>Verfall aktueller Kontrakt: <span className="font-medium">{block.expiryDate}</span></div>
       <div>Nächster Roll-Termin: <span className="font-medium">{block.nextRollDate}</span></div>
       <div>
-        Margin (Initial): <span className="font-medium">{block.marginInitial}</span>{" "}
+        {/* Nominalwert + Margin zeigen, damit der Hebel nachvollziehbar ist (Herleitung: Nominal / Margin) */}
+        Nominal: <span className="font-medium">{block.notional}</span>{" "}
+        · Margin (Initial): <span className="font-medium">{block.marginInitial}</span>{" "}
         → Hebel ≈ {lev.toFixed(1)}×
       </div>
     </div>

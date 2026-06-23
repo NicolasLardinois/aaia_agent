@@ -14,8 +14,15 @@ describe("FuturesTab", () => {
     expect(screen.getByText(/-3\.1/)).toBeInTheDocument();
     // rollYieldVisual-Label: Gegenwind (Contango)
     expect(screen.getByText(/Gegenwind/i)).toBeInTheDocument();
-    // Verfall und Roll-Datum
-    expect(screen.getAllByText(/2026-06-26/).length).toBeGreaterThanOrEqual(1);
+    // Verfall und Roll-Termin: Labels sichtbar
+    expect(screen.getByText(/Verfall aktueller Kontrakt/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nächster Roll-Termin/i)).toBeInTheDocument();
+    // Datum im Fixture identisch für Verfall + Roll → genau 2-mal sichtbar
+    expect(screen.getAllByText(/2026-06-26/)).toHaveLength(2);
+    // Nominalwert + Margin in der Hebel-Zeile sichtbar (Fix 3: Herleitung transparent)
+    expect(screen.getByText(/Nominal/i)).toBeInTheDocument();
+    expect(screen.getByText(/238000/)).toBeInTheDocument();
+    expect(screen.getByText(/Margin \(Initial\)/i)).toBeInTheDocument();
     // Hebel ≈ 33x (238000 / 7150 ≈ 33.3)
     expect(screen.getByText(/33/)).toBeInTheDocument();
   });
