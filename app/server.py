@@ -9,6 +9,7 @@ from config.settings import FRED_API_KEY
 from adapters.data.fred_api import FredDataProvider
 from adapters.data.yahoo_finance import YahooFinanceProvider
 from adapters.data.ecb_sdw import EcbSdwProvider
+from adapters.data.eurostat import EurostatEcbProvider
 from adapters.data.fred_snb import FredSnbProvider
 from adapters.data.cnn_fear_greed import CnnFearGreedProvider
 from adapters.api.ws_broadcaster import WebSocketBroadcaster
@@ -20,7 +21,7 @@ from orchestrators.top_down_orchestrator import TopDownOrchestrator
 def make_orchestrator(bus):
     return TopDownOrchestrator(
         macro=FredDataProvider(FRED_API_KEY),
-        ecb=EcbSdwProvider(),
+        ecb=EurostatEcbProvider(EcbSdwProvider()),
         snb=FredSnbProvider(FRED_API_KEY),
         market=YahooFinanceProvider(),
         bus=bus,
