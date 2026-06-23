@@ -13,7 +13,7 @@ from core.ports.llm_provider import LLMProvider
 class BottomUpOrchestrator:
     """
     Modus 2 — Bottom-Up Analyse.
-    Verzweigt nach asset_class und delegiert an den zuständigen ChiefAgent.
+    Verzweigt nach underlying (Basiswert-Typ) und delegiert an den zuständigen ChiefAgent.
     """
 
     def __init__(
@@ -33,26 +33,28 @@ class BottomUpOrchestrator:
     async def run(
         self,
         ticker: str,
-        asset_class: str = "equity",
+        underlying: Underlying = Underlying.EQUITY,
+        wrapper: Wrapper = Wrapper.SINGLE,
         sector: str = "default",
         bond_type: str = "government",
         rate_direction: str = "stable",
         risk_affinity: "RiskAffinity | None" = None,
     ) -> BottomUpResult:
-        # Phase 1: CLI-Param bleibt string; intern auf (underlying, wrapper) abbilden.
-        # "etf" und "index" landen in der Index-Engine (Reklassifizierung, Task 2).
-        if asset_class == "precious_metal":
-            return await self._run_precious_metals(ticker)
-        if asset_class == "bond":
-            return await self._run_bond(ticker, bond_type, rate_direction, risk_affinity)
-        if asset_class in ("index", "etf"):
-            # "etf" → fund-Wrapper (Korb); "index" → single (Direktindex)
-            w = Wrapper.FUND if asset_class == "etf" else Wrapper.SINGLE
-            return await self._run_index(ticker, w)
-        if asset_class == "commodity":
-            return await self._run_commodity(ticker)
-        # Equity-Default: single-Wertpapier
-        return await self._run_equity(ticker, sector)
+        # Dispatch nach Basiswert-Typ (underlying) — nicht mehr nach Legacy-String.
+        # wrapper wird nur an _run_index weitergereicht (SINGLE vs. FUND unterscheidet
+        # Direkt-Index von ETF/Fonds-Korb).
+        match underlying:
+            case Underlying.PRECIOUS_METAL:
+                return await self._run_precious_metals(ticker)
+            case Underlying.BOND:
+                return await self._run_bond(ticker, bond_type, rate_direction, risk_affinity)
+            case Underlying.EQUITY_INDEX:
+                return await self._run_index(ticker, wrapper)
+            case Underlying.COMMODITY:
+                return await self._run_commodity(ticker)
+            case _:
+                # Default: EQUITY (Einzelaktie)
+                return await self._run_equity(ticker, sector)
 
     async def _run_equity(self, ticker: str, sector: str) -> BottomUpResult:
         try:
