@@ -23,6 +23,7 @@ export interface SocketHandlers {
   onOpen?: () => void;
   onEvent?: (e: CockpitEvent) => void;
   onResult?: (overview: CockpitOverview, e: CockpitEvent) => void;
+  onFailed?: (e: CockpitEvent) => void;
   onError?: () => void;
   onClose?: () => void;
 }
@@ -45,6 +46,8 @@ export function openCockpitSocket(
     handlers.onEvent?.(msg);
     if (msg.type === "CockpitResultReady") {
       handlers.onResult?.(msg.payload as unknown as CockpitOverview, msg);
+    } else if (msg.type === "CockpitRunFailed") {
+      handlers.onFailed?.(msg);
     }
   };
   ws.onerror = () => handlers.onError?.();

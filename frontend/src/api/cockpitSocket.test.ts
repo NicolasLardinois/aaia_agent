@@ -48,4 +48,17 @@ describe("openCockpitSocket", () => {
     openCockpitSocket("http://127.0.0.1:8000", {}, (url) => { seen = url; return ws; }, "geheim");
     expect(seen).toBe("ws://127.0.0.1:8000/ws/cockpit?token=geheim");
   });
+
+  it("ruft onFailed beim terminalen CockpitRunFailed (nicht onResult)", () => {
+    const ws = fakeWs();
+    const onFailed = vi.fn();
+    const onResult = vi.fn();
+    openCockpitSocket("https://api.example.com", { onFailed, onResult }, () => ws);
+
+    ws.onmessage!({ data: JSON.stringify({ type: "CockpitRunFailed", source: "run_manager", payload: { message: "Analyse fehlgeschlagen" }, run_id: "r" }) });
+
+    expect(onFailed).toHaveBeenCalledOnce();
+    expect(onFailed).toHaveBeenCalledWith(expect.objectContaining({ type: "CockpitRunFailed" }));
+    expect(onResult).not.toHaveBeenCalled();
+  });
 });
