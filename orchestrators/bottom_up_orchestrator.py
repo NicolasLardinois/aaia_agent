@@ -3,12 +3,14 @@ from agents.stock_deep_dive.bond_chief_agent import BondChiefAgent
 from agents.stock_deep_dive.index_chief_agent import IndexChiefAgent
 from agents.stock_deep_dive.commodity_chief_agent_mikro import CommodityChiefAgentMikro
 from agents.stock_deep_dive.precious_metals_chief_agent import PreciousMetalsChiefAgent
-from core.domain.models import BottomUpResult, FundInfo, RiskAffinity
+from core.domain.models import BottomUpResult, FundInfo, FuturesAssessment, RiskAffinity
 from core.domain.taxonomy import Underlying, Wrapper
 from core.ports.data_provider import FundamentalsProvider, MacroDataProvider, MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.ports.fund_info import FundInfoProvider
+from core.ports.futures_curve import FuturesCurveProvider
 from core.ports.llm_provider import LLMProvider
+from core.utils.futures_curve import assess_futures_curve
 
 
 class BottomUpOrchestrator:
@@ -25,13 +27,15 @@ class BottomUpOrchestrator:
         llm: LLMProvider,
         bus: EventBus,
         fund_info_provider: "FundInfoProvider | None" = None,
+        futures_curve_provider: "FuturesCurveProvider | None" = None,
     ):
         self.equity_chief          = EquityChiefAgent(fundamentals_provider, market_provider, llm, bus)
         self.bond_chief            = BondChiefAgent(fundamentals_provider, macro_provider, bus)
         self.index_chief           = IndexChiefAgent(market_provider, bus)
         self.commodity_chief       = CommodityChiefAgentMikro(market_provider, bus)
         self.precious_metals_chief = PreciousMetalsChiefAgent(macro_provider, market_provider, bus)
-        self.fund_info_provider    = fund_info_provider
+        self.fund_info_provider     = fund_info_provider
+        self.futures_curve_provider = futures_curve_provider
 
     async def run(
         self,
@@ -43,18 +47,19 @@ class BottomUpOrchestrator:
         rate_direction: str = "stable",
         risk_affinity: "RiskAffinity | None" = None,
     ) -> BottomUpResult:
-        # Dispatch nach Basiswert-Typ (underlying) — nicht mehr nach Legacy-String.
-        # wrapper geht an _run_index (SINGLE vs. FUND unterscheidet Direkt-Index vom
-        # ETF/Fonds-Korb); die Fund-Info-Schicht wird danach zentral übergelegt.
+        # Dispatch nach Basiswert-Typ (underlying). wrapper geht an die Pfade, die ihn
+        # auswerten (_run_index, _run_commodity, _run_precious_metals); danach wird die
+        # Fund-Info-Schicht zentral über jedes Ergebnis gelegt. Die Futures-Mechanik-Schicht
+        # bleibt pfadlokal (Commodity/Edelmetall, Phase 2a).
         match underlying:
             case Underlying.PRECIOUS_METAL:
-                result = await self._run_precious_metals(ticker)
+                result = await self._run_precious_metals(ticker, wrapper)
             case Underlying.BOND:
                 result = await self._run_bond(ticker, bond_type, rate_direction, risk_affinity)
             case Underlying.EQUITY_INDEX:
                 result = await self._run_index(ticker, wrapper)
             case Underlying.COMMODITY:
-                result = await self._run_commodity(ticker)
+                result = await self._run_commodity(ticker, wrapper)
             case _:
                 # Default: EQUITY (Einzelaktie)
                 result = await self._run_equity(ticker, sector)
@@ -134,7 +139,20 @@ class BottomUpOrchestrator:
             info = None
         return info if info is not None else FundInfo.unavailable()
 
-    async def _run_commodity(self, ticker: str) -> BottomUpResult:
+    async def _futures_overlay(self, symbol: str, wrapper: Wrapper) -> "FuturesAssessment | None":
+        """Mechanik-Schicht nur bei wrapper=FUTURE (Design §6.5). Defensiv: fehlender Provider
+        oder Datenfehler → unavailable statt Crash. Andere Wrapper → None (keine Schicht)."""
+        if wrapper != Wrapper.FUTURE:
+            return None
+        if self.futures_curve_provider is None:
+            return FuturesAssessment.unavailable()
+        try:
+            snap = await self.futures_curve_provider.get_curve(symbol)
+        except Exception:
+            snap = None
+        return assess_futures_curve(snap)
+
+    async def _run_commodity(self, ticker: str, wrapper: Wrapper = Wrapper.FUTURE) -> BottomUpResult:
         try:
             commodity_result = await self.commodity_chief.run(ticker)
         except Exception:
@@ -142,13 +160,14 @@ class BottomUpOrchestrator:
         return BottomUpResult(
             ticker=ticker,
             underlying=Underlying.COMMODITY,
-            wrapper=Wrapper.FUTURE,
+            wrapper=wrapper,
             fundamentals=None, quality=None, short_interest=None,
             insider=None, earnings_trend=None, moat=None, valuation_range=None,
             precious_metals=None, bond=None, index=None, commodity_deep=commodity_result,
+            futures_curve=await self._futures_overlay(ticker, wrapper),
         )
 
-    async def _run_precious_metals(self, metal: str) -> BottomUpResult:
+    async def _run_precious_metals(self, metal: str, wrapper: Wrapper = Wrapper.FUTURE) -> BottomUpResult:
         try:
             pm_result = await self.precious_metals_chief.run(metal)
         except Exception:
@@ -156,9 +175,10 @@ class BottomUpOrchestrator:
         return BottomUpResult(
             ticker=metal,
             underlying=Underlying.PRECIOUS_METAL,
-            wrapper=Wrapper.FUTURE,
+            wrapper=wrapper,
             fundamentals=None, quality=None, short_interest=None,
             insider=None, earnings_trend=None, moat=None,
             valuation_range=pm_result.valuation_range,
             precious_metals=pm_result, bond=None, index=None, commodity_deep=None,
+            futures_curve=await self._futures_overlay(metal, wrapper),
         )
