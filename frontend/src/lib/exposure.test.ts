@@ -35,8 +35,12 @@ describe("netExposure (long − short)", () => {
 });
 
 describe("netBeta (aktien-only, signiert × β)", () => {
-  it("ohne Aktien (nur Bond/Commodity) => 0", () => {
-    expect(netBeta([p({ underlying: "bond", beta: null }), p({ underlying: "commodity", beta: null })])).toBe(0);
+  it("ohne Aktien (nur Bond/Commodity/Precious) => 0", () => {
+    expect(netBeta([
+      p({ underlying: "bond", beta: null }),
+      p({ underlying: "commodity", beta: null }),
+      p({ underlying: "precious_metal", beta: null }),
+    ])).toBe(0);
   });
   it("zaehlt equity und equity_index, nicht bond/commodity/precious", () => {
     // long 10 (β1.2) + short 5 (β1.0) aktien; bond 20 ignoriert

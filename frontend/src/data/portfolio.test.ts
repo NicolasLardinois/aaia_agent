@@ -19,6 +19,7 @@ describe("loadPortfolio (Tausch-Naht)", () => {
   it("net_beta zaehlt nur Aktien/Index (Bonds/Edelmetalle ausgenommen)", async () => {
     const v = await loadPortfolio();
     // Gold-Future (beta null) + TLT (bond) duerfen das net_beta nicht beeinflussen.
-    expect(Number.isFinite(v.exposure.netBeta)).toBe(true);
+    // Demo-Positionen: AAPL (12×1.25) + MSFT (15×1.10) − TSLA (5×1.80) + XLE (9×1.05) = 31.95
+    expect(v.exposure.netBeta).toBeCloseTo(31.95, 1);
   });
 });

@@ -34,13 +34,17 @@ describe("detectKlumpen", () => {
   it("Sektor knapp ueber Limit (0.41) => Sektor-Warnung mit Limit-Bezug", () => {
     const out = detectKlumpen([
       p({ sector: "Technologie", sizePctNav: 41 }),
-      p({ sector: "Gesundheit", sizePctNav: 59 }),
+      p({ sector: "Gesundheit", sizePctNav: 20 }),
+      p({ sector: "Energie", sizePctNav: 20 }),
+      p({ sector: "Finanzen", sizePctNav: 19 }),
     ]);
     const tech = out.find((w) => w.dimension === "sector" && w.name === "Technologie");
     expect(tech).toBeTruthy();
     expect(tech!.limit).toBe(DEFAULT_LIMITS.sector);
     expect(tech!.message).toMatch(/Technologie/);
     expect(tech!.message).toMatch(/Limit/);
+    // Genau eine Sektor-Warnung (nur Tech > 40 %)
+    expect(out.filter((w) => w.dimension === "sector")).toHaveLength(1);
   });
   it("Gegenlaeufige Position senkt die Netto-Konzentration (Hedge zaehlt netto)", () => {
     // 50 long USA + 30 short USA = netto 20 / Brutto 80 = 0.25 < 0.70 -> keine USA-Warnung
