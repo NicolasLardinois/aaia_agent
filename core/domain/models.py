@@ -71,6 +71,13 @@ class FundInfo:
     available: bool
 
     @classmethod
+    def of(cls, ter: float | None, tracking_error: float | None) -> "FundInfo":
+        """Baut FundInfo und leitet `available` aus den Daten ab, statt es frei setzen zu
+        lassen: verfügbar, sobald mindestens die TER vorliegt (§6.6) — der Tracking-Error
+        darf separat fehlen (Benchmark unbekannt), ohne die TER zu entwerten."""
+        return cls(ter, tracking_error, available=ter is not None)
+
+    @classmethod
     def unavailable(cls) -> "FundInfo":
         return cls(None, None, False)
 

@@ -24,3 +24,12 @@ def test_guards_unequal_or_too_short():
     assert tracking_error_ann([0.01], [0.01]) is None          # < 2 Punkte
     assert tracking_error_ann([0.01, 0.02], [0.01]) is None     # ungleiche Länge
     assert tracking_error_ann([], []) is None
+
+
+def test_periods_per_year_scales_annualisation():
+    # Gleiche Diff-Stdev, nur der √P-Faktor unterscheidet sich → Verhältnis = √(252/12).
+    etf = [0.012, -0.018, 0.016, -0.009]
+    bench = [0.010, -0.020, 0.015, -0.010]
+    daily = tracking_error_ann(etf, bench, periods_per_year=252)
+    monthly = tracking_error_ann(etf, bench, periods_per_year=12)
+    assert daily / monthly == pytest.approx((252 / 12) ** 0.5)

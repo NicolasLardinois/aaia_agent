@@ -44,20 +44,28 @@ class BottomUpOrchestrator:
         risk_affinity: "RiskAffinity | None" = None,
     ) -> BottomUpResult:
         # Dispatch nach Basiswert-Typ (underlying) — nicht mehr nach Legacy-String.
-        # wrapper wird nur an _run_index weitergereicht (SINGLE vs. FUND unterscheidet
-        # Direkt-Index von ETF/Fonds-Korb).
+        # wrapper geht an _run_index (SINGLE vs. FUND unterscheidet Direkt-Index vom
+        # ETF/Fonds-Korb); die Fund-Info-Schicht wird danach zentral übergelegt.
         match underlying:
             case Underlying.PRECIOUS_METAL:
-                return await self._run_precious_metals(ticker)
+                result = await self._run_precious_metals(ticker)
             case Underlying.BOND:
-                return await self._run_bond(ticker, bond_type, rate_direction, risk_affinity)
+                result = await self._run_bond(ticker, bond_type, rate_direction, risk_affinity)
             case Underlying.EQUITY_INDEX:
-                return await self._run_index(ticker, wrapper)
+                result = await self._run_index(ticker, wrapper)
             case Underlying.COMMODITY:
-                return await self._run_commodity(ticker)
+                result = await self._run_commodity(ticker)
             case _:
                 # Default: EQUITY (Einzelaktie)
-                return await self._run_equity(ticker, sector)
+                result = await self._run_equity(ticker, sector)
+
+        # Fund-Info-Schicht (§6.6): hängt am WRAPPER, nicht am Basiswert. Jeder ETF/Fonds
+        # bekommt sie — Aktien-Index-ETF ebenso wie Anleihe-, Rohstoff- oder Edelmetall-ETF
+        # (z. B. GLD). Andere Wrapper → None (keine Schicht).
+        fund = await self._fund_overlay(ticker, wrapper)
+        if fund is not None:
+            result.fund_info = fund
+        return result
 
     async def _run_equity(self, ticker: str, sector: str) -> BottomUpResult:
         try:
@@ -111,7 +119,6 @@ class BottomUpOrchestrator:
             fundamentals=None, quality=None, short_interest=None,
             insider=None, earnings_trend=None, moat=None, valuation_range=None,
             precious_metals=None, bond=None, index=index_result, commodity_deep=None,
-            fund_info=await self._fund_overlay(ticker, wrapper),
         )
 
     async def _fund_overlay(self, symbol: str, wrapper: Wrapper) -> "FundInfo | None":
