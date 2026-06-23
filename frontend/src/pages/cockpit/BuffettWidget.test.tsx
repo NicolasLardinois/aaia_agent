@@ -6,7 +6,9 @@ import { demoBuffett } from "../../data/demo/cockpit";
 
 // ECharts im jsdom neutralisieren (BarChart, ChoroplethMap, LineCurve).
 vi.mock("echarts-for-react", () => ({ default: () => null }));
-// ChoroplethMap-fetch mocken (GeoJSON fehlt im Test-Umfeld -> graceful fallback).
+// echarts lazy-import mocken (jsdom kann echarts.registerMap nicht laden).
+vi.mock("echarts", () => ({ registerMap: vi.fn() }));
+// ChoroplethMap-fetch mocken (jsdom kann public/ nicht als HTTP-Server auflösen -> graceful fallback).
 vi.stubGlobal("fetch", () => Promise.reject(new Error("no geojson in tests")));
 
 const loader = () => Promise.resolve(demoBuffett());
@@ -87,26 +89,23 @@ describe("BuffettWidget (C1)", () => {
     renderWidget();
     await waitFor(() => expect(screen.getByText("USA")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /karte/i }));
-    // Karte lädt oder zeigt Fallback (kein crash). Timeout erhoeht da fetch-Ablehnung Zeit braucht.
-    await waitFor(
-      () =>
-        expect(
-          screen.queryByText(/Karte lädt|nicht verfügbar|Karte nicht verfügbar/i)
-        ).not.toBeNull(),
-      { timeout: 10000 },
+    // Karte zeigt graceful Fallback (jsdom kann fetch("/world.geo.json") nicht auflösen).
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/Karte nicht verfügbar/i)
+      ).toBeInTheDocument()
     );
-  }, 15000);
+  });
 
   it("Klick auf USA-Zeile zeigt das 10-J-Drilldown-Panel (LineCurve-Container)", async () => {
     renderWidget();
-    await waitFor(() => expect(screen.getByText("USA")).toBeInTheDocument(), { timeout: 8000 });
+    await waitFor(() => expect(screen.getByText("USA")).toBeInTheDocument());
     // Klick auf die USA-Zeile -> Drilldown-Panel erscheint
     fireEvent.click(screen.getByText("USA"));
     await waitFor(() =>
-      expect(screen.getByText(/10-J-Verlauf|Verlauf/i)).toBeInTheDocument(),
-      { timeout: 8000 },
+      expect(screen.getByText(/10-J-Verlauf|Verlauf/i)).toBeInTheDocument()
     );
-  }, 20000);
+  });
 
   it("Demo-Badge sichtbar", async () => {
     renderWidget();

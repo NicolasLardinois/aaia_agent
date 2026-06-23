@@ -5,7 +5,7 @@ import type { MapPoint } from "./ChoroplethMap";
 
 vi.mock("echarts-for-react", () => ({ default: () => null }));
 
-// echarts-Mock: echarts.registerMap + echarts lazy-import simulieren
+// echarts-Mock: registerMap mocken, lazy-import (await import("echarts")) sofort antworten lassen
 vi.mock("echarts", () => ({
   registerMap: vi.fn(),
 }));
