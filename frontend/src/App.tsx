@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { CockpitPage } from "./pages/CockpitPage";
+import { BrowserRouter } from "react-router-dom";
 import { useAuth } from "./auth/useAuth";
 import { LoginGate } from "./auth/LoginGate";
+import { AppRoutes } from "./routes";
 
 export default function App() {
   const { token, login, logout } = useAuth();
@@ -11,9 +12,11 @@ export default function App() {
     return <LoginGate error={authError} onSubmit={(t) => { setAuthError(false); login(t); }} />;
   }
   return (
-    <CockpitPage
-      deps={{ token, onUnauthorized: () => { setAuthError(true); logout(); } }}
-      onLogout={logout}
-    />
+    <BrowserRouter>
+      <AppRoutes
+        deps={{ token, onUnauthorized: () => { setAuthError(true); logout(); } }}
+        onLogout={logout}
+      />
+    </BrowserRouter>
   );
 }
