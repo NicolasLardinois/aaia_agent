@@ -13,4 +13,8 @@ describe("Schwellen-Badges", () => {
     render(<CashBiasBadge confidence={0.30} />);
     expect(screen.getByText(/Cash-Bias/i)).toBeInTheDocument();
   });
+  it("CashBiasBadge erscheint NICHT genau auf der Schwelle 0.35", () => {
+    const { container } = render(<CashBiasBadge confidence={0.35} />);
+    expect(container).toBeEmptyDOMElement();
+  });
 });

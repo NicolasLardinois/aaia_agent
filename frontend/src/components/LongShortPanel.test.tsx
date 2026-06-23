@@ -23,6 +23,6 @@ describe("LongShortPanel", () => {
       />,
     );
     // Beide Linsen haben confidence < 0.50 -> beide zeigen AutoHold (Long: 0.47, Short: 0.22)
-    expect(screen.getAllByText(/auto-HOLD/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/auto-HOLD/i)).toHaveLength(2);
   });
 });
