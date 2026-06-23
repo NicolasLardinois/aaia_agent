@@ -55,7 +55,9 @@ def test_deep_dive_result_has_new_fields():
     assert result.xai_explanation == "Ausführliche Erklärung..."
     assert result.market == "USA"
     assert result.dominant_signal == "bullish"
-    assert result.asset_class == "equity"   # Übergangs-Property
+    # Task 8: Übergangs-Property entfernt — direkt underlying/wrapper prüfen.
+    assert result.underlying == Underlying.EQUITY
+    assert result.wrapper == Wrapper.SINGLE
 
 
 def test_anomaly_report_empty_factory():

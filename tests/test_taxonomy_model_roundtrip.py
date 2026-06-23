@@ -15,11 +15,13 @@ def _minimal_bottom_up(underlying, wrapper):
     )
 
 
-def test_underlying_wrapper_gesetzt_und_property_leitet_ab():
+def test_underlying_wrapper_gesetzt():
+    """Task 8: Übergangs-Property entfernt — underlying/wrapper direkt prüfen."""
     r = _minimal_bottom_up(Underlying.EQUITY_INDEX, Wrapper.FUND)
     assert r.underlying == Underlying.EQUITY_INDEX
     assert r.wrapper == Wrapper.FUND
-    assert r.asset_class == "etf"   # Übergangs-Property (Read-only)
+    # Sicherstellung: kein legacy-Property mehr vorhanden (Task 8).
+    assert not hasattr(r.__class__, "asset_class"), "asset_class-Property darf nicht mehr existieren"
 
 
 def test_cache_roundtrip_erhaelt_underlying_wrapper(tmp_path, monkeypatch):

@@ -7,7 +7,7 @@ from core.domain.models import (
 from core.domain.portfolio import PortfolioError
 from core.domain.recommendation import compute_confidence, derive_recommendation, detect_conflict
 from core.domain.short_assessment import derive_short_assessment
-from core.domain.taxonomy import Underlying, Wrapper, legacy_to_taxonomy
+from core.domain.taxonomy import Underlying, Wrapper, legacy_asset_class, legacy_to_taxonomy
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
 from core.ports.portfolio_port import PortfolioPort
@@ -212,7 +212,10 @@ class JudgmentAgent:
         bottom_up_block = "\n".join(
             ln for ln in [fu_line, si_line, ins_line, et_line, mo_line, vr_line, bond_line] if ln)
 
-        prompt = f"""Aktie: {ticker} | Markt: {market} | Asset-Klasse: {bottom_up.asset_class}
+        # Asset-Klasse für den LLM-Prompt: lesbarer Legacy-String abgeleitet aus
+        # underlying/wrapper — gleicher Inhalt wie die alte asset_class-Property.
+        _asset_class_label = legacy_asset_class(bu_underlying, bu_wrapper)
+        prompt = f"""Aktie: {ticker} | Markt: {market} | Asset-Klasse: {_asset_class_label}
 
 TOP-DOWN KONTEXT:
 {top_down_context}

@@ -2,6 +2,7 @@ from unittest.mock import MagicMock
 from agents.anomaly.top_down_anomaly_agent import TopDownAnomalyAgent
 from agents.anomaly.bottom_up_anomaly_agent import BottomUpAnomalyAgent
 from core.domain.models import Signal
+from core.domain.taxonomy import Underlying, Wrapper, legacy_to_taxonomy
 
 
 def _make_cockpit(vix=18.0, fear_greed=50.0, spread=1.2,
@@ -146,7 +147,8 @@ def _make_bottom_up(pe=22.0, short_float=3.0, insider_tx=2,
                     earn_signal=Signal.BULLISH, quality_signal=Signal.BULLISH,
                     asset_class="equity"):
     bu = MagicMock()
-    bu.asset_class = asset_class
+    # Task 8: underlying/wrapper statt asset_class-Property setzen.
+    bu.underlying, bu.wrapper = legacy_to_taxonomy(asset_class)
     bu.fundamentals.pe_ratio = pe
     bu.fundamentals.signal = fund_signal
     bu.short_interest.short_float_pct = short_float
@@ -195,7 +197,8 @@ def test_bottomup_contradiction():
 def test_bottomup_non_equity_skips_z_score():
     agent = BottomUpAnomalyAgent()
     bu = MagicMock()
-    bu.asset_class = "bond"
+    # Task 8: underlying direkt setzen (BOND → Z-Score-Checks werden übersprungen)
+    bu.underlying, bu.wrapper = legacy_to_taxonomy("bond")
     bu.fundamentals = None
     bu.short_interest = None
     bu.insider = None

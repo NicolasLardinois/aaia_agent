@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
-from core.domain.taxonomy import Underlying, Wrapper, legacy_asset_class
+from core.domain.taxonomy import Underlying, Wrapper
 
 
 class MarketRegime(str, Enum):
@@ -768,12 +768,6 @@ class BottomUpResult:
     # Wird vom EquityChiefAgent befüllt; in Task 5 im Judgment genutzt.
     momentum: Optional["MomentumSnapshot"] = None
 
-    @property
-    def asset_class(self) -> str:
-        """ÜBERGANG (Phase 1): abgeleiteter Alt-String, bis alle Konsumenten auf
-        underlying/wrapper umgestellt sind. Wird in Task 8 entfernt."""
-        return legacy_asset_class(self.underlying, self.wrapper)
-
 
 # ─────────────────────────────────────────────
 # Modus 2 — AnomalyReport
@@ -828,12 +822,6 @@ class ShortAssessment:
     suggested_size_pct: Optional[float] = None
     stop_pct: Optional[float] = None
 
-    @property
-    def asset_class(self) -> str:
-        """ÜBERGANG (Phase 1): abgeleiteter Alt-String, bis alle Konsumenten auf
-        underlying/wrapper umgestellt sind. Wird in Task 8 entfernt."""
-        return legacy_asset_class(self.underlying, self.wrapper)
-
 
 @dataclass
 class ConflictResolution:
@@ -866,12 +854,6 @@ class DeepDiveResult:
     # Short-Thesis-Agent-Output: ausformulierte Leerverkaufs-Begründung + XAI-Erklärung
     short_thesis: str = ""
     short_xai: str = ""
-
-    @property
-    def asset_class(self) -> str:
-        """ÜBERGANG (Phase 1): abgeleiteter Alt-String, bis alle Konsumenten auf
-        underlying/wrapper umgestellt sind. Wird in Task 8 entfernt."""
-        return legacy_asset_class(self.underlying, self.wrapper)
 
 
 # ─────────────────────────────────────────────

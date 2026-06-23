@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 from agents.anomaly_chief_agent import AnomalyChiefAgent
 from core.domain.models import AnomalyReport
+from core.domain.taxonomy import Underlying, Wrapper
 
 
 def test_chief_returns_two_reports_and_publishes():
@@ -8,7 +9,9 @@ def test_chief_returns_two_reports_and_publishes():
     chief = AnomalyChiefAgent(bus)
     cockpit = None  # → td_anomaly = empty
     bu = MagicMock()
-    bu.asset_class = "bond"
+    # Task 8: underlying/wrapper statt asset_class-Property setzen.
+    bu.underlying = Underlying.BOND
+    bu.wrapper = Wrapper.SINGLE
     bu.fundamentals = None
     bu.short_interest = None
     bu.insider = None

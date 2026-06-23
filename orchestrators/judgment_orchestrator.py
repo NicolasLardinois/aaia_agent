@@ -6,6 +6,7 @@ from agents.short_thesis.short_thesis_agent import ShortThesisAgent
 from core.domain.conflict_inbox import record_conflict
 from core.domain.models import AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult, PositionState
 from core.domain.recommendation import FULL_ANALYSIS_MARKETS
+from core.domain.taxonomy import legacy_asset_class, legacy_to_taxonomy
 from core.domain.top_down_context import derive_top_down_context
 from core.ports.conflict_store import ConflictStorePort
 from core.ports.event_bus import EventBus
@@ -74,9 +75,21 @@ class JudgmentOrchestrator:
                 backtester_context=backtester_context,
             )
         except Exception:
+            # underlying/wrapper defensiv auflösen: BottomUpResult trägt die Felder direkt;
+            # Test-Doubles (SimpleNamespace) können legacy asset_class-String tragen → Fallback.
+            if hasattr(bottom_up, "underlying") and hasattr(bottom_up, "wrapper"):
+                from core.domain.taxonomy import Underlying, Wrapper as _W
+                _und = bottom_up.underlying
+                _wrp = bottom_up.wrapper
+                if isinstance(_und, Underlying) and isinstance(_wrp, _W):
+                    _legacy_ac = legacy_asset_class(_und, _wrp)
+                else:
+                    _legacy_ac = getattr(bottom_up, "asset_class", "equity")
+            else:
+                _legacy_ac = getattr(bottom_up, "asset_class", "equity")
             result = JudgmentChiefAgent.default(
                 ticker=bottom_up.ticker,
-                asset_class=bottom_up.asset_class,
+                asset_class=_legacy_ac,
                 market=market,
             )
 
@@ -112,7 +125,10 @@ class JudgmentOrchestrator:
         if result.short_assessment is not None:
             try:
                 result.short_thesis, result.short_xai = await self.short_thesis_agent.run(
-                    bottom_up.ticker, result.short_assessment, result.asset_class)
+                    bottom_up.ticker, result.short_assessment,
+                    # Legacy-String für ShortThesisAgent: abgeleitet aus underlying/wrapper
+                    # (Phase-2: ShortThesisAgent direkt auf underlying/wrapper umstellen)
+                    legacy_asset_class(result.underlying, result.wrapper))
             except Exception:
                 result.short_thesis, result.short_xai = "", ""
 
