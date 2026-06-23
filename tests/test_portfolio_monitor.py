@@ -1,6 +1,7 @@
 import asyncio
 from unittest.mock import MagicMock
 from core.domain.portfolio import Position
+from core.domain.taxonomy import Underlying, Wrapper, legacy_to_taxonomy
 from agents.portfolio.portfolio_monitor_agent import PortfolioMonitorAgent, _check_cluster_risks
 
 
@@ -28,10 +29,13 @@ def _make_port(positions: list) -> MagicMock:
 
 def _pos(ticker, shares, entry_price, current_price, direction="long",
           sector="Technology", asset_class="equity", country="USA", currency="USD"):
+    """Test-Helfer: nimmt Legacy-asset_class-String und mappt via legacy_to_taxonomy auf
+    underlying/wrapper (Task 6). Alle bestehenden Aufrufstellen bleiben unverändert."""
+    underlying, wrapper = legacy_to_taxonomy(asset_class)
     return Position(
         ticker=ticker, shares=shares, entry_price=entry_price,
         direction=direction, currency=currency, current_price=current_price,
-        sector=sector, asset_class=asset_class, country=country,
+        sector=sector, underlying=underlying, wrapper=wrapper, country=country,
     )
 
 
@@ -299,11 +303,11 @@ def test_net_beta_missing_beta_defaults_one():
 
 
 def test_net_beta_per_region_split():
-    from core.domain.portfolio import Position
     positions = [
         _pos("US1", 10, 10, 10, direction="long", country="USA"),
         Position(ticker="CH1", shares=10, entry_price=10, direction="long",
-                 current_price=10, sector="Pharma", asset_class="equity", country="CH"),
+                 current_price=10, sector="Pharma",
+                 underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE, country="CH"),
     ]
     snap = _agent_mp(positions, {"US1": 1.0, "CH1": 1.0})._evaluate_positions(positions)
     assert set(snap["net_beta"].keys()) == {"USA", "CH"}

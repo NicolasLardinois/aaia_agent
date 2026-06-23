@@ -2,6 +2,7 @@ import json
 import pytest
 from core.domain.models import PositionState
 from core.domain.portfolio import PortfolioError
+from core.domain.taxonomy import Underlying, Wrapper
 from adapters.persistence.json_portfolio import JsonPortfolioProvider
 
 
@@ -67,3 +68,37 @@ def test_position_state_case_insensitive(tmp_path):
     p = JsonPortfolioProvider(path)
     assert p.position_state_for("aapl") == PositionState.LONG   # Eingabe klein, Depot groß
     assert p.position_state_for("NOK") == PositionState.SHORT   # Eingabe groß, Depot klein
+
+
+def test_position_default_und_legacy_asset_class(tmp_path):
+    """(a) Neues Schema: underlying/wrapper direkt aus JSON laden.
+    (b) Alt-Schlüssel asset_class wird via legacy_to_taxonomy korrekt abgebildet."""
+    p = tmp_path / "portfolio.json"
+    p.write_text(json.dumps({"positions": [
+        {"ticker": "GC", "shares": 1, "buy_price": 1800, "direction": "long",
+         "underlying": "precious_metal", "wrapper": "future"},
+        {"ticker": "XLE", "shares": 1, "buy_price": 80, "direction": "long",
+         "asset_class": "etf"},   # Legacy-Schlüssel → equity_index/fund
+    ]}), encoding="utf-8")
+    positions = JsonPortfolioProvider(str(p)).get_positions()
+    assert positions[0].underlying == Underlying.PRECIOUS_METAL
+    assert positions[0].wrapper == Wrapper.FUTURE
+    assert positions[1].underlying == Underlying.EQUITY_INDEX
+    assert positions[1].wrapper == Wrapper.FUND
+
+
+def test_unbekannter_underlying_failt(tmp_path):
+    """Unbekannter underlying-Wert → fail-loud (PortfolioError), wie bei direction."""
+    path = _write(tmp_path, [{"ticker": "X", "shares": 1, "buy_price": 1,
+                               "direction": "long", "underlying": "krypto"}])
+    with pytest.raises(PortfolioError):
+        JsonPortfolioProvider(path).get_positions()
+
+
+def test_unbekannter_wrapper_failt(tmp_path):
+    """Unbekannter wrapper-Wert → fail-loud (PortfolioError), wie bei direction."""
+    path = _write(tmp_path, [{"ticker": "X", "shares": 1, "buy_price": 1,
+                               "direction": "long", "underlying": "equity",
+                               "wrapper": "hebel"}])
+    with pytest.raises(PortfolioError):
+        JsonPortfolioProvider(path).get_positions()

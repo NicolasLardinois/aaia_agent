@@ -3,12 +3,16 @@ import os
 
 from core.domain.models import PositionState, RiskAffinity
 from core.domain.portfolio import Position, PortfolioError
+from core.domain.taxonomy import Underlying, Wrapper, legacy_to_taxonomy
 from core.ports.portfolio_port import PortfolioPort
 
 _DEFAULT_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "portfolio.json")
 _VALID_DIR = {"long", "short"}
 # Aus dem Enum abgeleitet, damit die Whitelist bei einer Erweiterung nicht driftet.
 _VALID_AFFINITY = {a.value for a in RiskAffinity}
+# Zulässige Enum-Werte — aus Enum abgeleitet (kein Driften bei Erweiterungen).
+_VALID_UNDERLYING = {u.value for u in Underlying}
+_VALID_WRAPPER    = {w.value for w in Wrapper}
 
 
 class JsonPortfolioProvider(PortfolioPort):
@@ -36,8 +40,36 @@ class JsonPortfolioProvider(PortfolioPort):
                     raise PortfolioError(
                         f"Position {ticker}: Pflichtfeld {feld!r} fehlt — "
                         f"'shares' und 'buy_price' sind erforderlich.")
+            # --- underlying / wrapper auflösen (Priorität: neu > legacy > Default) --------
+            # (1) Neues Schema: underlying + wrapper direkt im JSON → fail-loud bei unbekannt.
+            # (2) Legacy-Schlüssel asset_class → legacy_to_taxonomy() (Spec §5).
+            # (3) Keiner vorhanden → Domänen-Defaults (Underlying.EQUITY / Wrapper.SINGLE).
+            raw_und = d.get("underlying")
+            raw_wrap = d.get("wrapper")
+            raw_ac  = d.get("asset_class")
+            if raw_und is not None or raw_wrap is not None:
+                # Neues Schema: beide Achsen müssen gültig sein.
+                if raw_und not in _VALID_UNDERLYING:
+                    raise PortfolioError(
+                        f"Position {ticker}: 'underlying' ungültig ({raw_und!r}) — "
+                        f"erlaubt: {sorted(_VALID_UNDERLYING)}.")
+                if raw_wrap not in _VALID_WRAPPER:
+                    raise PortfolioError(
+                        f"Position {ticker}: 'wrapper' ungültig ({raw_wrap!r}) — "
+                        f"erlaubt: {sorted(_VALID_WRAPPER)}.")
+                underlying = Underlying(raw_und)
+                wrapper    = Wrapper(raw_wrap)
+            elif raw_ac is not None:
+                # Legacy-Schlüssel → Mapping via taxonomy (defensiv: Unbekanntes → equity/single).
+                underlying, wrapper = legacy_to_taxonomy(raw_ac)
+            else:
+                # Kein Klassenhinweis → Domänen-Defaults.
+                underlying = Underlying.EQUITY
+                wrapper    = Wrapper.SINGLE
+
+            # --- risk_affinity — Anleihen brauchen den Wert (Spec §4.1) ------------------
             risk_affinity = d.get("risk_affinity")
-            if d.get("asset_class", "equity") == "bond":
+            if underlying is Underlying.BOND:
                 if risk_affinity not in _VALID_AFFINITY:
                     raise PortfolioError(
                         f"Position {ticker}: Anleihe braucht 'risk_affinity' "
@@ -49,7 +81,7 @@ class JsonPortfolioProvider(PortfolioPort):
                 direction=direction, currency=d.get("currency", "USD"),
                 current_price=d.get("current_price"),
                 sector=d.get("sector", "Unbekannt"),
-                asset_class=d.get("asset_class", "equity"),
+                underlying=underlying, wrapper=wrapper,
                 country=d.get("country", "Unbekannt"),
                 risk_affinity=affinity))
         return out
