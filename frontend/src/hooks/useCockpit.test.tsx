@@ -153,6 +153,21 @@ describe("useCockpit", () => {
     expect(result.current.error).toBe("Analyse fehlgeschlagen");
   });
 
+  it("CockpitRunFailed mit leerem Payload -> Fallback-Meldung", async () => {
+    const ws = makeFakeWs();
+    const fetchFn = fakeFetch({
+      "GET http://x/api/cockpit": { status: 204 },
+      "POST http://x/api/cockpit/run": { status: 202, body: { run_id: "r1" } },
+    });
+    const { result } = renderHook(() => useCockpit({ base: "http://x", fetchFn, wsFactory: () => ws }));
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    act(() => { result.current.startAnalysis(); });
+    act(() => { ws.onopen!(); });
+    act(() => { ws.onmessage!({ data: JSON.stringify({ type: "CockpitRunFailed", source: "run_manager", payload: {}, run_id: "r1" }) }); });
+    await waitFor(() => expect(result.current.phase).toBe("error"));
+    expect(result.current.error).toBe("Analyse fehlgeschlagen");
+  });
+
   it("unaufgeforderter onClose waehrend des Laufs -> phase error", async () => {
     const ws = makeFakeWs();
     const fetchFn = fakeFetch({
@@ -181,6 +196,7 @@ describe("useCockpit", () => {
     act(() => { ws.onmessage!({ data: JSON.stringify({ type: "CockpitResultReady", source: "run_manager", payload: overview, timestamp: "t", run_id: "r1" }) }); });
     await waitFor(() => expect(result.current.phase).toBe("ready"));
     expect(ws.onclose).toBeNull();          // Handler abgehaengt -> kein Fehlalarm moeglich
+    expect(ws.onerror).toBeNull();
     expect(ws.close).toHaveBeenCalled();
   });
 
@@ -198,6 +214,7 @@ describe("useCockpit", () => {
     act(() => { result.current.startAnalysis(); });  // oeffnet ws1
     act(() => { result.current.startAnalysis(); });  // Re-Run: schliesst ws1, oeffnet ws2
     expect(ws1.onclose).toBeNull();          // alter Handler abgehaengt
+    expect(ws1.onerror).toBeNull();
     expect(ws1.close).toHaveBeenCalled();
     expect(result.current.phase).toBe("running");
     expect(result.current.error).toBeNull();

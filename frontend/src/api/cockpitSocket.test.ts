@@ -53,12 +53,14 @@ describe("openCockpitSocket", () => {
     const ws = fakeWs();
     const onFailed = vi.fn();
     const onResult = vi.fn();
-    openCockpitSocket("https://api.example.com", { onFailed, onResult }, () => ws);
+    const onEvent = vi.fn();
+    openCockpitSocket("https://api.example.com", { onFailed, onResult, onEvent }, () => ws);
 
     ws.onmessage!({ data: JSON.stringify({ type: "CockpitRunFailed", source: "run_manager", payload: { message: "Analyse fehlgeschlagen" }, run_id: "r" }) });
 
     expect(onFailed).toHaveBeenCalledOnce();
     expect(onFailed).toHaveBeenCalledWith(expect.objectContaining({ type: "CockpitRunFailed" }));
     expect(onResult).not.toHaveBeenCalled();
+    expect(onEvent).toHaveBeenCalledOnce();
   });
 });
