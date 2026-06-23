@@ -63,23 +63,29 @@ EurostatEcbProvider (Decorator, EcbDataProvider)
 ```
 
 - `_parse_jsonstat_latest(data: dict) -> float | None` — **rein**: nimmt aus dem JSON-stat-2.0-`value`-Objekt
-  den Wert der **jüngsten** Zeitperiode (höchster Index in `dimension.time.category.index`); `None` bei
-  fehlender Struktur, leerem `value` oder nicht-numerisch.
+  die **jüngste befüllte** Beobachtung = der Wert beim **größten Integer-Key** in `value`. Wichtig: die
+  jüngste Zeitperiode ist oft noch nicht veröffentlicht und fehlt dann im `value`-Objekt (steht in
+  `positions-with-no-data`) — deshalb NICHT blind den höchsten Zeit-Index nehmen, sondern den größten
+  vorhandenen `value`-Key. `None` bei fehlender Struktur, leerem `value` oder nicht-numerisch.
 - `_fetch_latest(self, dataset: str, params: dict) -> float | None` — baut die Eurostat-URL
-  (`…/statistics/1.0/data/{dataset}?format=JSON&lang=EN&geo=EA20&lastTimePeriod=1&…params`), ruft `requests.get`,
-  `raise_for_status`, `_parse_jsonstat_latest`. Jeder Fehler → `logging.warning` → `None`.
-- Die 5 Methoden sind dünne Konfig-Wrapper (Dataset + Filter), alle `geo=EA20`.
+  (`…/statistics/1.0/data/{dataset}?format=JSON&lang=EN&lastTimePeriod=6&…params`), ruft `requests.get`,
+  `raise_for_status`, `_parse_jsonstat_latest`. `lastTimePeriod=6` stellt sicher, dass trotz unveröffentlichter
+  jüngster Periode mindestens eine befüllte im Fenster liegt. Jeder Fehler → `logging.warning` → `None`.
+- Die 5 Methoden sind dünne Konfig-Wrapper (Dataset + Filter).
 
-**Eurostat-Mapping** (exakte Filtercodes werden in der Umsetzung gegen je eine eingefangene echte
-Beispiel-Antwort im Test gepinnt):
+**Eurostat-Mapping** — alle Codes **gegen echte API-Antworten verifiziert (2026-06-23)**; je eine eingefangene
+Antwort dient im Test als Fixture:
 
-| Methode | Dataset | Filter / `unit` | Einheit |
+| Methode | Dataset | Filter (inkl. `geo`) | Einheit |
 |---|---|---|---|
-| `get_cpi` | `prc_hicp_manr` | `coicop=CP00`, `unit=RCH_A` | HICP YoY % (✓ verifiziert) |
-| `get_core_cpi` | `prc_hicp_manr` | `coicop=TOT_X_NRG_FOOD`, `unit=RCH_A` | Kern-HICP YoY % |
-| `get_ppi` | `sts_inppd_m` | `unit=PCH_SM` (vs. Vorjahresmonat), NACE-Aggregat + `s_adj` beim Pinnen festlegen | PPI YoY % |
-| `get_gdp_growth` | `namq_10_gdp` | `na_item=B1GQ`, `unit=CLV_PCH_SM`, `s_adj=SCA` | reales BIP YoY % |
-| `get_unemployment` | `une_rt_m` | `unit=PC_ACT`, `s_adj=SA`, Alter/Geschlecht gesamt | Arbeitslosenquote % |
+| `get_cpi` | `prc_hicp_manr` | `coicop=CP00`, `unit=RCH_A`, `geo=EA20` | HICP YoY % |
+| `get_core_cpi` | `prc_hicp_manr` | `coicop=TOT_X_NRG_FOOD`, `unit=RCH_A`, `geo=EA20` | Kern-HICP YoY % |
+| `get_ppi` | `sts_inppd_m` | `indic_bt=PRC_PRR_DOM`, `nace_r2=B-E36`, `s_adj=NSA`, `unit=PCH_SM`, `geo=EA20` | PPI YoY % |
+| `get_gdp_growth` | `namq_10_gdp` | `na_item=B1GQ`, `unit=CLV_PCH_SM`, `s_adj=SCA`, `geo=EA20` | reales BIP YoY % |
+| `get_unemployment` | `une_rt_m` | `sex=T`, `age=TOTAL`, `unit=PC_ACT`, `s_adj=SA`, **`geo=EA21`** | Arbeitslosenquote % |
+
+> **Stolperstein (verifiziert):** Die Datasets nutzen **unterschiedliche** Euroraum-Codes — HICP/PPI/BIP = `EA20`,
+> Arbeitslosigkeit = `EA21` (`EA20` existiert in `une_rt_m` nicht). Pro Methode den korrekten `geo`-Code fest verdrahten.
 
 ## 4. Fehler & Beobachtbarkeit (AGENTS.md §3)
 
