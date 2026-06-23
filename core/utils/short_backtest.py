@@ -72,7 +72,11 @@ def aggregate_by_reason(graded: list[dict]) -> dict[str, dict]:
     Ein Eintrag mit mehreren Archetypen zählt in JEDEN zugehörigen Bucket;
     leere Archetypen → Bucket "(ohne Grund)". Trefferquote erst ab MIN_SAMPLE.
 
-    graded: Liste von {"archetypes": list[str], "correct": bool, "payoff": float}
+    graded: Liste von {"archetypes": list[str], "correct": bool, "payoff": float,
+            optional "date": datetime}. Trägt jeder Eintrag ein "date", werden die
+            Payoffs je Bucket chronologisch (alt→neu) sortiert, bevor der Max-Drawdown
+            gerechnet wird — sonst hinge der Drawdown von der Einlese-Reihenfolge ab
+            (Trefferquote/Mittel/Profit-Faktor sind reihenfolge-unabhängig).
     out: dict[str, dict] mit Schlüsseln "n", "hit_rate", "ci_low", "ci_high",
          "mean_payoff", "profit_factor", "max_drawdown", "warning".
     """
@@ -83,6 +87,10 @@ def aggregate_by_reason(graded: list[dict]) -> dict[str, dict]:
 
     out: dict[str, dict] = {}
     for reason, items in buckets.items():
+        # Max-Drawdown ist reihenfolge-abhängig → chronologisch ordnen, wenn Datum da ist.
+        # Ohne Datum (z. B. reine Funktions-Tests) bleibt die Einlese-Reihenfolge stabil.
+        if all(it.get("date") is not None for it in items):
+            items = sorted(items, key=lambda it: it["date"])
         n = len(items)
         payoffs = [it["payoff"] for it in items]
         correct = sum(1 for it in items if it["correct"])

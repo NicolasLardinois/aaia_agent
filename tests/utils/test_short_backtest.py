@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from core.utils.short_backtest import (
     borrow_cost, BORROW_RATE_NORMAL, BORROW_RATE_HTB,
     grade_entry, grade_exit,
@@ -92,3 +94,19 @@ def test_aggregate_below_min_sample_hides_hitrate():
     out = aggregate_by_reason([{"archetypes": ["x"], "correct": True, "payoff": 0.02}])
     assert out["x"]["hit_rate"] is None        # n=1 < MIN_SAMPLE
     assert out["x"]["mean_payoff"] == 0.02
+
+
+def test_aggregate_max_drawdown_is_chronological_regardless_of_input_order():
+    # Der Agent befüllt Buckets in History-Reihenfolge (timestamp DESC). Der Drawdown
+    # muss aber chronologisch (alt→neu) gerechnet werden — sonst hängt die Zahl von der
+    # Einlese-Reihenfolge ab. Hier kommt die Eingabe bewusst NICHT-chronologisch herein.
+    d = lambda day: datetime(2026, 1, day)
+    graded = [
+        {"archetypes": ["x"], "correct": False, "payoff": -0.2, "date": d(2)},  # mittlerer Tag
+        {"archetypes": ["x"], "correct": True,  "payoff": 0.5,  "date": d(1)},  # ältester
+        {"archetypes": ["x"], "correct": False, "payoff": -0.2, "date": d(3)},  # neuester
+    ]
+    out = aggregate_by_reason(graded)
+    # Chronologisch [+0.5, -0.2, -0.2]: Equity 1→1.5→1.2→0.96 → MaxDD=(0.96-1.5)/1.5=-0.36.
+    # Einlese-Reihenfolge [-0.2, +0.5, -0.2] ergäbe fälschlich nur -0.2.
+    assert out["x"]["max_drawdown"] == -0.36

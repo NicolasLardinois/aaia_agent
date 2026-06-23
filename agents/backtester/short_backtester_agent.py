@@ -82,14 +82,18 @@ class ShortBacktesterAgent:
             meta = _parse_meta(h.get("short_meta"))
             archetypes = meta.get("archetypes") or []
 
+            # entry_date wird mitgegeben, damit aggregate_by_reason den Max-Drawdown
+            # chronologisch rechnet (History kommt timestamp DESC, also umgekehrt).
             if action in _ENTRY_ACTIONS:
                 borrow = borrow_cost(horizon, bool(meta.get("hard_to_borrow")),
                                      meta.get("borrow_rate_manual"))
                 correct, payoff = grade_entry(adj, borrow, self.cost_per_side)
-                entries.append({"archetypes": archetypes, "correct": correct, "payoff": payoff})
+                entries.append({"archetypes": archetypes, "correct": correct,
+                                "payoff": payoff, "date": entry_date})
             else:  # COVER
                 correct, payoff = grade_exit(adj)
-                exits.append({"archetypes": archetypes, "correct": correct, "payoff": payoff})
+                exits.append({"archetypes": archetypes, "correct": correct,
+                              "payoff": payoff, "date": entry_date})
 
         self._save_section("entry", aggregate_by_reason(entries))
         self._save_section("exit", aggregate_by_reason(exits))
