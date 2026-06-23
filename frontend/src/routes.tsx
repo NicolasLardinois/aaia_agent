@@ -9,6 +9,7 @@ import { YieldCurveDrilldown } from "./pages/cockpit/YieldCurveDrilldown";
 import { SectorsDrilldown } from "./pages/cockpit/SectorsDrilldown";
 import { BuffettWidget } from "./pages/cockpit/BuffettWidget";
 import { BigMacWidget } from "./pages/cockpit/BigMacWidget";
+import { DeepDivePage } from "./pages/DeepDivePage";
 import type { UseCockpitDeps } from "./hooks/useCockpit";
 
 // Routen unter der Shell. Inbox-Anzahl ist in Slice 0 noch 0 (Slice 4 speist sie).
@@ -33,7 +34,7 @@ export function AppRoutes({ deps, onLogout }: { deps?: UseCockpitDeps; onLogout?
         <Route path="/cockpit/big-mac" element={<BigMacWidget />} />
 
         <Route path="/deep-dive" element={<PlaceholderPage title="Deep-Dive — Titel über die Suche oben öffnen" />} />
-        <Route path="/deep-dive/:ticker" element={<PlaceholderPage title="Deep-Dive" />} />
+        <Route path="/deep-dive/:ticker" element={<DeepDivePage />} />
         <Route path="/portfolio" element={<PlaceholderPage title="Portfolio" />} />
         <Route path="/inbox" element={<PlaceholderPage title="Inbox" />} />
         <Route path="/backtester" element={<PlaceholderPage title="Backtester" />} />

@@ -52,4 +52,15 @@ describe("DeepDivePage", () => {
     fireEvent.click(screen.getByRole("tab", { name: /Futures/ }));
     expect(screen.getByText(/Roll-Yield/)).toBeInTheDocument();
   });
+  it("Vergleich: ?vergleich=4GLD zeigt CompareView mit beiden Tickern", async () => {
+    render(
+      <MemoryRouter initialEntries={["/deep-dive/GC=F?vergleich=4GLD"]}>
+        <Routes><Route path="/deep-dive/:ticker" element={<DeepDivePage loader={loadDeepDive} />} /></Routes>
+      </MemoryRouter>,
+    );
+    // Warten bis CompareView-Header sichtbar (zwei Hüllen ist eindeutig)
+    await waitFor(() => expect(screen.getByText(/zwei Hüllen/i)).toBeInTheDocument());
+    expect(screen.getByText("4GLD")).toBeInTheDocument();
+    expect(screen.getByText(/kein Roll/i)).toBeInTheDocument();
+  });
 });

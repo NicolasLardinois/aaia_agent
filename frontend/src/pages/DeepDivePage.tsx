@@ -1,11 +1,12 @@
-import { useCallback, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useCallback, useState, useEffect } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useView } from "../data/useView";
 import { loadDeepDive } from "../data/deepdive";
 import { tabsFor, type TabKey } from "../lib/deepdiveTabs";
 import type { DeepDiveView } from "../contract/deepdive";
 import { DeepDiveHeader } from "../components/deepdive/DeepDiveHeader";
 import { CockpitWind } from "../components/deepdive/CockpitWind";
+import { CompareView } from "../components/deepdive/CompareView";
 import { LongShortPanel } from "../components/LongShortPanel";
 import { AnomalyReport } from "../components/AnomalyReport";
 import { SourceHealth } from "../components/SourceHealth";
@@ -16,6 +17,10 @@ import { IndexTab } from "../components/deepdive/tabs/IndexTab";
 import { CommodityTab } from "../components/deepdive/tabs/CommodityTab";
 import { BacktestContextTab } from "../components/deepdive/tabs/BacktestContextTab";
 import { FuturesTab } from "../components/deepdive/tabs/FuturesTab";
+
+// Default-Gegenstück-Map (Demo): Future <-> physisches Pendant.
+// Nur für die Demo-Anzeige; echte Daten liefern eigene Gegenstücke.
+const COMPARE_DEFAULT: Record<string, string> = { "GC=F": "4GLD", "4GLD": "GC=F" };
 
 // Tab-Inhalte kapseln den Switch — alle kontextabhaengigen Tabs je underlying + Futures (wrapper=future).
 function TabContent({ tab, view }: { tab: TabKey; view: DeepDiveView }) {
@@ -32,8 +37,9 @@ function TabContent({ tab, view }: { tab: TabKey; view: DeepDiveView }) {
   }
 }
 
-// Deep-Dive pro Anlage (US10, 17, 18–22): laedt per :ticker ueber die Tausch-Naht.
+// Deep-Dive pro Anlage (US10, 11, 17, 18–22): laedt per :ticker ueber die Tausch-Naht.
 // Tabs kontextabhaengig je underlying (equity/bond/index/commodity); Futures-Tab nur bei wrapper=future.
+// Vergleichsmodus: ?vergleich=<TICKER> setzt CompareView (US11); onCompare setzt Default-Gegenstueck.
 // loader-Prop mit Default-Modul-Funktion -> stabile Referenz -> kein Refetch-Loop (wie YieldCurveDrilldown).
 export function DeepDivePage({
   loader = loadDeepDive,
@@ -44,6 +50,28 @@ export function DeepDivePage({
   const load = useCallback(() => loader(ticker), [loader, ticker]);
   const { data, loading, error } = useView(load);
   const [active, setActive] = useState<TabKey | null>(null);
+
+  // Vergleichs-Zustand ueber Query-Param (kein eigenes Routing — YAGNI, Plan §C4).
+  const [params, setParams] = useSearchParams();
+  const compareTicker = params.get("vergleich");
+  const [compareView, setCompareView] = useState<DeepDiveView | null>(null);
+
+  useEffect(() => {
+    if (!compareTicker) {
+      setCompareView(null);
+      return;
+    }
+    let cancelled = false;
+    loader(compareTicker).then((v) => {
+      if (!cancelled) setCompareView(v);
+    });
+    return () => { cancelled = true; };
+  }, [compareTicker, loader]);
+
+  const onCompare = () => {
+    const partner = COMPARE_DEFAULT[data?.ticker ?? ""] ?? "4GLD";
+    setParams({ vergleich: partner });
+  };
 
   if (loading) return <p className="text-slate-500">Lädt …</p>;
   if (error || !data) return <p className="text-red-600">{error ?? "Keine Daten"}</p>;
@@ -65,13 +93,21 @@ export function DeepDivePage({
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <DeepDiveHeader view={data} />
+        <DeepDiveHeader view={data} onCompare={onCompare} />
         <DemoBadge isDemo={data.isDemo} />
       </div>
       <SourceHealth active={data.sourcesActive} total={data.sourcesTotal} failed={data.failed} />
       <LongShortPanel long={data.long} short={data.short} />
       <AnomalyReport anomaly={data.anomaly} />
       {data.cockpitWind && <CockpitWind wind={data.cockpitWind} />}
+
+      {/* Vergleichsmodus (US11): CompareView wenn ?vergleich= gesetzt */}
+      {compareView && (
+        <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+          <div className="mb-2 text-sm font-semibold">Vergleich — gleicher Basiswert, zwei Hüllen</div>
+          <CompareView left={data} right={compareView} />
+        </div>
+      )}
 
       {/* Tab-Leiste aus Registry — je underlying unterschiedliche Tabs */}
       <div role="tablist" className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-700">

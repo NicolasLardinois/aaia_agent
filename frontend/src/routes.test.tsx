@@ -75,4 +75,9 @@ describe("AppRoutes", () => {
     await waitFor(() => expect(screen.getByText(/2026-01/)).toBeInTheDocument());
     expect(screen.getByRole("link", { name: /zurück/i })).toBeInTheDocument();
   });
+
+  it("/deep-dive/AAPL rendert die DeepDivePage", async () => {
+    renderAt("/deep-dive/AAPL");
+    await waitFor(() => expect(screen.getByText(/Apple/)).toBeInTheDocument());
+  });
 });
