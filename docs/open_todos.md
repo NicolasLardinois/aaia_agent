@@ -544,6 +544,7 @@ Spec: `docs/superpowers/specs/2026-06-22-render-deploy-design.md`, Plan: `docs/s
 
 **✅ PR #29 am 2026-06-22 gemergt** (nach zweitem Blick des Users; von Anfang an i.O., keine Review-Änderungen).
 **✅ PR #30 am 2026-06-22 gemergt** (Nachtrag: `FMP_API_KEY` optional in `render.yaml` + Doku — vom User beim Deploy bemerkt; wird im Cockpit für LME-Zink/Nickel genutzt, ohne Key graceful `None`). Blueprint vom User in Render angewendet.
+**✅ PR #35 am 2026-06-23 gemergt** (Deploy-Bugfix): Der Token-Schutz aus PR #32 hatte den Health-Check-Pfad `/api/cockpit` mit-gesperrt → Renders Health-Check pollt ohne Token → bekam `401` → Dienst galt als ungesund → Deploy `Timed Out`/`Failed` (Restart-Loop), obwohl die App lief. *Lösung:* öffentlicher `GET /healthz` (`200`, ohne Token), `healthCheckPath` darauf umgestellt; die echten Endpunkte bleiben tokengeschützt. TDD (29 API-Tests grün). **Backend danach live + von außen verifiziert:** `…/healthz` → `200 {"status":"ok"}`, `…/api/cockpit` ohne Passwort → `401`. Demo-Zugang (URL + Passwort) für den Dozenten damit bereit.
 
 **Offene Folge-Aufgaben:**
 
