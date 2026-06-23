@@ -28,3 +28,23 @@ def borrow_cost(hold_days: int, hard_to_borrow: bool, manual_rate: float | None 
     else:
         rate = BORROW_RATE_NORMAL
     return rate * (hold_days / 365.0)
+
+
+def grade_entry(adj_return: float, borrow: float, cost_per_side: float = 0.0005) -> tuple[bool, float]:
+    """SHORT/SHORT_PLUS: korrekt, wenn die Aktie netto FIEL.
+
+    short_payoff = -(marktbereinigter Return) - Transaktionskosten - Leih-Miete.
+    Fällt die Aktie (adj < 0), ist -adj > 0 → Gewinn, minus Kosten/Borrow.
+    """
+    short_payoff = apply_costs(-adj_return, cost_per_side) - borrow
+    return (short_payoff > 0, short_payoff)
+
+
+def grade_exit(post_adj_return: float) -> tuple[bool, float]:
+    """COVER: korrekt, wenn die Aktie NACH dem Cover STIEG (Verlust vermieden).
+
+    payoff = vermiedener Verlust = marktbereinigter Return nach dem Cover.
+    Keine Leih-Miete (Position ist flach), kein Round-Trip-Kostenabzug
+    (kontrafaktische Mess-Größe, kein realisierter Trade).
+    """
+    return (post_adj_return > 0, post_adj_return)
