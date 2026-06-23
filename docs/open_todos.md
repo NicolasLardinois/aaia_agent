@@ -559,6 +559,15 @@ Spec: `docs/superpowers/specs/2026-06-22-render-deploy-design.md`, Plan: `docs/s
 
 - [ ] **Ergebnis-Persistenz / Mehr-Instanz:** weiterhin offen (In-Memory) — Voraussetzung für Autoscaling.
 
+### Frontend-Vollausbau — Slice 0 (Fundament + Shell, Branch `feat/frontend-vollausbau`)
+
+**✅ Umgesetzt:**
+Router + App-Shell (Sidebar/Topbar mit Suche/Inbox-Badge/Health/Theme/Logout); Tausch-Naht-Fundament (`contract/common.ts`, `data/apiDeps.ts`, `data/dataMode.ts`, `DemoBadge`, `VITE_DATA_MODE`); pure Anzeige-Logik (assets/judgment/futures/curve/anomaly) TDD-getestet; gemeinsame Komponenten-Bibliothek (UnderlyingWrapperBadge, LongShortPanel, XaiPanel, AnomalyReport, SourceHealth, Schwellen-Badges); ECharts-Referenz-Wrapper (ChartContainer + LineCurve); Cockpit-Übersicht in die Shell eingehängt (Live-Anbindung unverändert, globaler Header/Logout jetzt in der Topbar). Spec: `docs/superpowers/specs/2026-06-23-frontend-vollausbau-design.md`, Plan: `docs/superpowers/plans/2026-06-23-frontend-slice0-fundament-shell.md`.
+
+**Offene Folge-Aufgaben:**
+
+- [ ] **Slice 1–5 (Cockpit-Drilldowns, Deep-Dive, Portfolio, Inbox, Backtester)** — je eigener Plan + PR; echte Backend-Endpunkte je Bereich (Tausch-Naht vorbereitet).
+
 ---
 
 ## 8. DESIGN-ENTSCHEIDUNGEN (Frontend — docs/frontend_notes.md)
