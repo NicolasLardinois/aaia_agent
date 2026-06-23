@@ -1,6 +1,7 @@
 from agents.judgment.judgment_agent import JudgmentAgent
 from core.domain.events import JudgmentChiefReady
 from core.domain.models import AnomalyReport, BottomUpResult, CockpitResult, DeepDiveResult, InvestmentRecommendation, PositionState, Recommendation
+from core.domain.taxonomy import Underlying, Wrapper, legacy_to_taxonomy
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
 from core.ports.portfolio_port import PortfolioPort
@@ -47,9 +48,12 @@ class JudgmentChiefAgent:
 
     @staticmethod
     def default(ticker: str = "", asset_class: str = "equity", market: str = "unknown") -> DeepDiveResult:
+        # asset_class-String bleibt Phase-1-Schnittstelle (CLI/Orchestrator); intern umstellen.
+        underlying, wrapper = legacy_to_taxonomy(asset_class)
         return DeepDiveResult(
             ticker=ticker,
-            asset_class=asset_class,
+            underlying=underlying,
+            wrapper=wrapper,
             market=market,
             top_down_context="Nicht verfügbar.",
             top_down_available=False,

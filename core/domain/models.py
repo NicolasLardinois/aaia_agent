@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
+from core.domain.taxonomy import Underlying, Wrapper, legacy_asset_class
+
 
 class MarketRegime(str, Enum):
     BOOM       = "Boom"
@@ -749,7 +751,8 @@ class CommodityBottomUpResult:
 @dataclass
 class BottomUpResult:
     ticker: str
-    asset_class: str              # "equity" | "bond" | "commodity" | "precious_metal" | "index"
+    underlying: Underlying        # Basiswert-Achse (ersetzt asset_class-Feld, Task 2)
+    wrapper: Wrapper              # Hüllen-Achse (ersetzt asset_class-Feld, Task 2)
     fundamentals: Optional[FundamentalsSnapshot]
     quality: Optional[QualitySnapshot]
     short_interest: Optional[ShortInterestSnapshot]
@@ -764,6 +767,12 @@ class BottomUpResult:
     # Trailing Optional — bestehende Konstruktionen ohne momentum-Argument bleiben gültig.
     # Wird vom EquityChiefAgent befüllt; in Task 5 im Judgment genutzt.
     momentum: Optional["MomentumSnapshot"] = None
+
+    @property
+    def asset_class(self) -> str:
+        """ÜBERGANG (Phase 1): abgeleiteter Alt-String, bis alle Konsumenten auf
+        underlying/wrapper umgestellt sind. Wird in Task 8 entfernt."""
+        return legacy_asset_class(self.underlying, self.wrapper)
 
 
 # ─────────────────────────────────────────────
@@ -806,7 +815,8 @@ class InvestmentRecommendation:
 
 @dataclass
 class ShortAssessment:
-    asset_class: str
+    underlying: Underlying        # Basiswert-Achse (ersetzt asset_class-Feld, Task 2)
+    wrapper: Wrapper              # Hüllen-Achse (ersetzt asset_class-Feld, Task 2)
     short_action: ShortAction
     confidence: float
     archetypes: list[str]
@@ -818,6 +828,12 @@ class ShortAssessment:
     suggested_size_pct: Optional[float] = None
     stop_pct: Optional[float] = None
 
+    @property
+    def asset_class(self) -> str:
+        """ÜBERGANG (Phase 1): abgeleiteter Alt-String, bis alle Konsumenten auf
+        underlying/wrapper umgestellt sind. Wird in Task 8 entfernt."""
+        return legacy_asset_class(self.underlying, self.wrapper)
+
 
 @dataclass
 class ConflictResolution:
@@ -828,7 +844,8 @@ class ConflictResolution:
 @dataclass
 class DeepDiveResult:
     ticker: str
-    asset_class: str
+    underlying: Underlying            # Basiswert-Achse (ersetzt asset_class-Feld, Task 2)
+    wrapper: Wrapper                  # Hüllen-Achse (ersetzt asset_class-Feld, Task 2)
     market: str                       # neu
     top_down_context: str
     top_down_available: bool
@@ -849,6 +866,12 @@ class DeepDiveResult:
     # Short-Thesis-Agent-Output: ausformulierte Leerverkaufs-Begründung + XAI-Erklärung
     short_thesis: str = ""
     short_xai: str = ""
+
+    @property
+    def asset_class(self) -> str:
+        """ÜBERGANG (Phase 1): abgeleiteter Alt-String, bis alle Konsumenten auf
+        underlying/wrapper umgestellt sind. Wird in Task 8 entfernt."""
+        return legacy_asset_class(self.underlying, self.wrapper)
 
 
 # ─────────────────────────────────────────────

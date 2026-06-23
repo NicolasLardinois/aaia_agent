@@ -732,9 +732,11 @@ class ResultCache:
         mo  = result.moat
 
         data = {
-            "_saved_at":   datetime.utcnow().isoformat(),
-            "ticker":      result.ticker,
-            "asset_class": result.asset_class,
+            "_saved_at":  datetime.utcnow().isoformat(),
+            "ticker":     result.ticker,
+            # Task 2: underlying/wrapper statt asset_class persistieren (Round-Trip-Bug #1).
+            "underlying": result.underlying.value,
+            "wrapper":    result.wrapper.value,
 
             # ── Equity fields ─────────────────────────────────────────────
             "fundamentals": {
@@ -822,6 +824,7 @@ class ResultCache:
             ShortInterestSnapshot, InsiderSnapshot, EarningsTrendSnapshot,
             MoatSnapshot, MoatScore, Signal,
         )
+        from core.domain.taxonomy import Underlying, Wrapper, legacy_to_taxonomy
         with open(path, "r", encoding="utf-8") as f:
             d = json.load(f)
 
@@ -900,9 +903,18 @@ class ResultCache:
             signal=_sig(mo_d.get("signal")),
         ) if mo_d else None
 
+        # Task 2: underlying/wrapper aus dem Cache laden; ältere Dateien ohne diese Felder
+        # werden defensiv via legacy_to_taxonomy auf den bekannten asset_class-String gemappt.
+        if "underlying" in d and "wrapper" in d:
+            underlying = Underlying(d["underlying"])
+            wrapper    = Wrapper(d["wrapper"])
+        else:
+            underlying, wrapper = legacy_to_taxonomy(d.get("asset_class", "equity"))
+
         return BottomUpResult(
             ticker=d["ticker"],
-            asset_class=d.get("asset_class", "equity"),
+            underlying=underlying,
+            wrapper=wrapper,
             fundamentals=fundamentals,
             quality=quality,
             short_interest=short_interest,

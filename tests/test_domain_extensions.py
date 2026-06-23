@@ -1,5 +1,6 @@
 from core.domain.models import AnomalyReport, DeepDiveResult, Signal
 from core.domain.recommendation import InvestmentRecommendation, Recommendation
+from core.domain.taxonomy import Underlying, Wrapper
 
 
 def test_anomaly_report_no_anomalies():
@@ -37,7 +38,8 @@ def test_deep_dive_result_has_new_fields():
     )
     result = DeepDiveResult(
         ticker="AAPL",
-        asset_class="equity",
+        underlying=Underlying.EQUITY,
+        wrapper=Wrapper.SINGLE,
         market="USA",
         top_down_context="Test context",
         top_down_available=True,
@@ -53,6 +55,7 @@ def test_deep_dive_result_has_new_fields():
     assert result.xai_explanation == "Ausführliche Erklärung..."
     assert result.market == "USA"
     assert result.dominant_signal == "bullish"
+    assert result.asset_class == "equity"   # Übergangs-Property
 
 
 def test_anomaly_report_empty_factory():
@@ -89,7 +92,8 @@ def test_deepdive_has_short_thesis_fields():
     # Pflichtfelder wie in Nachbartests; short_thesis/short_xai greifen als Default
     r = DeepDiveResult(
         ticker="AAPL",
-        asset_class="equity",
+        underlying=Underlying.EQUITY,
+        wrapper=Wrapper.SINGLE,
         market="USA",
         top_down_context="Test context",
         top_down_available=True,

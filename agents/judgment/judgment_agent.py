@@ -7,6 +7,7 @@ from core.domain.models import (
 from core.domain.portfolio import PortfolioError
 from core.domain.recommendation import compute_confidence, derive_recommendation, detect_conflict
 from core.domain.short_assessment import derive_short_assessment
+from core.domain.taxonomy import Underlying, Wrapper, legacy_to_taxonomy
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
 from core.ports.portfolio_port import PortfolioPort
@@ -173,6 +174,16 @@ class JudgmentAgent:
         bottom_up_anomaly: AnomalyReport,
         backtester_context: dict,
     ) -> DeepDiveResult:
+        # underlying/wrapper defensiv auflösen: echte BottomUpResult trägt die Felder;
+        # Test-Doubles (SimpleNamespace) tragen evtl. nur asset_class → Fallback.
+        if hasattr(bottom_up, "underlying") and hasattr(bottom_up, "wrapper"):
+            bu_underlying: Underlying = bottom_up.underlying
+            bu_wrapper: Wrapper       = bottom_up.wrapper
+        else:
+            bu_underlying, bu_wrapper = legacy_to_taxonomy(
+                getattr(bottom_up, "asset_class", "equity")
+            )
+
         fu  = bottom_up.fundamentals
         si  = bottom_up.short_interest
         ins = bottom_up.insider
@@ -280,7 +291,8 @@ Erkläre ausführlich warum diese Empfehlung getroffen wurde."""
 
         result = DeepDiveResult(
             ticker=ticker,
-            asset_class=bottom_up.asset_class,
+            underlying=bu_underlying,
+            wrapper=bu_wrapper,
             market=market,
             top_down_context=top_down_context,
             top_down_available=top_down_available,

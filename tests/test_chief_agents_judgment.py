@@ -2,6 +2,7 @@ import asyncio
 from unittest.mock import MagicMock, AsyncMock
 from agents.anomaly_chief_agent import AnomalyChiefAgent
 from core.domain.models import AnomalyReport
+from core.domain.taxonomy import Underlying, Wrapper
 
 
 def _make_cockpit():
@@ -62,7 +63,7 @@ from core.domain.models import DeepDiveResult, PositionState, Recommendation, In
 
 def _make_deep_dive_result():
     return DeepDiveResult(
-        ticker="AAPL", asset_class="equity", market="USA",
+        ticker="AAPL", underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE, market="USA",
         top_down_context="neutral", top_down_available=True,
         judgment="Hold", alignment="mixed",
         recommendation=InvestmentRecommendation(
@@ -107,7 +108,7 @@ def test_judgment_chief_short_action_hold_when_short():
     bottom_up.asset_class = "equity"
 
     deep_dive_short = DeepDiveResult(
-        ticker="TSLA", asset_class="equity", market="USA",
+        ticker="TSLA", underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE, market="USA",
         top_down_context="neutral", top_down_available=True,
         judgment="Hold", alignment="mixed",
         recommendation=InvestmentRecommendation(
