@@ -102,3 +102,22 @@ def test_unbekannter_wrapper_failt(tmp_path):
                                "wrapper": "hebel"}])
     with pytest.raises(PortfolioError):
         JsonPortfolioProvider(path).get_positions()
+
+
+def test_tier3_default_no_keys(tmp_path):
+    """Tier-3-Default: keine underlying/wrapper/asset_class Schlüssel vorhanden
+    → Position nutzt Domain-Defaults: Underlying.EQUITY, Wrapper.SINGLE."""
+    path = _write(tmp_path, [{"ticker": "HOLD", "shares": 100, "buy_price": 50, "direction": "long"}])
+    positions = JsonPortfolioProvider(path).get_positions()
+    assert len(positions) == 1
+    assert positions[0].underlying == Underlying.EQUITY
+    assert positions[0].wrapper == Wrapper.SINGLE
+
+
+def test_partial_schema_only_underlying_raises(tmp_path):
+    """Tier-1 partiell: nur underlying vorhanden, wrapper fehlend
+    → fail-loud mit PortfolioError (beide Achsen müssen gültig sein, wenn eine present ist)."""
+    path = _write(tmp_path, [{"ticker": "PART", "shares": 10, "buy_price": 100,
+                               "direction": "long", "underlying": "bond"}])
+    with pytest.raises(PortfolioError):
+        JsonPortfolioProvider(path).get_positions()
