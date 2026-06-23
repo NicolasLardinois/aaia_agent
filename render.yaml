@@ -11,7 +11,7 @@ services:
     numInstances: 1                # In-Memory-Zustand -> kein Autoscaling
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.server:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /api/cockpit  # liefert 204 (2xx) solange kein Lauf war -> healthy
+    healthCheckPath: /healthz      # oeffentlicher Health-Endpunkt (200, ohne Token) -> healthy trotz Auth
     envVars:
       - key: FRED_API_KEY
         sync: false                # Pflicht (sonst Startabbruch in config/settings.py)
