@@ -8,9 +8,13 @@ Datenrealitaet (bewusst behandelt):
 - Der aktuelle Wert liegt verschachtelt unter data["fear_and_greed"]["score"].
 - Inoffizieller Endpoint: bei jeder Stoerung → None → Agent liefert UNAVAILABLE.
 """
+import logging
+
 import requests
 
 from core.ports.data_provider import SentimentDataProvider
+
+_log = logging.getLogger(__name__)
 
 _URL = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata/"
 _HEADERS = {
@@ -41,9 +45,18 @@ class CnnFearGreedProvider(SentimentDataProvider):
     """SentimentDataProvider auf Basis des CNN-Fear-&-Greed-Endpoints."""
 
     def get_fear_greed(self) -> float | None:
+        # Inoffizieller Endpoint → Ausfaelle werden geloggt (WARNING), damit ein
+        # dauerhafter Bruch nicht still in UNAVAILABLE verschwindet (Beobachtbarkeit).
         try:
             resp = requests.get(_URL, headers=_HEADERS, timeout=10)
             resp.raise_for_status()
-            return _parse(resp.json())
-        except Exception:
+            score = _parse(resp.json())
+            if score is None:
+                _log.warning(
+                    "CNN Fear & Greed: Antwort ohne plausiblen Score "
+                    "(Endpoint-Struktur geaendert?) — UNAVAILABLE"
+                )
+            return score
+        except Exception as exc:
+            _log.warning("CNN Fear & Greed nicht abrufbar (%s) — UNAVAILABLE", exc)
             return None

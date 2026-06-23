@@ -1,4 +1,5 @@
 """TDD-Tests fuer CnnFearGreedProvider und die reine _parse-Funktion."""
+import logging
 from unittest.mock import patch, MagicMock
 
 from adapters.data.cnn_fear_greed import CnnFearGreedProvider, _parse
@@ -63,4 +64,26 @@ def test_get_fear_greed_bei_http_error_none():
     resp.raise_for_status.side_effect = Exception("418 Teapot")
     with patch("adapters.data.cnn_fear_greed.requests.get", return_value=resp):
         assert CnnFearGreedProvider().get_fear_greed() is None
+
+
+# ── Logging: inoffiziellen Endpoint bei Ausfall beobachtbar machen ──────────
+_LOGGER = "adapters.data.cnn_fear_greed"
+
+
+def test_get_fear_greed_loggt_warnung_bei_netzfehler(caplog):
+    """Netz-/HTTP-Fehler → WARNING, damit ein dauerhafter Bruch nicht still bleibt."""
+    with patch("adapters.data.cnn_fear_greed.requests.get",
+               side_effect=ConnectionError("boom")):
+        with caplog.at_level(logging.WARNING, logger=_LOGGER):
+            assert CnnFearGreedProvider().get_fear_greed() is None
+    assert any(r.levelno == logging.WARNING and r.name == _LOGGER for r in caplog.records)
+
+
+def test_get_fear_greed_loggt_warnung_bei_unplausibler_antwort(caplog):
+    """Erfolgreicher Fetch, aber Struktur passt nicht → _parse=None → WARNING (Strukturbruch)."""
+    with patch("adapters.data.cnn_fear_greed.requests.get",
+               return_value=_make_response({"unerwartet": True})):
+        with caplog.at_level(logging.WARNING, logger=_LOGGER):
+            assert CnnFearGreedProvider().get_fear_greed() is None
+    assert any(r.levelno == logging.WARNING and r.name == _LOGGER for r in caplog.records)
 
