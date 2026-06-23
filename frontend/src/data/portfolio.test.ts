@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { loadPortfolio } from "./portfolio";
 import { detectConflict } from "../lib/conflict";
-import { detectKlumpen } from "../lib/klumpen";
 import { demoPortfolio } from "./demo/portfolio";
 
 describe("loadPortfolio (Tausch-Naht)", () => {
