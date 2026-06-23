@@ -51,10 +51,32 @@ def _combined_severity(a: str, b: str) -> str:
     return "none"
 
 
-def _position_size_pct(confidence: float) -> float:
-    """Fractional-Sizing: lineares Mapping Konfidenz→Positionsgröße, gedeckelt 2–10 %."""
+def _position_size_pct(confidence: float, leverage: float | None = None) -> float:
+    """Fractional-Sizing: lineares Mapping Konfidenz→Positionsgröße, gedeckelt 2–10 %.
+
+    Bei einem Future-Hebel L bezieht sich die Tranche aufs Nominal — der Kapitaleinsatz
+    ist Nominal/L, also wird die Größe durch L geteilt (Design §6.3e: Hebel wirkt aufs
+    Sizing, nicht aufs Richtungssignal). Deckel bleibt ≤ 10 %. Ohne Hebel unverändert.
+
+    Untergrenze 0.1 % nur im Hebel-Fall: bei sehr hoher Hebelung (niedrige Margin) würde
+    Nominal/L sonst auf 0.0 % runden — eine empfohlene Kauf-Tranche bleibt aber sichtbar
+    > 0. Ohne Hebel greift bereits die innere 2-%-Schwelle, die Untergrenze ändert nichts."""
     raw = (confidence - 0.50) / 0.50 * 10.0   # 0.50→0 %, 1.00→10 %
-    return round(max(2.0, min(10.0, raw)), 1)
+    capped = max(2.0, min(10.0, raw))
+    if leverage and leverage > 0:
+        capped = capped / leverage
+        return round(max(0.1, min(10.0, capped)), 1)
+    return round(max(0.0, min(10.0, capped)), 1)
+
+
+def _size_phrase(size: float, leverage: float | None) -> str:
+    """Beschreibt die Tranche im Begründungstext. Mit Future-Hebel L ist die genannte
+    Größe der *Kapitaleinsatz*; das Markt-(Nominal-)Exposure ist ~L× größer. Ohne diesen
+    Hinweis läse sich die Zahl als Exposure und würde das Risiko untertreiben (Design §6.3e)."""
+    if leverage and leverage > 0:
+        return (f"{size:.1f}% Kapitaleinsatz (Nominal-Exposure ~{leverage:.0f}× höher "
+                f"durch Future-Hebel, konfidenz-skaliert)")
+    return f"{size:.1f}% des Risikobudgets (konfidenz-skaliert)"
 
 
 def _anomaly_deduction(alignment: str, report: AnomalyReport) -> float:
@@ -118,6 +140,7 @@ def derive_recommendation(
     cockpit: Optional[CockpitResult],
     top_down_available: bool,
     confidence: float,
+    leverage: float | None = None,
 ) -> InvestmentRecommendation:
     # Titel als Short gehalten → Long-Linse deferiert (kein "BUY, obwohl short").
     if current_position == PositionState.SHORT:
@@ -144,19 +167,19 @@ def derive_recommendation(
             action = Recommendation.SELL
             reasoning = "Bearish bei bestehender Long-Position — Verkauf empfohlen."
         elif bullish:
-            size = _position_size_pct(confidence)
+            size = _position_size_pct(confidence, leverage)
             action = Recommendation.BUY_PLUS
             reasoning = (f"Bullish bei bestehender Long-Position — Aufstocken. "
-                         f"Zusätzliche Tranche ~{size:.1f}% des Risikobudgets (konfidenz-skaliert).")
+                         f"Zusätzliche Tranche ~{_size_phrase(size, leverage)}.")
         else:
             action = Recommendation.HOLD
             reasoning = "Kein klares Signal — Position halten."
     else:  # PositionState.NONE
         if bullish:
-            size = _position_size_pct(confidence)
+            size = _position_size_pct(confidence, leverage)
             action = Recommendation.BUY
             reasoning = (f"Bullish ohne bestehende Position — Kauf empfohlen. "
-                         f"Empfohlene Positionsgröße: {size:.1f}% des Risikobudgets (konfidenz-skaliert).")
+                         f"Empfohlene Positionsgröße: {_size_phrase(size, leverage)}.")
         else:
             action = Recommendation.NONE
             reasoning = "Kein Long-Setup (kein bullisches Signal)."

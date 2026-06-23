@@ -19,6 +19,7 @@ class Position:
     wrapper: Wrapper = Wrapper.SINGLE
     country: str = "Unbekannt"
     risk_affinity: Optional[RiskAffinity] = None   # nur Anleihen (konservativ/neutral/risikofreudig)
+    contract_multiplier: float = 1.0   # Future: Kontraktgröße fürs Notional; sonst 1.0
 
 
 class PortfolioError(Exception):

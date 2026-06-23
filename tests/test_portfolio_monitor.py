@@ -40,6 +40,36 @@ def _pos(ticker, shares, entry_price, current_price, direction="long",
 
 
 # ---------------------------------------------------------------------------
+# Phase 2a: Notional-Exposure wrapper-bewusst (Future-Hebel sichtbar machen)
+# ---------------------------------------------------------------------------
+
+def test_future_exposure_uses_notional():
+    """Future mit multiplier=1000 → net_exposure = shares·price·1000, nicht shares·price."""
+    future = Position(
+        ticker="CL", shares=1, entry_price=80.0, direction="long", current_price=80.0,
+        underlying=Underlying.COMMODITY, wrapper=Wrapper.FUTURE, contract_multiplier=1000.0,
+    )
+    agent = PortfolioMonitorAgent(
+        _make_memory(), portfolio_port=_make_port([future]), fx_rate=lambda a, b: 1.0
+    )
+    snap = agent._evaluate_positions([future])
+    assert snap["net_exposure"] == 80.0 * 1000.0
+
+
+def test_single_equity_exposure_unchanged():
+    """single-Equity (multiplier=1.0) bleibt shares·price — keine Regression."""
+    single = Position(
+        ticker="AAPL", shares=10, entry_price=100.0, direction="long", current_price=100.0,
+        underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE,
+    )
+    agent = PortfolioMonitorAgent(
+        _make_memory(), portfolio_port=_make_port([single]), fx_rate=lambda a, b: 1.0
+    )
+    snap = agent._evaluate_positions([single])
+    assert snap["net_exposure"] == 10.0 * 100.0
+
+
+# ---------------------------------------------------------------------------
 # Existing tests — adapted for Position objects + injected portfolio_port
 # ---------------------------------------------------------------------------
 

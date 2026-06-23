@@ -60,6 +60,37 @@ class PositionState(str, Enum):
     SHORT = "short"
 
 
+@dataclass(frozen=True)
+class FuturesCurveSnapshot:
+    """Roh-Terminkurvendaten (Output des FuturesCurveProvider-Ports, Phase 2a)."""
+    spot: float
+    front: float
+    next_: float
+    days_to_front_expiry: int
+    days_between_expiries: int
+    risk_free_rate: float          # Dezimal p. a.
+    storage_cost: float            # Dezimal p. a. (Lagerkosten u)
+    margin_quote: float | None     # Initial-Margin als Anteil des Nominals (0.10 = 10 %)
+
+
+@dataclass(frozen=True)
+class FuturesAssessment:
+    """Berechneter Futures-Mechanik-Block (Design §6.3). available=False ⇒ keine Kurvendaten."""
+    signal: Signal
+    slope_ann: float | None
+    roll_yield_long_ann: float | None
+    basis: float | None
+    fair_value: float | None
+    implied_convenience_yield: float | None
+    leverage: float | None
+    roll_warning: bool
+    available: bool
+
+    @classmethod
+    def unavailable(cls) -> "FuturesAssessment":
+        return cls(Signal.NEUTRAL, None, None, None, None, None, None, False, False)
+
+
 class ShortType(str, Enum):
     DEFENSIVE  = "DEFENSIV"
     AGGRESSIVE = "AGGRESSIV"
@@ -767,6 +798,8 @@ class BottomUpResult:
     # Trailing Optional — bestehende Konstruktionen ohne momentum-Argument bleiben gültig.
     # Wird vom EquityChiefAgent befüllt; in Task 5 im Judgment genutzt.
     momentum: Optional["MomentumSnapshot"] = None
+    # Phase 2a: Futures-Mechanik-Schicht — nur bei wrapper=FUTURE befüllt, sonst None.
+    futures_curve: Optional["FuturesAssessment"] = None
 
 
 # ─────────────────────────────────────────────
