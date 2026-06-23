@@ -1,6 +1,23 @@
-from core.domain.recommendation import derive_recommendation
+import pytest
+
+from core.domain.recommendation import derive_recommendation, _position_size_pct
 from core.domain.models import PositionState, Signal, Recommendation
 from core.domain.taxonomy import Underlying, Wrapper
+
+
+def test_size_unchanged_without_leverage():
+    assert _position_size_pct(1.0) == 10.0
+    assert _position_size_pct(1.0, leverage=None) == 10.0
+
+
+def test_size_scaled_down_by_leverage():
+    # 10× Hebel → Kapitaleinsatz = Nominal/10; Tranche entsprechend kleiner.
+    assert _position_size_pct(1.0, leverage=10.0) == pytest.approx(1.0)
+
+
+def test_size_never_negative_or_above_cap():
+    assert _position_size_pct(0.50, leverage=10.0) >= 0.0
+    assert _position_size_pct(1.0, leverage=1.0) <= 10.0
 
 
 def _base(market: str) -> dict:

@@ -51,10 +51,17 @@ def _combined_severity(a: str, b: str) -> str:
     return "none"
 
 
-def _position_size_pct(confidence: float) -> float:
-    """Fractional-Sizing: lineares Mapping Konfidenz→Positionsgröße, gedeckelt 2–10 %."""
+def _position_size_pct(confidence: float, leverage: float | None = None) -> float:
+    """Fractional-Sizing: lineares Mapping Konfidenz→Positionsgröße, gedeckelt 2–10 %.
+
+    Bei einem Future-Hebel L bezieht sich die Tranche aufs Nominal — der Kapitaleinsatz
+    ist Nominal/L, also wird die Größe durch L geteilt (Design §6.3e: Hebel wirkt aufs
+    Sizing, nicht aufs Richtungssignal). Deckel bleibt ≤ 10 %. Ohne Hebel unverändert."""
     raw = (confidence - 0.50) / 0.50 * 10.0   # 0.50→0 %, 1.00→10 %
-    return round(max(2.0, min(10.0, raw)), 1)
+    capped = max(2.0, min(10.0, raw))
+    if leverage and leverage > 0:
+        capped = capped / leverage
+    return round(max(0.0, min(10.0, capped)), 1)
 
 
 def _anomaly_deduction(alignment: str, report: AnomalyReport) -> float:
@@ -118,6 +125,7 @@ def derive_recommendation(
     cockpit: Optional[CockpitResult],
     top_down_available: bool,
     confidence: float,
+    leverage: float | None = None,
 ) -> InvestmentRecommendation:
     # Titel als Short gehalten → Long-Linse deferiert (kein "BUY, obwohl short").
     if current_position == PositionState.SHORT:
@@ -144,7 +152,7 @@ def derive_recommendation(
             action = Recommendation.SELL
             reasoning = "Bearish bei bestehender Long-Position — Verkauf empfohlen."
         elif bullish:
-            size = _position_size_pct(confidence)
+            size = _position_size_pct(confidence, leverage)
             action = Recommendation.BUY_PLUS
             reasoning = (f"Bullish bei bestehender Long-Position — Aufstocken. "
                          f"Zusätzliche Tranche ~{size:.1f}% des Risikobudgets (konfidenz-skaliert).")
@@ -153,7 +161,7 @@ def derive_recommendation(
             reasoning = "Kein klares Signal — Position halten."
     else:  # PositionState.NONE
         if bullish:
-            size = _position_size_pct(confidence)
+            size = _position_size_pct(confidence, leverage)
             action = Recommendation.BUY
             reasoning = (f"Bullish ohne bestehende Position — Kauf empfohlen. "
                          f"Empfohlene Positionsgröße: {size:.1f}% des Risikobudgets (konfidenz-skaliert).")
