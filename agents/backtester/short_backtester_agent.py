@@ -19,6 +19,7 @@ from agents.backtester.bottom_up_backtester_agent import (
 
 _ENTRY_ACTIONS = {"SHORT", "SHORT+"}
 _EXIT_ACTIONS = {"COVER"}
+_SHORT_ACTIONS = _ENTRY_ACTIONS | _EXIT_ACTIONS
 
 
 def _parse_meta(raw) -> dict:
@@ -58,7 +59,7 @@ class ShortBacktesterAgent:
             price_then = h.get("price_at_analysis")
             entry_date = h.get("timestamp")
             if not (ticker and price_then and entry_date
-                    and action in (_ENTRY_ACTIONS | _EXIT_ACTIONS)):
+                    and action in _SHORT_ACTIONS):
                 continue
 
             age_days = (now - entry_date).days

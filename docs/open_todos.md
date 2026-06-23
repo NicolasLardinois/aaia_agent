@@ -661,7 +661,7 @@ Jede Analyse gibt pro Linse genau eine Aktion. **HOLD vs NONE:** HOLD = Position
   Short-Backtester. Speist später die Kalibrierung des Konflikt-Agenten.
 - [ ] **Short-Konfidenz-Kalibrierung (Rückspeisung)** — die per-Grund-Buckets des Short-Backtesters
   in `compute_confidence` zurückführen (ändert lebendes Verhalten → eigener geprüfter Schritt,
-  Disziplin wie Regime-Backtest ②: erst messen, dann anwenden).
+  Disziplin wie Regime-Backtest ②: erst messen, dann anwenden). Hinweis: Die per-Grund-Buckets liegen aktuell nur als Text im `notes`-Feld von `backtester_reports` (kein jsonb) — die Rückspeisung sollte eine `metrics jsonb`-Spalte ergänzen (analog `portfolio_snapshots.metrics`) statt den Notes-String zu parsen.
 
 ### Geklärte Design-Fragen (Stand 2026-06-18)
 - **Screener:** NICHT in Block 1. Bauabschnitt 1 = on-demand Short-Urteil pro Equity-Analyse (kein Screener, keine Watchlist). Screener = eigene spätere Sache.

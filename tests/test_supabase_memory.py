@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from core.domain.models import ShortAction
-from adapters.memory.supabase_memory import SupabaseMemory, _build_indicators_snapshot
+from adapters.memory.supabase_memory import SupabaseMemory, _build_indicators_snapshot, _build_short_meta
 
 
 def _result(short_action):
@@ -307,9 +307,6 @@ def test_load_portfolio_snapshot_unpacks_metrics(monkeypatch):
 # ---------------------------------------------------------------------------
 # Task 1: short_meta (Grund/Konfidenz/Borrow-Flag) für Short-Backtester
 # ---------------------------------------------------------------------------
-
-from adapters.memory.supabase_memory import _build_short_meta  # noqa: E402
-
 
 def test_build_short_meta_full():
     """Alle ShortAssessment-Felder müssen 1:1 in das jsonb-Dict übernommen werden."""

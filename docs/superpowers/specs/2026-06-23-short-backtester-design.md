@@ -154,7 +154,7 @@ Einheitlich: erst `forward_return`, dann `market_adjusted_return`, dann `apply_c
 Wie der Long-Backtester zeigt der Short-Backtester erst belastbare Zahlen, **wenn genug
 Short-Calls mit den neuen Feldern aufgezeichnet sind**. Unmittelbar nach dem Bau ist die
 Ausgabe voraussichtlich „Stichprobe zu klein"; der Sofort-Wert liegt in der **Maschinerie + im
-Beginnen der richtigen Aufzeichnung**. Das ist erwartet, kein Mangel.
+Beginnen der richtigen Aufzeichnung**. Das ist erwartet, kein Mangel. Das Überspringen fehlender Folgekurse unterzählt tendenziell die größten Short-Gewinne (eine echte Delistung/Pleite wäre für den Short ein ~+100 %-Gewinn, wird hier aber übersprungen statt gezählt); bewusste konservative v1-Wahl, weil `None` „delistet" und „noch keine Daten" vermischt — eine Verfeinerung (Delisting-Erkennung) ist Folge-Aufgabe.
 
 ## 9. Fehlerpfade & Tests (TDD verpflichtend, AGENTS.md §4)
 

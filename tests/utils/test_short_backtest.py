@@ -1,4 +1,8 @@
-from core.utils.short_backtest import borrow_cost, BORROW_RATE_NORMAL, BORROW_RATE_HTB
+from core.utils.short_backtest import (
+    borrow_cost, BORROW_RATE_NORMAL, BORROW_RATE_HTB,
+    grade_entry, grade_exit,
+    aggregate_by_reason, payoff_warning,
+)
 
 
 def test_borrow_normal_prorated():
@@ -20,9 +24,6 @@ def test_borrow_zero_days():
 
 def test_borrow_prorated_half_year():
     assert borrow_cost(182, hard_to_borrow=False) == BORROW_RATE_NORMAL * (182 / 365.0)
-
-
-from core.utils.short_backtest import grade_entry, grade_exit
 
 
 def test_grade_entry_correct_when_stock_fell():
@@ -57,9 +58,6 @@ def test_grade_exit_wrong_when_stock_kept_falling():
     correct, payoff = grade_exit(-0.04)
     assert correct is False
     assert payoff == -0.04
-
-
-from core.utils.short_backtest import aggregate_by_reason, payoff_warning
 
 
 def test_payoff_warning_high_hitrate_but_losing():

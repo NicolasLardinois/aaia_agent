@@ -51,7 +51,7 @@ def test_missing_forward_price_is_skipped_not_crash():
         benchmark_return=lambda m, d, h: 0.0,
     )
     asyncio.run(agent.run())                          # darf nicht crashen
-    assert all(r["original_recommendation"] != "entry:distress" for r in mem.reports)
+    assert mem.reports == []
 
 
 def test_hold_and_none_are_ignored():
