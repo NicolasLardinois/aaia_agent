@@ -782,6 +782,8 @@ class BottomUpResult:
     # Trailing Optional — bestehende Konstruktionen ohne momentum-Argument bleiben gültig.
     # Wird vom EquityChiefAgent befüllt; in Task 5 im Judgment genutzt.
     momentum: Optional["MomentumSnapshot"] = None
+    # Phase 2b: Fund-Info-Schicht — nur bei wrapper=FUND befüllt, sonst None.
+    fund_info: Optional["FundInfo"] = None
 
 
 # ─────────────────────────────────────────────

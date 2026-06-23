@@ -3,10 +3,11 @@ from agents.stock_deep_dive.bond_chief_agent import BondChiefAgent
 from agents.stock_deep_dive.index_chief_agent import IndexChiefAgent
 from agents.stock_deep_dive.commodity_chief_agent_mikro import CommodityChiefAgentMikro
 from agents.stock_deep_dive.precious_metals_chief_agent import PreciousMetalsChiefAgent
-from core.domain.models import BottomUpResult, RiskAffinity
+from core.domain.models import BottomUpResult, FundInfo, RiskAffinity
 from core.domain.taxonomy import Underlying, Wrapper
 from core.ports.data_provider import FundamentalsProvider, MacroDataProvider, MarketDataProvider
 from core.ports.event_bus import EventBus
+from core.ports.fund_info import FundInfoProvider
 from core.ports.llm_provider import LLMProvider
 
 
@@ -23,12 +24,14 @@ class BottomUpOrchestrator:
         market_provider: MarketDataProvider,
         llm: LLMProvider,
         bus: EventBus,
+        fund_info_provider: "FundInfoProvider | None" = None,
     ):
         self.equity_chief          = EquityChiefAgent(fundamentals_provider, market_provider, llm, bus)
         self.bond_chief            = BondChiefAgent(fundamentals_provider, macro_provider, bus)
         self.index_chief           = IndexChiefAgent(market_provider, bus)
         self.commodity_chief       = CommodityChiefAgentMikro(market_provider, bus)
         self.precious_metals_chief = PreciousMetalsChiefAgent(macro_provider, market_provider, bus)
+        self.fund_info_provider    = fund_info_provider
 
     async def run(
         self,
@@ -108,7 +111,21 @@ class BottomUpOrchestrator:
             fundamentals=None, quality=None, short_interest=None,
             insider=None, earnings_trend=None, moat=None, valuation_range=None,
             precious_metals=None, bond=None, index=index_result, commodity_deep=None,
+            fund_info=await self._fund_overlay(ticker, wrapper),
         )
+
+    async def _fund_overlay(self, symbol: str, wrapper: Wrapper) -> "FundInfo | None":
+        """Info-Schicht nur bei wrapper=FUND (Design §6.6). Defensiv: fehlender Provider
+        oder Datenfehler → unavailable statt Crash. Andere Wrapper → None (keine Schicht)."""
+        if wrapper != Wrapper.FUND:
+            return None
+        if self.fund_info_provider is None:
+            return FundInfo.unavailable()
+        try:
+            info = await self.fund_info_provider.get_fund_info(symbol)
+        except Exception:
+            info = None
+        return info if info is not None else FundInfo.unavailable()
 
     async def _run_commodity(self, ticker: str) -> BottomUpResult:
         try:
