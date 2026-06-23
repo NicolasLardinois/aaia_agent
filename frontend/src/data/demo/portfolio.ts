@@ -7,8 +7,10 @@ import { grossExposure, netExposure, netBeta } from "../../lib/exposure";
 import { detectKlumpen } from "../../lib/klumpen";
 import { hedgeSuggestions } from "../../lib/hedge";
 
-// Limits fuer die Demo: Sektor bewusst auf 0.25, damit die Tech-Konzentration (27 %) als
-// Klumpen erscheint (vgl. Wireframe §4.8 "Tech … Limit 30 %"). underlying/geography = Default.
+// Limits fuer die Demo: Sektor bewusst auf 0.25 (statt Default 0.40), damit die Tech-Konzentration
+// (27 NAV-Punkte = 47 % des Brutto-Exposures) als Klumpen erscheint. Zusaetzlich: USA ≈ 72 % > 70 %
+// Limit zeigt einen Geographie-Klumpen (beabsichtigt, beide Klumpen dokumentieren das Risiko).
+// underlying = Default 0.60.
 const DEMO_LIMITS: ConcentrationLimits = { sector: 0.25, underlying: 0.60, geography: 0.70 };
 
 const POSITIONS: PositionDTO[] = [

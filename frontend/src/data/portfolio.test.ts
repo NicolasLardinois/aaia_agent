@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { loadPortfolio } from "./portfolio";
 import { detectConflict } from "../lib/conflict";
+import { detectKlumpen } from "../lib/klumpen";
+import { demoPortfolio } from "./demo/portfolio";
 
 describe("loadPortfolio (Tausch-Naht)", () => {
   it("liefert einen Demo-View (isDemo:true) mit Positionen, Exposure, Klumpen, Hedges", async () => {
@@ -21,5 +23,22 @@ describe("loadPortfolio (Tausch-Naht)", () => {
     // Gold-Future (beta null) + TLT (bond) duerfen das net_beta nicht beeinflussen.
     // Demo-Positionen: AAPL (12×1.25) + MSFT (15×1.10) − TSLA (5×1.80) + XLE (9×1.05) = 31.95
     expect(v.exposure.netBeta).toBeCloseTo(31.95, 1);
+  });
+});
+
+describe("Demo-Portfolio Klumpen: zwei bewusste Ueberschreitungen", () => {
+  it("Technologie-Sektor: 47 % > 25 % Limit (27 NAV = share/gross = 27/57)", () => {
+    const demo = demoPortfolio();
+    const techKlumpen = demo.klumpen.find((k) => k.dimension === "sector" && k.name === "Technologie");
+    expect(techKlumpen).toBeDefined();
+    expect(techKlumpen?.pct).toBeCloseTo(27 / 57, 2);  // ca. 0.474 = 47 %
+    expect(techKlumpen?.pct).toBeGreaterThan(demo.limits.sector);
+  });
+  it("USA-Geographie: 72 % > 70 % Limit (41 NAV = share/gross = 41/57)", () => {
+    const demo = demoPortfolio();
+    const usaKlumpen = demo.klumpen.find((k) => k.dimension === "geography" && k.name === "USA");
+    expect(usaKlumpen).toBeDefined();
+    expect(usaKlumpen?.pct).toBeCloseTo(41 / 57, 2);  // ca. 0.719 = 72 %
+    expect(usaKlumpen?.pct).toBeGreaterThan(demo.limits.geography);
   });
 });

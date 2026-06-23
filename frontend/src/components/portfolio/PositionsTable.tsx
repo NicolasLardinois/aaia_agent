@@ -66,7 +66,7 @@ export function PositionsTable({ positions }: { positions: PositionDTO[] }) {
           <th className="py-1 pr-4">AAIA-Urteil</th>
         </tr>
       </thead>
-      <tbody>{positions.map((p) => <Row key={p.ticker} p={p} />)}</tbody>
+      <tbody>{positions.map((p) => <Row key={`${p.ticker}-${p.direction}`} p={p} />)}</tbody>
     </table>
   );
 }
