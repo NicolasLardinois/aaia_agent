@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useView } from "../../data/useView";
 import { loadBuffett } from "../../data/cockpit";
-import { sortRows, filterRows, vsMedianLabel } from "../../lib/buffett";
+import { sortRows, filterRows, vsMedianLabel, toMapPoints } from "../../lib/buffett";
 import { zScoreFlag } from "../../lib/anomaly";
 import { SignalBadge } from "../../components/SignalBadge";
 import { ChoroplethMap } from "../../components/charts/ChoroplethMap";
@@ -207,14 +207,11 @@ export function BuffettWidget({ loader = loadBuffett }: { loader?: () => Promise
           </div>
 
           {/* ---- KARTEN-TAB ---- */}
+          {/* toMapPoints: iso3 -> englischer GeoJSON-Name (world.geo.json joiniert per name-Property).
+              Demo-Daten haben deutsche Namen; ohne Mapping bleibt die Karte grau (kein Match). */}
           {tab === "karte" && (
             <ChoroplethMap
-              points={data.countries.map((c) => ({
-                iso3: c.iso3,
-                name: c.name,
-                value: c.ratioPct,
-                signal: c.signal,
-              }))}
+              points={toMapPoints(data.countries)}
               height={380}
             />
           )}

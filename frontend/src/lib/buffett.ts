@@ -1,5 +1,29 @@
 import type { BuffettCountry } from "../contract/cockpit";
+import type { MapPoint } from "../components/charts/ChoroplethMap";
 import { zScoreFlag } from "./anomaly";
+
+// GeoJSON (frontend/public/world.geo.json) traegt nur ENGLISCHE Laendernamen, kein ISO-Property.
+// Die Demo-Daten (und zukuenftige API-Daten) verwenden deutsche Namen + iso3.
+// Damit buildMapOption() die Laender per nameProperty:"name" findet, muessen die MapPoints
+// den exakten englischen GeoJSON-Namen tragen — sonst bleibt die Karte grau (kein Match).
+const ISO3_TO_MAP_NAME: Record<string, string> = {
+  USA: "United States",
+  CHE: "Switzerland",
+  DEU: "Germany",
+  JPN: "Japan",
+  GBR: "United Kingdom",
+};
+
+// Wandelt BuffettCountry-Eintraege in MapPoints fuer ChoroplethMap um.
+// Neue Laender: ISO3_TO_MAP_NAME ergaenzen (Wert = exakter name in world.geo.json).
+export function toMapPoints(countries: BuffettCountry[]): MapPoint[] {
+  return countries.map((c) => ({
+    iso3: c.iso3,
+    name: ISO3_TO_MAP_NAME[c.iso3] ?? c.name, // Fallback: behalte deutschen Namen
+    value: c.ratioPct,
+    signal: c.signal,
+  }));
+}
 
 export type SortKey = "ratioPct" | "zScore" | "name";
 

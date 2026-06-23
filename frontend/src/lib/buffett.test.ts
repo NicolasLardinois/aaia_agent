@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sortRows, filterRows, vsMedianLabel } from "./buffett";
+import { sortRows, filterRows, vsMedianLabel, toMapPoints } from "./buffett";
 import type { BuffettCountry } from "../contract/cockpit";
 
 const makeCountry = (overrides: Partial<BuffettCountry>): BuffettCountry => ({
@@ -154,5 +154,74 @@ describe("vsMedianLabel", () => {
     const r = vsMedianLabel(50, 0);
     expect(r.label).toBe("—");
     expect(r.ratio).toBe(0);
+  });
+});
+
+// ---- toMapPoints: iso3 -> englischer GeoJSON-Name ----
+// GeoJSON (world.geo.json) traegt nur englische Namen; Demo-Daten haben deutsche Namen.
+// toMapPoints mappt per iso3 auf den passenden GeoJSON-Namen damit die Choropleth-Karte
+// die Laender findet (kein Match -> graue Karte).
+const makeC = (overrides: Partial<BuffettCountry>): BuffettCountry => ({
+  iso3: "TST", name: "Test", ratioPct: 100, signal: "neutral",
+  zScore: 0, year: 2024, history: [],
+  ...overrides,
+});
+
+describe("toMapPoints — iso3 auf GeoJSON-Namen mappen", () => {
+  it("USA -> 'United States'", () => {
+    const pts = toMapPoints([makeC({ iso3: "USA", name: "USA", ratioPct: 198, signal: "bearish" })]);
+    expect(pts[0].name).toBe("United States");
+  });
+
+  it("CHE -> 'Switzerland'", () => {
+    const pts = toMapPoints([makeC({ iso3: "CHE", name: "Schweiz", ratioPct: 211, signal: "bearish" })]);
+    expect(pts[0].name).toBe("Switzerland");
+  });
+
+  it("DEU -> 'Germany'", () => {
+    const pts = toMapPoints([makeC({ iso3: "DEU", name: "Deutschland", ratioPct: 55, signal: "bullish" })]);
+    expect(pts[0].name).toBe("Germany");
+  });
+
+  it("JPN -> 'Japan'", () => {
+    const pts = toMapPoints([makeC({ iso3: "JPN", name: "Japan", ratioPct: 145, signal: "bearish" })]);
+    expect(pts[0].name).toBe("Japan");
+  });
+
+  it("GBR -> 'United Kingdom'", () => {
+    const pts = toMapPoints([makeC({ iso3: "GBR", name: "UK", ratioPct: 100, signal: "neutral" })]);
+    expect(pts[0].name).toBe("United Kingdom");
+  });
+
+  it("unbekanntes iso3 -> Fallback auf deutschen name", () => {
+    const pts = toMapPoints([makeC({ iso3: "XYZ", name: "Unbekannt", ratioPct: 80, signal: "neutral" })]);
+    expect(pts[0].name).toBe("Unbekannt");
+  });
+
+  it("value === ratioPct", () => {
+    const pts = toMapPoints([makeC({ iso3: "USA", name: "USA", ratioPct: 198, signal: "bearish" })]);
+    expect(pts[0].value).toBe(198);
+  });
+
+  it("signal wird durchgereicht", () => {
+    const pts = toMapPoints([makeC({ iso3: "DEU", name: "Deutschland", ratioPct: 55, signal: "bullish" })]);
+    expect(pts[0].signal).toBe("bullish");
+  });
+
+  it("iso3 wird durchgereicht", () => {
+    const pts = toMapPoints([makeC({ iso3: "USA", name: "USA", ratioPct: 198, signal: "bearish" })]);
+    expect(pts[0].iso3).toBe("USA");
+  });
+
+  it("mehrere Laender korrekt gemappt", () => {
+    const countries = [
+      makeC({ iso3: "USA", name: "USA",         ratioPct: 198, signal: "bearish" }),
+      makeC({ iso3: "CHE", name: "Schweiz",     ratioPct: 211, signal: "bearish" }),
+      makeC({ iso3: "DEU", name: "Deutschland", ratioPct: 55,  signal: "bullish" }),
+    ];
+    const pts = toMapPoints(countries);
+    expect(pts[0].name).toBe("United States");
+    expect(pts[1].name).toBe("Switzerland");
+    expect(pts[2].name).toBe("Germany");
   });
 });
