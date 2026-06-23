@@ -428,7 +428,7 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   Plan E hat Ports + Agenten-Logik gebaut; die Agenten liefern korrekt `UNAVAILABLE`, bis echte Quellen angebunden sind:
   - **COT** (`COTProvider`): CFTC Commitments of Traders (wöchentlich, CSV) → `adapters/data/cftc_cot.py`.
   - **Commodity Supply** (`CommoditySupplyProvider`): EIA (Öl/Gas), USDA (Agrar), LME (Metalle) → Lagerbalancen + Produktionskosten-Kurve.
-  - **Fear&Greed** (`SentimentDataProvider`): CNN Fear&Greed API → `adapters/data/cnn_fear_greed.py` (URL im `sentiment_stub.py` dokumentiert).
+  - [x] **Fear&Greed live angebunden** — `adapters/data/cnn_fear_greed.py` (`CnnFearGreedProvider`), injiziert in `app/main.py` + `app/server.py` via `TopDownOrchestrator(sentiment=…)`. **Lösung:** echter CNN-Adapter (0–100, Sanity-Cap, Browser-UA, verschachteltes JSON `fear_and_greed.score`); reine `_parse`-Funktion getestet; Fehler → `None` → `UNAVAILABLE`. Redundanter `sentiment_stub.py` entfernt (PR-Branch `feat/cnn-fear-greed`).
   - **Index-Daten** (`MarketDataProvider.get_index_constituents` / `get_constituent_histories` / `get_index_fundamentals` / `get_index_holdings`) — aktuell Default-Stubs (leer).
   **Ansatz:** je Quelle einen Adapter implementieren, der die jeweilige Port-Methode befüllt; die Agenten schalten dann automatisch von `UNAVAILABLE` auf echte Signale (keine Agenten-Änderung nötig).
   *(`get_real_rate_history` (FRED DFII10) ist erledigt — siehe gemergte Realzins-/Zins-Adapter.)*

@@ -22,6 +22,7 @@ from adapters.data.yahoo_finance import YahooFinanceProvider
 from adapters.data.finnhub import FinnhubProvider
 from adapters.data.ecb_sdw import EcbSdwProvider
 from adapters.data.fred_snb import FredSnbProvider
+from adapters.data.cnn_fear_greed import CnnFearGreedProvider
 from adapters.event_bus.redis_bus import InMemoryEventBus
 from adapters.llm.claude_adapter import ClaudeAdapter
 from adapters.memory.supabase_memory import SupabaseMemory
@@ -66,6 +67,7 @@ async def run_dashboard() -> None:
         snb=FredSnbProvider(FRED_API_KEY),
         market=YahooFinanceProvider(),
         bus=bus,
+        sentiment=CnnFearGreedProvider(),
     )
     result = await orch.run()
     ResultCache().save_cockpit(result)

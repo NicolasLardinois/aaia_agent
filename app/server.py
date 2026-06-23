@@ -10,6 +10,7 @@ from adapters.data.fred_api import FredDataProvider
 from adapters.data.yahoo_finance import YahooFinanceProvider
 from adapters.data.ecb_sdw import EcbSdwProvider
 from adapters.data.fred_snb import FredSnbProvider
+from adapters.data.cnn_fear_greed import CnnFearGreedProvider
 from adapters.api.ws_broadcaster import WebSocketBroadcaster
 from adapters.api.run_manager import RunManager
 from adapters.api.app_factory import create_app
@@ -23,6 +24,7 @@ def make_orchestrator(bus):
         snb=FredSnbProvider(FRED_API_KEY),
         market=YahooFinanceProvider(),
         bus=bus,
+        sentiment=CnnFearGreedProvider(),
     )
 
 
