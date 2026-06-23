@@ -46,6 +46,23 @@ def _put(snap: dict, key: str, getter, *, allow_none: bool = False) -> None:
         snap[key] = value
 
 
+def _build_short_meta(short_assessment) -> dict:
+    """Short-Metadaten für die Persistenz (jsonb): Grund/Konfidenz/Borrow-Flag.
+
+    Wird vom Short-Backtester gelesen (Aufschlüsselung nach Grund + gestaffelte
+    Leih-Kosten). Defensiv: ohne Assessment → leeres Dict.
+    """
+    if short_assessment is None:
+        return {}
+    return {
+        "archetypes": short_assessment.archetypes,
+        "confidence": short_assessment.confidence,
+        "hard_to_borrow": short_assessment.hard_to_borrow,
+        "squeeze_risk": short_assessment.squeeze_risk,
+        "borrow_rate_manual": short_assessment.borrow_rate_manual,
+    }
+
+
 def _extract_price(result) -> Optional[float]:
     bu = result.bottom_up
     if bu is None:
@@ -169,12 +186,12 @@ class SupabaseMemory(MemoryPort):
                         ticker, asset_class, market, regime, regime_confidence,
                         top_down_context, alignment, dominant_signal, recommendation,
                         short_action,
-                        confidence, xai_explanation, short_xai, price_at_analysis,
+                        confidence, xai_explanation, short_xai, short_meta, price_at_analysis,
                         top_down_anomaly_severity, bottom_up_anomaly_severity,
                         indicators_snapshot,
                         risk_affinity
                     ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     """,
                     (
@@ -206,6 +223,10 @@ class SupabaseMemory(MemoryPort):
                         # Long-Begründung xai_explanation — sonst ginge die erklärbare
                         # Short-Begründung in der History verloren.
                         result.short_xai,
+                        # Short-Metadaten (Grund-Archetypen, Konfidenz, Borrow-Flag) als jsonb:
+                        # wird vom Short-Backtester gelesen, um Rendite nach Archetype und
+                        # Leihkosten aufzuschlüsseln. Defensiv: None → '{}'.
+                        json.dumps(_build_short_meta(getattr(result, "short_assessment", None))),
                         resolved_price,
                         result.top_down_anomaly.severity if result.top_down_anomaly else "none",
                         result.bottom_up_anomaly.severity if result.bottom_up_anomaly else "none",
