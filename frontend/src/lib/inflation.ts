@@ -39,7 +39,7 @@ export function inflationBand(cpiPct: number | null, region: InflationRegion): I
   }
   if (cpiPct < t.bearish) {
     // Erhoht (z. B. 3–4 % USA) -> BEARISH (vormals blinde Luecke).
-    return { signal: "bearish", band: "elevated", activeThreshold: `${t.high}–${t.bearish} % (erhoht)` };
+    return { signal: "bearish", band: "elevated", activeThreshold: `${t.high}–${t.bearish} % (erhöht)` };
   }
   // Klar ueber Ziel -> BEARISH.
   return { signal: "bearish", band: "high", activeThreshold: `>= ${t.bearish} % (hoch)` };

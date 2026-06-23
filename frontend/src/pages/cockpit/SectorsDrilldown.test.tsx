@@ -25,8 +25,8 @@ describe("SectorsDrilldown", () => {
     await waitFor(() => expect(screen.getByText("Technologie")).toBeInTheDocument());
     // Mehrere Sektoren sind BULLISH (Technologie, Zyklischer Konsum, Industrie)
     expect(screen.getAllByText("BULLISH").length).toBeGreaterThanOrEqual(1);
-    // favored wird mehrfach angezeigt
-    expect(screen.getAllByText(/favored/i).length).toBeGreaterThanOrEqual(1);
+    // Demo-Fixture hat 3 favored-Sektoren: Technologie, Zyklischer Konsum, Industrie
+    expect(screen.getAllByText(/favored/i).length).toBeGreaterThanOrEqual(3);
   });
 
   it("zeigt Versorger als avoid mit BEARISH", async () => {

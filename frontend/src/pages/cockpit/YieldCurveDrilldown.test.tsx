@@ -47,8 +47,9 @@ describe("YieldCurveDrilldown", () => {
     const invertedLoader = () => Promise.resolve(invertedView);
     renderPage(invertedLoader);
     await waitFor(() => {
+      // Badge + Status-Block zeigen jeweils "invertiert"
       const items = screen.getAllByText(/invertiert/i);
-      expect(items.length).toBeGreaterThanOrEqual(1);
+      expect(items.length).toBeGreaterThanOrEqual(2);
     });
     // Rezessions-Frühsignal im Status-Block (Teil eines längeren Texts)
     expect(screen.getByText(/Rezessions-Fr/i, { exact: false })).toBeInTheDocument();
