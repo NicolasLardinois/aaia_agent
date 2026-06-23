@@ -9,8 +9,7 @@ from unittest.mock import MagicMock
 from agents.stock_deep_dive.commodity_chief_agent_mikro import CommodityChiefAgentMikro
 from agents.market_cockpit.sentiment_chief_agent import SentimentChiefAgent
 from agents.stock_deep_dive.index_chief_agent import IndexChiefAgent
-from adapters.data.sentiment_stub import SentimentStubProvider
-from core.domain.models import SignalStatus
+from core.domain.models import Signal, SignalStatus
 
 
 def test_commodity_chief_mikro_runs_without_supply_provider():
@@ -38,12 +37,6 @@ def test_sentiment_chief_runs_without_fear_greed_provider():
     assert result.fear_greed.value is None
 
 
-def test_sentiment_stub_provider_returns_none():
-    """SentimentStubProvider: Stub liefert None → FearGreedAgent UNAVAILABLE."""
-    stub = SentimentStubProvider()
-    assert stub.get_fear_greed() is None
-
-
 def test_index_chief_runs_with_empty_providers():
     """IndexChiefAgent: alle neuen Port-Methoden mit Default-Implementations
     → kein Absturz, UNAVAILABLE für fehlende Daten."""
@@ -61,3 +54,30 @@ def test_index_chief_runs_with_empty_providers():
     assert result.breadth.status == SignalStatus.UNAVAILABLE
     assert result.earnings.status == SignalStatus.UNAVAILABLE
     assert result.composition.status == SignalStatus.UNAVAILABLE
+
+
+def test_sentiment_chief_uses_injected_fear_greed_provider():
+    """SentimentChiefAgent reicht den injizierten Provider an den FearGreedAgent
+    durch → Extreme-Fear-Wert 10 ergibt BULLISH (contrarian) und AVAILABLE."""
+    class _FakeSentiment:
+        def get_fear_greed(self):
+            return 10.0
+    market = MagicMock()
+    market.get_current_price.return_value = None
+    bus = MagicMock()
+    chief = SentimentChiefAgent(market, bus, sentiment=_FakeSentiment())
+    result = asyncio.run(chief.run())
+    assert result.fear_greed.value == 10.0
+    assert result.fear_greed.signal == Signal.BULLISH
+    assert result.fear_greed.status == SignalStatus.AVAILABLE
+
+
+def test_top_down_orchestrator_threads_sentiment_provider():
+    """TopDownOrchestrator reicht den sentiment-Provider bis zum FearGreedAgent durch."""
+    from orchestrators.top_down_orchestrator import TopDownOrchestrator
+    fake = MagicMock()
+    orch = TopDownOrchestrator(
+        macro=MagicMock(), ecb=MagicMock(), snb=MagicMock(),
+        market=MagicMock(), bus=MagicMock(), sentiment=fake,
+    )
+    assert orch.sentiment_chief.fear_greed_agent.provider is fake
