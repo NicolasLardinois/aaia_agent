@@ -58,7 +58,7 @@ def test_get_core_cpi_codes():
     with patch(_GET, return_value=_resp({"value": {"0": 2.3}})) as m:
         assert EurostatEcbProvider(MagicMock()).get_core_cpi() == 2.3
     params = m.call_args.kwargs["params"]
-    assert params["coicop"] == "TOT_X_NRG_FOOD" and params["geo"] == "EA20"
+    assert params["coicop"] == "TOT_X_NRG_FOOD" and params["unit"] == "RCH_A" and params["geo"] == "EA20"
 
 
 def test_get_ppi_codes():
@@ -131,3 +131,9 @@ def test_delegiert_nicht_eurostat_methoden_an_base():
     base.get_m3_growth.assert_called_once()
     prov.get_sovereign_yields()
     base.get_sovereign_yields.assert_called_once()
+    prov.get_m2_growth()
+    base.get_m2_growth.assert_called_once()
+    prov.get_balance_sheet_growth()
+    base.get_balance_sheet_growth.assert_called_once()
+    prov.get_interest_rate_history()
+    base.get_interest_rate_history.assert_called_once()
