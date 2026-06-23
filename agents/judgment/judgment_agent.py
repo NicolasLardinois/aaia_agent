@@ -250,7 +250,8 @@ Kombiniere Top-Down und Bottom-Up zu einem klaren Urteil. Gibt es Widersprüche?
         recommendation = derive_recommendation(
             alignment=alignment,
             signal=dominant_sig,
-            asset_class=bottom_up.asset_class,
+            underlying=bu_underlying,
+            wrapper=bu_wrapper,
             current_position=current_position,
             market=market,
             cockpit=cockpit,

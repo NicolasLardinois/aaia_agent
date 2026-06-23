@@ -1,5 +1,6 @@
 from core.domain.models import AnomalyReport, PositionState, Signal
 from core.domain.recommendation import compute_confidence, derive_recommendation, Recommendation
+from core.domain.taxonomy import Underlying, Wrapper
 
 
 def _empty_anomaly():
@@ -54,7 +55,7 @@ def test_cash_bias_below_0_50():
     rec = derive_recommendation(
         alignment="mixed",
         signal=Signal.BULLISH,
-        asset_class="equity",
+        underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE,
         current_position=PositionState.NONE,
         market="USA",
         cockpit=None,
@@ -69,7 +70,7 @@ def test_cash_bias_below_0_35():
     rec = derive_recommendation(
         alignment="mixed",
         signal=Signal.BULLISH,
-        asset_class="equity",
+        underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE,
         current_position=PositionState.NONE,
         market="USA",
         cockpit=None,
@@ -84,7 +85,7 @@ def test_normal_buy_high_confidence():
     rec = derive_recommendation(
         alignment="aligned_bullish",
         signal=Signal.BULLISH,
-        asset_class="equity",
+        underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE,
         current_position=PositionState.NONE,
         market="USA",
         cockpit=None,
@@ -152,12 +153,12 @@ def test_confidence_backward_compatible_without_calibration():
 
 def test_position_size_scales_with_confidence():
     rec_hi = derive_recommendation(
-        alignment="aligned_bullish", signal=Signal.BULLISH, asset_class="equity",
+        alignment="aligned_bullish", signal=Signal.BULLISH, underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE,
         current_position=PositionState.NONE, market="USA", cockpit=None,
         top_down_available=False, confidence=0.90,
     )
     rec_lo = derive_recommendation(
-        alignment="aligned_bullish", signal=Signal.BULLISH, asset_class="equity",
+        alignment="aligned_bullish", signal=Signal.BULLISH, underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE,
         current_position=PositionState.NONE, market="USA", cockpit=None,
         top_down_available=False, confidence=0.55,
     )
@@ -173,7 +174,7 @@ def test_position_size_scales_with_confidence():
 def test_bearish_not_held_emits_none_not_short():
     # SHORT entfernt aus Long-Matrix; bearish ohne Position → NONE
     rec = derive_recommendation(
-        alignment="aligned_bearish", signal=Signal.BEARISH, asset_class="equity",
+        alignment="aligned_bearish", signal=Signal.BEARISH, underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE,
         current_position=PositionState.NONE, market="USA", cockpit=None,
         top_down_available=True, confidence=0.80,
     )

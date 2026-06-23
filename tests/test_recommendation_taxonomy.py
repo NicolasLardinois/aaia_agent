@@ -1,10 +1,42 @@
-from core.domain.models import Recommendation, PositionState, Signal
-from core.domain.recommendation import derive_recommendation
+import pytest
 
+from core.domain.taxonomy import Underlying, Wrapper
+from core.domain.recommendation import _short_type, derive_recommendation
+from core.domain.models import (
+    Recommendation, PositionState, Signal, ShortType,
+)
+
+
+# ---------------------------------------------------------------------------
+# Matrix-Test für _short_type(underlying, wrapper) — Spec §8.4
+# Regel: DEFENSIV wenn underlying == EQUITY_INDEX ODER wrapper == FUND,
+# sonst AGGRESSIV. Ersetzt ETF_ASSET_CLASSES + alten String-Vergleich.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("underlying, wrapper, expected", [
+    (Underlying.EQUITY,         Wrapper.SINGLE,       ShortType.AGGRESSIVE),
+    (Underlying.EQUITY,         Wrapper.FUND,         ShortType.DEFENSIVE),   # Aktien-ETF = breit
+    (Underlying.EQUITY_INDEX,   Wrapper.SINGLE,       ShortType.DEFENSIVE),
+    (Underlying.EQUITY_INDEX,   Wrapper.FUND,         ShortType.DEFENSIVE),
+    (Underlying.EQUITY_INDEX,   Wrapper.FUTURE,       ShortType.DEFENSIVE),   # Index-Future bleibt breit
+    (Underlying.BOND,           Wrapper.SINGLE,       ShortType.AGGRESSIVE),
+    (Underlying.BOND,           Wrapper.FUND,         ShortType.DEFENSIVE),
+    (Underlying.COMMODITY,      Wrapper.FUTURE,       ShortType.AGGRESSIVE),
+    (Underlying.PRECIOUS_METAL, Wrapper.FUTURE,       ShortType.AGGRESSIVE),
+    (Underlying.PRECIOUS_METAL, Wrapper.PHYSICAL_ETC, ShortType.AGGRESSIVE),
+])
+def test_short_type_matrix(underlying, wrapper, expected):
+    assert _short_type(underlying, wrapper) == expected
+
+
+# ---------------------------------------------------------------------------
+# derive_recommendation — Regressions-Tests mit neuer Signatur (underlying/wrapper)
+# ---------------------------------------------------------------------------
 
 def _rec(signal, pos, conf=0.7, alignment="mixed"):
     return derive_recommendation(
-        alignment=alignment, signal=signal, asset_class="equity",
+        alignment=alignment, signal=signal,
+        underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE,
         current_position=pos, market="USA", cockpit=None,
         top_down_available=True, confidence=conf,
     ).action
