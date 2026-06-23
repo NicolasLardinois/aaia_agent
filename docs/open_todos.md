@@ -568,6 +568,23 @@ Router + App-Shell (Sidebar/Topbar mit Suche/Inbox-Badge/Health/Theme/Logout); T
 
 - [ ] **Slice 1–5 (Cockpit-Drilldowns, Deep-Dive, Portfolio, Inbox, Backtester)** — je eigener Plan + PR; echte Backend-Endpunkte je Bereich (Tausch-Naht vorbereitet).
 
+### Frontend-Vollausbau — Slice 1 (Cockpit-Drilldowns, Branch `feat/frontend-slice1-cockpit-drilldowns`)
+
+**✅ Umgesetzt (Dispatch A+B+C, 2026-06-23):**
+Alle Cockpit-Drilldowns (US3–US9) über Demo-Naht (Tausch-Naht `useView`/`load*`/`demo/`):
+- **Naht + Helfer (A):** Vertrag `contract/cockpit.ts`, generischer `useView`-Hook, pure `inflationBand` (USA/DE/CH, lückenlose Bänder), Tausch-Naht `data/cockpit.ts` + Demo-Fixtures `data/demo/cockpit.ts`, neue Chart-Wrapper `BarChart`/`buildBarOption` (Farbe nach Vorzeichen), `ChoroplethMap`/`buildMapOption` (Choropleth + grazilem GeoJSON-Fallback), pure Buffett-Logik `lib/buffett.ts` (Sortierung/Filter/vs-Median).
+- **Drilldown-Seiten + Routing (B):** `DrilldownShell` (Zurück-Link, DemoBadge, SourceHealth); Makro/Rohstoffe/Sentiment/Zinskurve/Sektoren-Drilldown; klickbare Kacheln (`DomainTile` → Link); `routes.tsx` mit allen `/cockpit/<domain>`-Routen.
+- **Spezial-Widgets (C):** `BuffettWidget` (Tabelle Default + Karten-Tab + 10-J-Drilldown + Filter onlyZOutlier/onlyBearish + analysiertes Land hervorgehoben + Global-Median + Einschränkungen); `BigMacWidget` (BarChart + Publikationsdatum); `/cockpit/buffett` + `/cockpit/big-mac` eingehängt. Schnellzugriff-Links in `CockpitPage` führen dorthin.
+- TDD vollständig: 45 Test-Dateien, 204 Tests grün. `npm run build` erfolgreich.
+- Plan: `docs/superpowers/plans/2026-06-23-frontend-slice1-cockpit-drilldowns.md`
+
+**Offene Folge-Aufgaben:**
+
+- [ ] **Echte Endpunkte je Drilldown-Bereich anbinden:** je Funktion in `data/cockpit.ts` die auskommentierte `fetch*`-Zeile aktivieren (`isDemo:false`). Voraussetzung: Backend-Endpunkte (Bottom-Up-Flow, Buffett/Big-Mac API, Cockpit-Domänen-Detail-Endpunkte) — Backend-Folgeaufgabe #4 (oben).
+- [ ] **Welt-GeoJSON nachziehen:** `frontend/public/world.geo.json` fehlt (Download im Umsetzungs-Schritt nicht durchführbar). Bis dahin zeigt `ChoroplethMap` den grazilem Fallback „Karte nicht verfügbar — bitte Tabelle nutzen". *Ansatz:* ECharts-kompatible `world.geo.json` (frei verfügbar, z. B. Apache-2.0-lizensierte Variante) in `frontend/public/` ablegen; `ChoroplethMap` erkennt sie automatisch.
+- [ ] **Inflations-UI: Core/PPI/Trend/Realzins-Modifikatoren spiegeln (optional):** `lib/inflation.ts` bildet nur die CPI-Bänder ab; Backend `inflation_agent` hat zusätzliche Modifikatoren. Bei Bedarf als weiterer Indikator im Makro-Drilldown zeigen.
+- [ ] **Slice-0-Followup: LoginGate/Sidebar-Tests flakig unter paralleler Last** — unter der vollen Suite (45 parallele Test-Dateien) können `LoginGate`/`Sidebar`/`AppShell`-Tests gelegentlich durch I/O-Verzögerungen in Vitest (jsdom) einen Timeout treffen. Kein Logik-Fehler; tritt isoliert nicht auf. *Ansatz:* globales `testTimeout` in `vitest.config.ts` auf 15 000 ms erhöhen, oder flakige Tests mit `{ timeout: 15000 }` absichern; alternativ parallele Umgebungsanzahl begrenzen (`maxConcurrency`).
+
 ---
 
 ## 8. DESIGN-ENTSCHEIDUNGEN (Frontend — docs/frontend_notes.md)
