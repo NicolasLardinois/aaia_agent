@@ -585,6 +585,12 @@ Alle Cockpit-Drilldowns (US3–US9) über Demo-Naht (Tausch-Naht `useView`/`load
 - [ ] **Inflations-UI: Core/PPI/Trend/Realzins-Modifikatoren spiegeln (optional):** `lib/inflation.ts` bildet nur die CPI-Bänder ab; Backend `inflation_agent` hat zusätzliche Modifikatoren. Bei Bedarf als weiterer Indikator im Makro-Drilldown zeigen.
 - [ ] **Slice-0-Followup: LoginGate/Sidebar-Tests flakig unter paralleler Last** — unter der vollen Suite (45 parallele Test-Dateien) können `LoginGate`/`Sidebar`/`AppShell`-Tests gelegentlich durch I/O-Verzögerungen in Vitest (jsdom) einen Timeout treffen. Kein Logik-Fehler; tritt isoliert nicht auf. *Ansatz:* globales `testTimeout` in `vitest.config.ts` auf 15 000 ms erhöhen, oder flakige Tests mit `{ timeout: 15000 }` absichern; alternativ parallele Umgebungsanzahl begrenzen (`maxConcurrency`).
 
+### Frontend-Vollausbau — Slice 2 (Deep-Dive, Branch `feat/frontend-slice2-deepdive`)
+
+- [x] **Frontend Slice 2 — Deep-Dive** (Konzept §2.2/§2.3/§2.7, Spec §7). Lösung: Deep-Dive pro Anlage über die Tausch-Naht `loadDeepDive(ticker)` (Demo-Fixtures AAPL/GC=F/TLT/SPY/CL=F/4GLD + notFound). Header (underlying×wrapper + Kurs/Markt + vergleichen), LongShortPanel + XAI + Schwellen-Flags + AnomalyReport, kontextabhängige Tabs je underlying (equity/bond/index/commodity, Futures nur bei wrapper=future) über pure Tab-Registry `tabsFor`, Sub-Agenten-Health, Cockpit-Wind (US12), Backtest-Kontext (US21), Vergleichsmodus `?vergleich=<TICKER>` (US11), Routing `/deep-dive/:ticker` verdrahtet. Pure getestete Logik: `combineValuationRange`/`valuationPosition`, `altmanClass`, `durationRisk`, `tabsFor`. US10–22 + US33–36 abgedeckt. 245 Tests grün, `npm run build` erfolgreich.
+  - [ ] **Folge: echte Deep-Dive-Endpunkte** — `data/api/deepdive.ts` (`fetchDeepDive`) statt Demo; Naht-Zeile in `data/deepdive.ts` tauschen (Backend liefert underlying/wrapper, Long+Short+XAI, Futures-Roll-Kennzahlen, Sub-Agenten-Health). Lösungsansatz: bestehende stock_deep_dive-Chiefs (equity/bond/index/commodity/precious) hinter einen API-Endpunkt hängen, der den DeepDiveView-Vertrag erfüllt.
+  - [ ] **Folge: COT/Saisonalität/Earnings-Trend echt** — aktuell teils UNAVAILABLE/Demo; an echte Quellen anbinden (siehe Stubs-Initiative im Logbuch).
+
 ---
 
 ## 8. DESIGN-ENTSCHEIDUNGEN (Frontend — docs/frontend_notes.md)
