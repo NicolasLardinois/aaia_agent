@@ -126,3 +126,23 @@ def test_failure_path_drains_progress_before_terminal():
     types = [m["type"] for m in broadcaster.messages]
     assert types[-1] == "CockpitRunFailed"
     assert "MacroChiefReady" in types[:-1]              # Fortschritt kam VOR dem Terminal
+
+
+def test_latest_not_set_when_serialization_fails(monkeypatch):
+    # Schlaegt die Serialisierung des Ergebnisses fehl, darf KEIN halbfertiges
+    # Ergebnis in latest landen — sonst lieferte ein spaeteres GET /api/cockpit ein
+    # Resultat, das der Client nie als "ready" gesehen hat. Erwartet: latest bleibt
+    # None, der Client bekommt das terminale CockpitRunFailed.
+    broadcaster = _RecordingBroadcaster()
+    rm = RunManager(lambda bus: _FakeOrch(bus), broadcaster)
+
+    def _boom(_result):
+        raise ValueError("serialisierung kaputt")
+    monkeypatch.setattr("adapters.api.run_manager.cockpit_to_dict", _boom)
+
+    asyncio.run(rm._execute(_FakeOrch(bus=None), run_id="run-ser"))
+
+    assert rm.latest is None
+    types = [m["type"] for m in broadcaster.messages]
+    assert "CockpitResultReady" not in types
+    assert broadcaster.messages[-1]["type"] == "CockpitRunFailed"

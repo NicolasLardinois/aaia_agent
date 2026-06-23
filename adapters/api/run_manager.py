@@ -59,6 +59,10 @@ class RunManager:
     async def _execute(self, orchestrator, run_id: str) -> None:
         try:
             result = await orchestrator.run()
+            # Serialisierung VOR dem Festschreiben von latest: schlaegt sie fehl,
+            # landen wir im except (CockpitRunFailed) und latest bleibt unveraendert
+            # — kein Ergebnis, das der Client nie als "ready" gesehen hat.
+            payload = cockpit_to_dict(result)
             self._latest = result
             # Fortschritts-Broadcasts (fire-and-forget aus dem Bus-Handler) zuerst
             # abschliessen, damit das terminale CockpitResultReady garantiert ZULETZT
@@ -67,7 +71,7 @@ class RunManager:
             await self.broadcaster.broadcast({
                 "type": "CockpitResultReady",
                 "source": "run_manager",
-                "payload": cockpit_to_dict(result),
+                "payload": payload,
                 "run_id": run_id,
             })
         except Exception:
