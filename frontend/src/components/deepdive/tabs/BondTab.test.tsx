@@ -9,7 +9,7 @@ describe("BondTab", () => {
     expect(screen.getByText(/16\.2/)).toBeInTheDocument();
     expect(screen.getByText(/hoch/i)).toBeInTheDocument();   // Duration-Risiko
     expect(screen.getByText(/AA\+/)).toBeInTheDocument();    // Rating
-    expect(screen.getByText(/5/)).toBeInTheDocument();       // Spread bps
+    expect(screen.getByText(/5 bps/)).toBeInTheDocument();   // Spread
   });
   it("zeigt 'nicht verfügbar' bei fehlender Duration", () => {
     render(<BondTab block={{ modifiedDuration: null, creditRating: null, spreadBps: null }} />);

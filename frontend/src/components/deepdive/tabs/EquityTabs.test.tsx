@@ -10,10 +10,9 @@ describe("EquityTabs", () => {
     render(<EquityTabs block={block} tab="valuation" />);
     expect(screen.getByText(/30\.5/)).toBeInTheDocument(); // KGV
     expect(screen.getByText(/22\.4/)).toBeInTheDocument(); // EV/EBITDA
-    // kombiniertes Band (Median lows 160/170/180 -> 170; highs 205/210/220 -> 210)
-    // Wert 170 erscheint auch in Methoden-Tabelle -> mind. 1 Element
-    expect(screen.getAllByText(/170/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/210/).length).toBeGreaterThanOrEqual(1);
+    // kombiniertes Band: prüfe den eindeutigen Label-Kontext + Werte
+    expect(screen.getByText(/Kombinierte Bandbreite:/)).toBeInTheDocument();
+    expect(screen.getByText((_, el) => (el?.textContent === "170–210" && el?.className.includes("font-medium")))).toBeInTheDocument();
   });
   it("Qualität: Altman-Z 6.1 (Technology -> Z'') => solvent", () => {
     render(<EquityTabs block={block} tab="quality" />);
