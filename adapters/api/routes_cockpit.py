@@ -1,8 +1,9 @@
 """HTTP- und WebSocket-Routen fuer den Cockpit-Flow (mit Token-Schutz).
 
-Alle Endpunkte erfordern ein gueltiges Token (AAIA_ACCESS_TOKEN; leer -> Auth aus).
+Die Daten-/Lauf-Endpunkte erfordern ein gueltiges Token (AAIA_ACCESS_TOKEN; leer -> Auth aus).
 HTTP: Authorization: Bearer <token>. WS: ?token=<token> (Browser koennen bei WS
 keine Header setzen). POST liefert 409, wenn bereits ein Lauf laeuft.
+Ausnahme: GET /healthz ist OEFFENTLICH (Render-Health-Check darf kein Passwort brauchen).
 """
 from fastapi import APIRouter, Depends, Response, WebSocket, WebSocketDisconnect, status
 
@@ -13,6 +14,13 @@ from adapters.api.run_manager import RunManager
 
 def build_router(run_manager: RunManager) -> APIRouter:
     router = APIRouter()
+
+    @router.get("/healthz")
+    def healthz():
+        # Oeffentlicher Health-Check (OHNE Token) fuer den Render-Health-Check ->
+        # liefert immer 200, auch wenn AAIA_ACCESS_TOKEN gesetzt ist. Ein
+        # Health-Check darf kein App-Passwort brauchen.
+        return {"status": "ok"}
 
     @router.get("/api/cockpit")
     def get_cockpit(_: None = Depends(require_token)):

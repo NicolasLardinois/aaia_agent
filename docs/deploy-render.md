@@ -33,7 +33,7 @@ Warum zwei Pässe: Jeder Dienst braucht die URL des anderen, die es erst nach Pa
 6. Frontend (`aaia-frontend`) → Environment → `VITE_API_BASE_URL` = **Backend-URL** (z. B. `https://aaia-api-XXXX.onrender.com`) → speichern → **Manual Deploy / Clear build cache & deploy** (Frontend muss **neu gebaut** werden, damit die URL eingebacken wird).
 
 ## Verifikation
-- Backend-Health: `https://aaia-api-XXXX.onrender.com/api/cockpit` → `204` (noch kein Lauf) — Render zeigt den Dienst „live".
+- Backend-Health: `https://aaia-api-XXXX.onrender.com/healthz` → `200 {"status":"ok"}` (öffentlich, ohne Token) — darauf zeigt der Render-Health-Check; der Dienst wird „live". (`/api/cockpit` antwortet ohne Token bewusst `401`.)
 - Frontend öffnen → Cockpit-Übersicht lädt; Leerzustand „Noch keine Analyse".
 - „Analyse starten" → Live-Status „läuft …", dann erscheint die Übersicht (Regime + Kacheln). Bleibt es bei „läuft …" oder kommt ein Fehler: meist `VITE_API_BASE_URL`/`AAIA_CORS_ORIGINS` falsch oder Frontend nicht neu gebaut (Pass 2).
 

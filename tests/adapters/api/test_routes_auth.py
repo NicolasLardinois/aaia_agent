@@ -66,3 +66,14 @@ def test_post_run_returns_409_when_already_running(monkeypatch):
     rm._running = True  # simuliere einen bereits laufenden Lauf
     client = TestClient(create_app(rm))
     assert client.post("/api/cockpit/run").status_code == 409
+
+
+def test_healthz_is_public_even_with_token(monkeypatch):
+    # Health-Check muss OHNE Token 200 liefern (Render pollt ihn ohne Passwort),
+    # auch wenn AAIA_ACCESS_TOKEN gesetzt ist; die echten Endpunkte bleiben geschuetzt.
+    monkeypatch.setenv("AAIA_ACCESS_TOKEN", "geheim")
+    client = _client()
+    r = client.get("/healthz")
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok"}
+    assert client.get("/api/cockpit").status_code == 401
