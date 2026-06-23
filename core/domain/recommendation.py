@@ -56,12 +56,27 @@ def _position_size_pct(confidence: float, leverage: float | None = None) -> floa
 
     Bei einem Future-Hebel L bezieht sich die Tranche aufs Nominal — der Kapitaleinsatz
     ist Nominal/L, also wird die Größe durch L geteilt (Design §6.3e: Hebel wirkt aufs
-    Sizing, nicht aufs Richtungssignal). Deckel bleibt ≤ 10 %. Ohne Hebel unverändert."""
+    Sizing, nicht aufs Richtungssignal). Deckel bleibt ≤ 10 %. Ohne Hebel unverändert.
+
+    Untergrenze 0.1 % nur im Hebel-Fall: bei sehr hoher Hebelung (niedrige Margin) würde
+    Nominal/L sonst auf 0.0 % runden — eine empfohlene Kauf-Tranche bleibt aber sichtbar
+    > 0. Ohne Hebel greift bereits die innere 2-%-Schwelle, die Untergrenze ändert nichts."""
     raw = (confidence - 0.50) / 0.50 * 10.0   # 0.50→0 %, 1.00→10 %
     capped = max(2.0, min(10.0, raw))
     if leverage and leverage > 0:
         capped = capped / leverage
+        return round(max(0.1, min(10.0, capped)), 1)
     return round(max(0.0, min(10.0, capped)), 1)
+
+
+def _size_phrase(size: float, leverage: float | None) -> str:
+    """Beschreibt die Tranche im Begründungstext. Mit Future-Hebel L ist die genannte
+    Größe der *Kapitaleinsatz*; das Markt-(Nominal-)Exposure ist ~L× größer. Ohne diesen
+    Hinweis läse sich die Zahl als Exposure und würde das Risiko untertreiben (Design §6.3e)."""
+    if leverage and leverage > 0:
+        return (f"{size:.1f}% Kapitaleinsatz (Nominal-Exposure ~{leverage:.0f}× höher "
+                f"durch Future-Hebel, konfidenz-skaliert)")
+    return f"{size:.1f}% des Risikobudgets (konfidenz-skaliert)"
 
 
 def _anomaly_deduction(alignment: str, report: AnomalyReport) -> float:
@@ -155,7 +170,7 @@ def derive_recommendation(
             size = _position_size_pct(confidence, leverage)
             action = Recommendation.BUY_PLUS
             reasoning = (f"Bullish bei bestehender Long-Position — Aufstocken. "
-                         f"Zusätzliche Tranche ~{size:.1f}% des Risikobudgets (konfidenz-skaliert).")
+                         f"Zusätzliche Tranche ~{_size_phrase(size, leverage)}.")
         else:
             action = Recommendation.HOLD
             reasoning = "Kein klares Signal — Position halten."
@@ -164,7 +179,7 @@ def derive_recommendation(
             size = _position_size_pct(confidence, leverage)
             action = Recommendation.BUY
             reasoning = (f"Bullish ohne bestehende Position — Kauf empfohlen. "
-                         f"Empfohlene Positionsgröße: {size:.1f}% des Risikobudgets (konfidenz-skaliert).")
+                         f"Empfohlene Positionsgröße: {_size_phrase(size, leverage)}.")
         else:
             action = Recommendation.NONE
             reasoning = "Kein Long-Setup (kein bullisches Signal)."
