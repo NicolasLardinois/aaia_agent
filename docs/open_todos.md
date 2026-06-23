@@ -511,7 +511,7 @@ v1 der Web-API-Schicht für den Cockpit-Flow:
 **Offene Folge-Aufgaben:**
 
 - [ ] **WS-Token als „erste Nachricht" statt Query-Param** (Log-Hygiene): der Token kann sonst in Server-/Proxy-Logs erscheinen. *Ansatz:* WS akzeptieren, erste Nachricht = Token, dann validieren/sonst schließen.
-- [ ] **Stiller fehlgeschlagener Lauf (Review PR #32):** wirft der Orchestrator, wird der Lauf-Lock korrekt freigegeben, aber **kein terminales Event** gebroadcastet → der WS-Client bleibt in „läuft". *Ansatz:* ein terminales `CockpitError`-Event broadcasten (Backend) + im Frontend in einen Fehlerzustand überführen.
+- [x] **Stiller fehlgeschlagener Lauf (Review PR #32):** wirft der Orchestrator, wird der Lauf-Lock korrekt freigegeben, aber **kein terminales Event** gebroadcastet → der WS-Client bleibt in „läuft". **✅ PR #36 am 2026-06-23 gemergt.** *Lösung:* terminales `CockpitRunFailed`-Event (Backend, generische Meldung — kein Leak; `latest` erst nach erfolgreicher Serialisierung) + Frontend-Fehlerzustand + `closeSocket`-Guard gegen Fehlalarm bei Verbindungsabbruch. *Im Review geändert:* bestehender `test_run_lock` an den neuen `_execute`-Vertrag angepasst (Fehler wird gefangen statt propagiert); 3 Coverage-Lücken + der `latest`-Serialisierungs-Edge-Case (`onEvent`/`onerror`/Payload-Fallback) ergänzt. *Folgeaufgabe:* 2 vorbestehende Flaky-Route-Tests bei der WS-Flaky-Aufgabe oben dokumentiert.
 - [ ] **Echte Accounts / Rate-Limit** erst bei Bedarf (über die Dozenten-Demo hinaus).
 
 ### Frontend-Scheibe 1 — Cockpit-Übersicht (Branch `feat/frontend-cockpit-overview`)
