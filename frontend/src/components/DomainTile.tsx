@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type { Domain } from "../lib/contract";
 import { isUnavailable } from "../lib/display";
 import { SignalBadge } from "./SignalBadge";
@@ -10,13 +11,26 @@ const LABELS: Record<Domain["key"], string> = {
   sectors: "Sektoren",
 };
 
+// Key -> Route-Slug (yield_curve -> yield-curve, Rest 1:1).
+const SLUGS: Record<Domain["key"], string> = {
+  commodities: "commodities",
+  sentiment: "sentiment",
+  yield_curve: "yield-curve",
+  sectors: "sectors",
+};
+
+// Jede Kachel verlinkt auf den Drilldown /cockpit/<slug> (B7).
+// UNAVAILABLE-Kacheln sind trotzdem klickbar (Drilldown zeigt SourceHealth-Details).
 export function DomainTile({ domain }: { domain: Domain }) {
   return (
-    <div className="rounded-lg border border-slate-200 p-3">
+    <Link
+      to={`/cockpit/${SLUGS[domain.key]}`}
+      className="block rounded-lg border border-slate-200 p-3 transition-colors hover:border-slate-300 hover:bg-slate-50"
+    >
       <div className="text-xs uppercase tracking-wide text-slate-500">{LABELS[domain.key]}</div>
       <div className="mt-1">
         {isUnavailable(domain) ? <UnavailableField reason="Quelle ausgefallen" /> : <SignalBadge signal={domain.signal} />}
       </div>
-    </div>
+    </Link>
   );
 }
