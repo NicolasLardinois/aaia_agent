@@ -121,9 +121,9 @@ describe("vsMedianLabel", () => {
     expect(r.label).toBe("deutlich <");
   });
 
-  it("92/92 = 1.0 -> '<' (ratio 1.0 Grenze, nicht >1.0)", () => {
+  it("92/92 = 1.0 -> '≈ am Median' (ratio in [0.95, 1.05])", () => {
     const r = vsMedianLabel(92, 92);
-    expect(r.label).toBe("<");
+    expect(r.label).toBe("≈ am Median");
     expect(r.ratio).toBe(1.0);
   });
 
@@ -133,8 +133,26 @@ describe("vsMedianLabel", () => {
     expect(r.ratio).toBe(0);
   });
 
-  it("120/92 ~ 1.30 -> '>' (>1.0 aber <1.5)", () => {
+  it("120/92 ~ 1.30 -> '>' (>1.05 aber <1.5)", () => {
     const r = vsMedianLabel(120, 92);
     expect(r.label).toBe(">");
+  });
+
+  it("100/92 ~ 1.087 -> '>' (ratio > 1.05)", () => {
+    const r = vsMedianLabel(100, 92);
+    expect(r.label).toBe(">");
+    expect(r.ratio).toBeCloseTo(100 / 92, 5);
+  });
+
+  it("80/92 ~ 0.87 -> '<' (0.67 <= ratio < 0.95)", () => {
+    const r = vsMedianLabel(80, 92);
+    expect(r.label).toBe("<");
+    expect(r.ratio).toBeCloseTo(80 / 92, 5);
+  });
+
+  it("50/0 -> label '—', ratio 0 (median <= 0)", () => {
+    const r = vsMedianLabel(50, 0);
+    expect(r.label).toBe("—");
+    expect(r.ratio).toBe(0);
   });
 });

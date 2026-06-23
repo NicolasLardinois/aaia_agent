@@ -28,9 +28,15 @@ export function filterRows(rows: BuffettCountry[], f: BuffettFilters): BuffettCo
 }
 
 // vs. Median: Verhaeltnis + Wort. Median<=0 defensiv -> ratio 0.
+// Lückenlose Bänder: [0.95, 1.05] -> "≈ am Median" (praktisch am Median)
 export function vsMedianLabel(ratioPct: number, median: number): { label: string; ratio: number } {
   if (median <= 0) return { label: "—", ratio: 0 };
   const ratio = ratioPct / median;
-  const label = ratio >= 1.5 ? "deutlich >" : ratio > 1.0 ? ">" : ratio < 0.67 ? "deutlich <" : "<";
+  let label: string;
+  if (ratio >= 1.5) label = "deutlich >";
+  else if (ratio > 1.05) label = ">";
+  else if (ratio >= 0.95) label = "≈ am Median"; // ratio in [0.95, 1.05] -> praktisch am Median
+  else if (ratio < 0.67) label = "deutlich <";
+  else label = "<";
   return { label, ratio };
 }

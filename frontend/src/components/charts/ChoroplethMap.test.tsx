@@ -47,6 +47,15 @@ describe("buildMapOption", () => {
     expect(colors[0]).toBe("#16a34a");
     expect(colors[colors.length - 1]).toBe("#dc2626");
   });
+
+  it("buildMapOption mit leerer Liste liefert valide Option ohne Crash", () => {
+    const opt = buildMapOption([]);
+    expect(opt.series[0].type).toBe("map");
+    expect(opt.series[0].data).toEqual([]);
+    // Math.min(...[],0)=0, Math.max(...[],100)=100 -> definierte Grenzen
+    expect(opt.visualMap.min).toBe(0);
+    expect(opt.visualMap.max).toBe(100);
+  });
 });
 
 describe("ChoroplethMap Komponente — Fallback bei fehlendem GeoJSON", () => {
