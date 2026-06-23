@@ -15,13 +15,13 @@ function renderAt(path: string) {
 describe("AppRoutes", () => {
   it("zeigt Portfolio-Platzhalter unter /portfolio", () => {
     renderAt("/portfolio");
-    // Platzhalter-Seite zeigt Titel + Hinweis (Sidebar-Link "Portfolio" ist ebenfalls vorhanden)
-    expect(screen.getAllByText(/Portfolio/i).length).toBeGreaterThanOrEqual(1);
+    // Platzhalter-Seite zeigt Überschrift + Hinweis
+    expect(screen.getByRole("heading", { name: /Portfolio/i })).toBeInTheDocument();
     expect(screen.getByText(/in einem folgenden Slice/i)).toBeInTheDocument();
   });
   it("leitet / auf das Cockpit", () => {
     renderAt("/");
-    // Nach Redirect: Cockpit-Uebersichtsseite sichtbar
-    expect(screen.getAllByText(/Cockpit/i).length).toBeGreaterThanOrEqual(1);
+    // Nach Redirect: Cockpit-Übersichtsseite sichtbar
+    expect(screen.getByRole("heading", { name: /Cockpit — Übersicht/i })).toBeInTheDocument();
   });
 });
