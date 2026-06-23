@@ -591,6 +591,12 @@ Alle Cockpit-Drilldowns (US3–US9) über Demo-Naht (Tausch-Naht `useView`/`load
   - [ ] **Folge: echte Deep-Dive-Endpunkte** — `data/api/deepdive.ts` (`fetchDeepDive`) statt Demo; Naht-Zeile in `data/deepdive.ts` tauschen (Backend liefert underlying/wrapper, Long+Short+XAI, Futures-Roll-Kennzahlen, Sub-Agenten-Health). Lösungsansatz: bestehende stock_deep_dive-Chiefs (equity/bond/index/commodity/precious) hinter einen API-Endpunkt hängen, der den DeepDiveView-Vertrag erfüllt.
   - [ ] **Folge: COT/Saisonalität/Earnings-Trend echt** — aktuell teils UNAVAILABLE/Demo; an echte Quellen anbinden (siehe Stubs-Initiative im Logbuch).
 
+### Frontend-Vollausbau — Slice 3 (Portfolio, Branch `feat/frontend-slice3-portfolio`)
+
+- [x] **Frontend Slice 3 — Portfolio (Track B)** (Konzept §2.4, Spec §7/§10 US23–27). Lösung: Portfolio-Bereich über die Tausch-Naht `loadPortfolio()` (Demo-Fixture: Positionen long+short quer über underlying×wrapper inkl. Konflikt-Fall XLE long+SELL). Positionstabelle mit Doppel-Etikett, L/S, Größe, Einstand, AAIA-Urteil + Konflikt-Markierung, Ticker→Deep-Dive (US23); Exposure-Panel Brutto/Netto/net_beta (aktien-only, datierte Vola) mit Inline-Definitionen (US24); Klumpen-Warnungen Sektor/underlying/Geographie mit Limit-Bezug (US25); beratende Hedge-Vorschläge ohne Ausführung (US26/US27). Pure getestete Logik (gespiegelt aus portfolio_monitor_agent/PR #11): `grossExposure`/`netExposure`/`netBeta`, `detectKlumpen`, `detectConflict` (exportiert → Slice 4 nutzt sie wieder), `hedgeSuggestions`. UNAVAILABLE-Pfad: Aktie mit Beta `null` zählt nicht ins net_beta; Beta-Feed-Stub als `failed`-Quelle. Frontend-Suite grün (318 Tests), `npm run build` erfolgreich.
+  - [ ] **Folge: echter Portfolio-Endpunkt** — `data/api/portfolio.ts` (`fetchPortfolio`) statt Demo; Naht-Zeile in `data/portfolio.ts` tauschen. Lösungsansatz: `portfolio_monitor_agent`-Snapshot (net_beta/Exposure/cluster_risks/Vola) hinter einen API-Endpunkt hängen, der den `PortfolioView`-Vertrag erfüllt; Klumpen-Limits aus dem Agenten (0.40/0.60/0.70) übernehmen.
+  - [ ] **Folge: Slice 4 (Inbox) verdrahten** — `detectConflict`/`conflictNote` aus `lib/conflict.ts` in der Konflikt-Inbox wiederverwenden; Inbox-Badge in der Topbar aus der Anzahl der Konflikt-Positionen speisen.
+
 ---
 
 ## 8. DESIGN-ENTSCHEIDUNGEN (Frontend — docs/frontend_notes.md)
