@@ -181,6 +181,7 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   EIA API (Öl/Gas), USDA (Agrar), LME (Metalle) nicht angebunden.
 
 - [x] **`agents/market_cockpit/sentiment/fear_greed_agent.py`** — CNN Fear & Greed API **angebunden** (PR #34, 2026-06-23). **Lösung:** `adapters/data/cnn_fear_greed.py` (`CnnFearGreedProvider`), injiziert via `TopDownOrchestrator(sentiment=…)` in `app/main.py` + `app/server.py`; Ausfall/Strukturbruch → `WARNING`-Log → `None` → `UNAVAILABLE`. Redundanter `sentiment_stub.py` entfernt. (Siehe auch Plan-E-Eintrag unten.)
+  > **PR-Protokoll (§5): PR #34 am 2026-06-23 gemergt** (Merge-Commit `0ad159a`). Mehrstufiges Review (pro Task + Opus-Whole-Branch) ohne blockierende Mängel; im Review nachgezogen: moderne Type-Hints, Test-Fake erbt vom Port, **WARNING-Log bei Ausfall** (Beobachtbarkeit). Erste Slice der „Stubs→echte Quellen"-Initiative. *(Dieser Vermerk direkt auf `master`: bewusste Logbuch-Ausnahme — er braucht den Merge-Commit-Hash.)*
 
 - [ ] **Folge-Task (Review PR #34, 2026-06-23) — `fear_greed_agent.py`: 75er-Grenze vereinheitlichen.**
   Bei exakt `75.0` liefert `_label` „Greed" (`<= 75`), `_signal` aber BEARISH (`>= 75`). Offizielles CNN-Band ist 75–100 = Extreme Greed → `_label` sollte `< 75 → "Greed"` nutzen, damit `75.0` als „Extreme Greed" labelt (konsistent mit Signal + CNN-Definition). Praktisch selten (Rundung auf 1 Stelle), aber sauberer Fix, wenn ohnehin an der Schwellenlogik gearbeitet wird. *Eigener kleiner PR — Agentenlogik, bewusst nicht im Daten-PR #34.*
