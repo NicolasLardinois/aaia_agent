@@ -22,8 +22,9 @@ def test_lock_is_released_in_finally_even_on_error():
 
     async def scenario():
         rm._running = True
-        with pytest.raises(RuntimeError):
-            await rm._execute(_RaisingOrch(), "run-x")
+        # _execute faengt den Orchestrator-Fehler intern ab (broadcastet CockpitRunFailed,
+        # KEIN Re-Raise) und gibt den Lock im finally trotzdem frei.
+        await rm._execute(_RaisingOrch(), "run-x")
 
     asyncio.run(scenario())
     assert rm._running is False
