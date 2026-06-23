@@ -10,6 +10,7 @@ from agents.stock_deep_dive.commodity_chief_agent_mikro import CommodityChiefAge
 from agents.market_cockpit.sentiment_chief_agent import SentimentChiefAgent
 from agents.stock_deep_dive.index_chief_agent import IndexChiefAgent
 from core.domain.models import Signal, SignalStatus
+from core.ports.data_provider import SentimentDataProvider
 
 
 def test_commodity_chief_mikro_runs_without_supply_provider():
@@ -59,7 +60,7 @@ def test_index_chief_runs_with_empty_providers():
 def test_sentiment_chief_uses_injected_fear_greed_provider():
     """SentimentChiefAgent reicht den injizierten Provider an den FearGreedAgent
     durch → Extreme-Fear-Wert 10 ergibt BULLISH (contrarian) und AVAILABLE."""
-    class _FakeSentiment:
+    class _FakeSentiment(SentimentDataProvider):
         def get_fear_greed(self):
             return 10.0
     market = MagicMock()
