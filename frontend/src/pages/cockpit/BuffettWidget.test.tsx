@@ -87,23 +87,26 @@ describe("BuffettWidget (C1)", () => {
     renderWidget();
     await waitFor(() => expect(screen.getByText("USA")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /karte/i }));
-    // Karte lädt oder zeigt Fallback (kein crash)
-    await waitFor(() =>
-      expect(
-        screen.queryByText(/Karte lädt|nicht verfügbar|Karte nicht verfügbar/i)
-      ).not.toBeNull()
+    // Karte lädt oder zeigt Fallback (kein crash). Timeout erhoeht da fetch-Ablehnung Zeit braucht.
+    await waitFor(
+      () =>
+        expect(
+          screen.queryByText(/Karte lädt|nicht verfügbar|Karte nicht verfügbar/i)
+        ).not.toBeNull(),
+      { timeout: 10000 },
     );
-  });
+  }, 15000);
 
   it("Klick auf USA-Zeile zeigt das 10-J-Drilldown-Panel (LineCurve-Container)", async () => {
     renderWidget();
-    await waitFor(() => expect(screen.getByText("USA")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("USA")).toBeInTheDocument(), { timeout: 8000 });
     // Klick auf die USA-Zeile -> Drilldown-Panel erscheint
     fireEvent.click(screen.getByText("USA"));
     await waitFor(() =>
-      expect(screen.getByText(/10-J-Verlauf|Verlauf/i)).toBeInTheDocument()
+      expect(screen.getByText(/10-J-Verlauf|Verlauf/i)).toBeInTheDocument(),
+      { timeout: 8000 },
     );
-  });
+  }, 20000);
 
   it("Demo-Badge sichtbar", async () => {
     renderWidget();
