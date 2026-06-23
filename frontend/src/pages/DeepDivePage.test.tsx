@@ -46,4 +46,10 @@ describe("DeepDivePage", () => {
     renderAt("ZZZZ");
     await waitFor(() => expect(screen.getByText(/nicht gefunden/i)).toBeInTheDocument());
   });
+  it("future (GC=F): Futures-Tab vorhanden und rendert Terminkurve-Inhalt", async () => {
+    renderAt("GC=F");
+    await waitFor(() => screen.getByRole("tab", { name: /Futures/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Futures/ }));
+    expect(screen.getByText(/Roll-Yield/)).toBeInTheDocument();
+  });
 });

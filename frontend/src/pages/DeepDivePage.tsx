@@ -15,8 +15,9 @@ import { BondTab } from "../components/deepdive/tabs/BondTab";
 import { IndexTab } from "../components/deepdive/tabs/IndexTab";
 import { CommodityTab } from "../components/deepdive/tabs/CommodityTab";
 import { BacktestContextTab } from "../components/deepdive/tabs/BacktestContextTab";
+import { FuturesTab } from "../components/deepdive/tabs/FuturesTab";
 
-// Tab-Inhalte kapseln den Switch — Futures-Tab wird in Dispatch C ergaenzt.
+// Tab-Inhalte kapseln den Switch — alle kontextabhaengigen Tabs je underlying + Futures (wrapper=future).
 function TabContent({ tab, view }: { tab: TabKey; view: DeepDiveView }) {
   switch (tab) {
     case "valuation": return <EquityTabs block={view.equity!} tab="valuation" />;
@@ -25,9 +26,9 @@ function TabContent({ tab, view }: { tab: TabKey; view: DeepDiveView }) {
     case "bond":      return <BondTab block={view.bond!} />;
     case "index":     return <IndexTab block={view.index!} />;
     case "commodity": return <CommodityTab block={view.commodity!} />;
+    case "futures":   return <FuturesTab block={view.futures!} />;
     case "backtest":  return <BacktestContextTab ctx={view.backtestContext!} />;
-    // case "futures": -> Dispatch C ergaenzt FuturesTab
-    default:          return <p className="text-slate-500">Tab folgt.</p>;
+    default:          return null;
   }
 }
 
