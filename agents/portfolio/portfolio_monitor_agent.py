@@ -226,7 +226,11 @@ class PortfolioMonitorAgent:
         for i, p in enumerate(positions):
             cur = _price(i, p)
             cur_prices.append(cur)
-            val = p.shares * cur * self.fx_rate(p.currency, BASE_CURRENCY)
+            # Notional: ein Future trägt Exposure = Kontrakte · Kontraktgröße · Preis (≫ Margin),
+            # damit der Hebel im net_exposure/gross/HHI/Vola sichtbar wird (Impact §F). Alle
+            # anderen Hüllen (single/fund/physical_etc) haben multiplier=1.0 → unverändert.
+            mult = p.contract_multiplier if p.wrapper == Wrapper.FUTURE else 1.0
+            val = p.shares * cur * mult * self.fx_rate(p.currency, BASE_CURRENCY)
             values.append(val)
 
         # Long / Short / Netto / Brutto
