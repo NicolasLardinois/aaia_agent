@@ -73,3 +73,56 @@ def test_sequential_runs_get_distinct_run_ids():
     assert a is not None and b is not None
     assert a != b
     assert rm.latest is not None
+
+
+class _FailingOrch:
+    """Orchestrator, der mit einer Exception abbricht (Fehlerpfad)."""
+    def __init__(self, bus=None):
+        self.bus = bus
+    async def run(self):
+        raise RuntimeError("interner-detail-LEAK-xyz")  # darf NICHT nach aussen gelangen
+
+
+def test_execute_broadcasts_failure_terminal_on_error():
+    broadcaster = _RecordingBroadcaster()
+    rm = RunManager(lambda bus: _FailingOrch(bus), broadcaster)
+    rm._running = True  # simuliert: start_run() hat den Lock gesetzt
+
+    asyncio.run(rm._execute(_FailingOrch(), run_id="run-err"))
+
+    types = [m["type"] for m in broadcaster.messages]
+    assert "CockpitResultReady" not in types          # kein Erfolgs-Terminal
+    terminal = broadcaster.messages[-1]
+    assert terminal["type"] == "CockpitRunFailed"
+    assert terminal["source"] == "run_manager"
+    assert terminal["run_id"] == "run-err"
+    assert rm._running is False                        # Lock auch im Fehlerfall frei
+    assert rm.latest is None                           # kein Ergebnis gespeichert
+
+
+def test_failure_message_is_generic_and_does_not_leak():
+    broadcaster = _RecordingBroadcaster()
+    rm = RunManager(lambda bus: _FailingOrch(bus), broadcaster)
+
+    asyncio.run(rm._execute(_FailingOrch(), run_id="run-err"))
+
+    message = broadcaster.messages[-1]["payload"]["message"]
+    assert message == "Analyse fehlgeschlagen"
+    assert "LEAK" not in message                        # kein Exception-Text nach aussen
+
+
+def test_failure_path_drains_progress_before_terminal():
+    broadcaster = _RecordingBroadcaster()
+    rm = RunManager(lambda bus: _FailingOrch(bus), broadcaster)
+
+    async def scenario():
+        async def progress():
+            await broadcaster.broadcast({"type": "MacroChiefReady", "source": "m",
+                                         "payload": {}, "run_id": "run-err"})
+        rm._broadcast_tasks.add(asyncio.create_task(progress()))
+        await rm._execute(_FailingOrch(), run_id="run-err")
+
+    asyncio.run(scenario())
+    types = [m["type"] for m in broadcaster.messages]
+    assert types[-1] == "CockpitRunFailed"
+    assert "MacroChiefReady" in types[:-1]              # Fortschritt kam VOR dem Terminal

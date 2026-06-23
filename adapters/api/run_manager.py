@@ -9,6 +9,7 @@ dem serialisierten Ergebnis. Der Lock wird in _execute immer im finally freigege
 (auch bei Fehler), damit kein Stuck-State entsteht.
 """
 import asyncio
+import logging
 from typing import Callable
 from uuid import uuid4
 
@@ -17,6 +18,8 @@ from adapters.api.event_serializer import event_to_dict
 from adapters.api.ws_broadcaster import WebSocketBroadcaster
 from adapters.event_bus.redis_bus import InMemoryEventBus
 from core.ports.event_bus import EventBus
+
+_logger = logging.getLogger(__name__)
 
 
 class RunManager:
@@ -60,13 +63,29 @@ class RunManager:
             # Fortschritts-Broadcasts (fire-and-forget aus dem Bus-Handler) zuerst
             # abschliessen, damit das terminale CockpitResultReady garantiert ZULETZT
             # beim Client ankommt (Vertrag §4: erst Fortschritt, dann fertig).
-            if self._broadcast_tasks:
-                await asyncio.gather(*self._broadcast_tasks, return_exceptions=True)
+            await self._drain_progress()
             await self.broadcaster.broadcast({
                 "type": "CockpitResultReady",
                 "source": "run_manager",
                 "payload": cockpit_to_dict(result),
                 "run_id": run_id,
             })
+        except Exception:
+            # Details NUR ins Server-Log (Beobachtbarkeit) — niemals an den Client
+            # (Repo oeffentlich, Client nicht vertrauenswuerdig).
+            _logger.exception("Cockpit-Lauf %s fehlgeschlagen", run_id)
+            await self._drain_progress()
+            await self.broadcaster.broadcast({
+                "type": "CockpitRunFailed",
+                "source": "run_manager",
+                "payload": {"message": "Analyse fehlgeschlagen"},
+                "run_id": run_id,
+            })
         finally:
             self._running = False  # Lock immer freigeben (auch nach Fehler)
+
+    async def _drain_progress(self) -> None:
+        # Offene Fortschritts-Broadcast-Tasks abwarten, damit sie VOR dem
+        # terminalen Event beim Client ankommen.
+        if self._broadcast_tasks:
+            await asyncio.gather(*self._broadcast_tasks, return_exceptions=True)
