@@ -27,7 +27,7 @@ class JudgmentOrchestrator:
         self.memory              = memory
         self.anomaly_chief       = AnomalyChiefAgent(bus)
         self.judgment_chief      = JudgmentChiefAgent(llm, bus, portfolio_port)
-        self.backtester_chief    = BacktesterChiefAgent(memory, bus)
+        self.backtester_chief    = BacktesterChiefAgent(memory, bus, conflict_store=conflict_store)
         self.conflict_agent      = ConflictAgent(llm, bus)
         self.short_thesis_agent  = ShortThesisAgent(llm, bus)
         # Konflikt-Inbox: None erlaubt (bestehende Bauten ohne Store bleiben kompatibel)
