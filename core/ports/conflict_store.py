@@ -35,3 +35,11 @@ class ConflictStorePort(ABC):
     def resolve(self, conflict_id: int, user_decision: str) -> None:
         """Markiert einen Konflikt als erledigt und speichert die Nutzer-Entscheidung."""
         ...
+
+    def load_for_backtest(self, days: int = 180) -> list[ConflictItem]:
+        """Lädt Konflikte der letzten `days` Tage für den Konflikt-Backtester.
+
+        Konkreter Default `[]` (nicht @abstractmethod): bestehende Implementierungen
+        ohne Backtest-Bedarf brechen nicht; die echte Quelle (Supabase) überschreibt.
+        """
+        return []

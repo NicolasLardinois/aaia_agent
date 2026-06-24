@@ -304,3 +304,35 @@ def test_connect_fehler_bei_load_open_gibt_leere_liste(monkeypatch):
     store = SupabaseConflictStore.__new__(SupabaseConflictStore)
     result = store.load_open()
     assert result == []
+
+
+# ── load_for_backtest ──────────────────────────────────────────────────────────
+
+def test_load_for_backtest_selektiert_nach_created_at(monkeypatch):
+    cur = MagicMock()
+    cur.fetchall.return_value = [
+        {"id": 1, "ticker": "AAPL", "direction": "long", "verdict": "EXIT",
+         "reason": "r", "status": "resolved", "source": "on_demand",
+         "user_decision": "closed",
+         "created_at": datetime(2026, 6, 1, tzinfo=timezone.utc), "resolved_at": None},
+    ]
+    store, conn = _patch_store(monkeypatch, cur)
+    items = store.load_for_backtest(180)
+    assert len(items) == 1
+    assert items[0].verdict == "EXIT"
+    sql = cur.execute.call_args[0][0]
+    assert "created_at >=" in sql
+
+
+def test_port_default_load_for_backtest_leer():
+    # Eine Implementierung, die die Methode NICHT überschreibt, liefert [].
+    from core.ports.conflict_store import ConflictStorePort
+
+    class _Stub(ConflictStorePort):
+        def find_open(self, t, d): return None
+        def find_latest_resolved(self, t, d): return None
+        def save(self, item): ...
+        def load_open(self): return []
+        def resolve(self, cid, ud): ...
+
+    assert _Stub().load_for_backtest(180) == []
