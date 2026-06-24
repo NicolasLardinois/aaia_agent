@@ -18,9 +18,11 @@ class _NullRegionProvider:
     """Leerer Regional-Provider (EU/CH ohne Daten). Hängt NUR vom Port-Verhalten ab,
     nicht von einem konkreten Adapter (AGENTS.md §1: Agenten importieren keine Adapter).
     Die konkrete Stub-/Historical-Verdrahtung liegt im Composition-Root (app/replay_regime.py).
-    Liefert für die einzig genutzten Sub-Signal-Eingaben (M2/M3-Wachstum) None — wie die Stubs."""
+    Liefert für alle Sub-Signal-Eingaben None — wie die Stubs."""
     def get_m2_growth(self): return None
     def get_m3_growth(self): return None
+    def get_gdp_growth(self): return None
+    def get_cpi(self): return None
 
 
 # Default-Quellen-Fabrik: leeres Regional-Objekt (EU/CH leer, wie Produktion heute). Region/Quelle

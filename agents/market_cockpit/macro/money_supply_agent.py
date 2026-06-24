@@ -35,10 +35,12 @@ class MoneySupplyAgent:
         self.bus   = bus
 
     async def run(self) -> MoneySupplySnapshot:
-        ext, ecb_m2, ecb_m3, snb_m2, snb_m3 = await asyncio.gather(
+        ext, ecb_m2, ecb_m3, ecb_gdp, ecb_cpi, snb_m2, snb_m3 = await asyncio.gather(
             asyncio.to_thread(self.macro.get_extended_state),
             asyncio.to_thread(self.ecb.get_m2_growth),
             asyncio.to_thread(self.ecb.get_m3_growth),
+            asyncio.to_thread(self.ecb.get_gdp_growth),
+            asyncio.to_thread(self.ecb.get_cpi),
             asyncio.to_thread(self.snb.get_m2_growth),
             asyncio.to_thread(self.snb.get_m3_growth),
             return_exceptions=True,
@@ -46,8 +48,10 @@ class MoneySupplyAgent:
         def _safe(v): return None if isinstance(v, Exception) else v
 
         ext    = _safe(ext)    or {}
-        ecb_m2 = _safe(ecb_m2)
-        ecb_m3 = _safe(ecb_m3)
+        ecb_m2  = _safe(ecb_m2)
+        ecb_m3  = _safe(ecb_m3)
+        ecb_gdp = _safe(ecb_gdp)
+        ecb_cpi = _safe(ecb_cpi)
         snb_m2 = _safe(snb_m2)
         snb_m3 = _safe(snb_m3)
 
@@ -65,7 +69,8 @@ class MoneySupplyAgent:
             signal=_signal(usa_excess, None),
         )
         eu_m = ecb_m3 if ecb_m3 is not None else ecb_m2
-        eu_nom_gdp = None  # TODO: EZB/Eurostat nominales BIP anbinden
+        # Nominales BIP-Wachstum = reales BIP + CPI (Proxy, analog USA oben)
+        eu_nom_gdp = (ecb_gdp + ecb_cpi) if (ecb_gdp is not None and ecb_cpi is not None) else None
         eu_excess = excess_over_nominal_gdp(eu_m, eu_nom_gdp) if (eu_m is not None and eu_nom_gdp is not None) else None
         eu = MoneySupplyDataPoint(
             m2_growth=ecb_m2, m3_growth=ecb_m3, velocity_m2=None,

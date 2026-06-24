@@ -38,13 +38,20 @@ def test_excess_dampened_by_falling_velocity():
 
 # ── Fix 1: None-Guard ─────────────────────────────────────────────────────────
 
-def _make_agent(*, eu_m3=None, eu_m2=None, ch_m3=None, ch_m2=None, ext=None):
-    """Hilfs-Factory: erstellt MoneySupplyAgent mit gemockten Providern."""
+def _make_agent(*, eu_m3=None, eu_m2=None, eu_gdp=None, eu_cpi=None,
+                ch_m3=None, ch_m2=None, ext=None):
+    """Hilfs-Factory: erstellt MoneySupplyAgent mit gemockten Providern.
+
+    eu_gdp/eu_cpi muessen explizit gesetzt werden, sonst liefert der MagicMock
+    fuer ecb.get_gdp_growth/get_cpi ein Truthy-Objekt statt None.
+    """
     macro = MagicMock()
     macro.get_extended_state.return_value = ext or {}
     ecb = MagicMock()
     ecb.get_m2_growth.return_value = eu_m2
     ecb.get_m3_growth.return_value = eu_m3
+    ecb.get_gdp_growth.return_value = eu_gdp
+    ecb.get_cpi.return_value = eu_cpi
     snb = MagicMock()
     snb.get_m2_growth.return_value = ch_m2
     snb.get_m3_growth.return_value = ch_m3
@@ -75,3 +82,32 @@ def test_usa_money_supply_no_nominal_gdp_no_crash():
     agent = _make_agent(ext={"m2_growth": 5.0, "inflation": 3.0})
     result = asyncio.run(agent.run())
     assert result.usa.signal == Signal.NEUTRAL
+
+
+def test_eu_signal_schaltet_scharf_mit_echten_inputs():
+    """M3=2.7, reales BIP=0.3, CPI=2.0 → nom BIP=2.3 → excess=0.4 → BULLISH."""
+    agent = _make_agent(eu_m3=2.7, eu_gdp=0.3, eu_cpi=2.0)
+    result = asyncio.run(agent.run())
+    assert result.eurozone.signal == Signal.BULLISH
+
+
+def test_eu_faellt_auf_m2_zurueck_wenn_m3_fehlt():
+    """M3 fehlt, M2=2.9 + BIP/CPI → eu_m nutzt M2 → excess 0.6 → BULLISH."""
+    agent = _make_agent(eu_m2=2.9, eu_gdp=0.3, eu_cpi=2.0)
+    result = asyncio.run(agent.run())
+    assert result.eurozone.m2_growth == 2.9
+    assert result.eurozone.signal == Signal.BULLISH
+
+
+def test_eu_neutral_wenn_cpi_fehlt():
+    """M3 + BIP vorhanden, CPI fehlt → eu_nom_gdp None → NEUTRAL (kein Crash)."""
+    agent = _make_agent(eu_m3=2.7, eu_gdp=0.3, eu_cpi=None)
+    result = asyncio.run(agent.run())
+    assert result.eurozone.signal == Signal.NEUTRAL
+
+
+def test_eu_neutral_wenn_bip_fehlt():
+    """M3 + CPI vorhanden, reales BIP fehlt → eu_nom_gdp None → NEUTRAL (symmetrisch zum CPI-Fall)."""
+    agent = _make_agent(eu_m3=2.7, eu_gdp=None, eu_cpi=2.0)
+    result = asyncio.run(agent.run())
+    assert result.eurozone.signal == Signal.NEUTRAL
