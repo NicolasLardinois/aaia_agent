@@ -23,7 +23,7 @@ const RESULTS: BacktestResult[] = [
   // --- JUDGMENT: war das Urteil profitabel? ---
   // 3 von 4 korrekt = 75 % Trefferquote fuer judgment
   { id: "ju-1", area: "judgment", ticker: "AAPL", underlying: "equity",         regime: "AUFSCHWUNG", horizon: 60, correct: true,  timestamp: "2026-01-27" },
-  { id: "ju-2", area: "judgment", ticker: "XLE",  underlying: "equity",         regime: "ABSCHWUNG",  horizon: 90, correct: false, timestamp: "2026-02-24" },
+  { id: "ju-2", area: "judgment", ticker: "XLE",  underlying: "equity_index",   regime: "ABSCHWUNG",  horizon: 90, correct: false, timestamp: "2026-02-24" },
   { id: "ju-3", area: "judgment", ticker: "GC=F", underlying: "precious_metal", regime: "AUFSCHWUNG", horizon: 30, correct: true,  timestamp: "2026-03-17" },
   { id: "ju-4", area: "judgment", ticker: "TLT",  underlying: "bond",           regime: "REZESSION",  horizon: 60, correct: true,  timestamp: "2026-04-14" },
 ];

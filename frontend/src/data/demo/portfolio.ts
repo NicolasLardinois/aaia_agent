@@ -46,7 +46,7 @@ const POSITIONS: PositionDTO[] = [
     judgment: { longVerdict: "NONE", shortVerdict: "SHORT", confidence: 0.61 },
   },
   {
-    ticker: "XLE", name: "Energy Select Sector SPDR", underlying: "equity", wrapper: "fund",
+    ticker: "XLE", name: "Energy Select Sector SPDR", underlying: "equity_index", wrapper: "fund",
     direction: "long", sizePctNav: 9, entryPrice: 88.4, currency: "USD",
     sector: "Energie", geography: "USA", beta: 1.05,
     // KONFLIKT: long gehalten, Long-Verdikt SELL laeuft gegen die Position (speist Inbox/Slice 4)

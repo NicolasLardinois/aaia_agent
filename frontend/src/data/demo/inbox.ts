@@ -33,7 +33,7 @@ const SOURCE_POSITIONS: SourcePosition[] = [
     // suggestVerdict: EXIT (SELL ohne SHORT -> keine Richtungsumkehr, nur raus).
     // Konsistent zum Portfolio-Demo (portfolio.ts XLE-Kommentar).
     ticker: "XLE", name: "Energy Select Sector SPDR",
-    underlying: "equity", wrapper: "fund",
+    underlying: "equity_index", wrapper: "fund",
     direction: "long", heldVerdict: "BUY",
     newLong: "SELL", newShort: "NONE", confidence: 0.58,
   },

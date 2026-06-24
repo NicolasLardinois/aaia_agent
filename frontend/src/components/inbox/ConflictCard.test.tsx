@@ -12,7 +12,7 @@ const xleConflict: ConflictDTO = {
   id: "XLE-long",
   ticker: "XLE",
   name: "Energy Select Sector SPDR",
-  underlying: "equity",
+  underlying: "equity_index",
   wrapper: "fund",
   direction: "long",
   heldVerdict: "BUY",
