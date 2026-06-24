@@ -12,6 +12,24 @@ from adapters.api.run_manager import RunManager
 from adapters.api.app_factory import create_app
 
 
+@pytest.fixture(autouse=True)
+def _auth_disabled(monkeypatch):
+    """Hermetik: diese Tests prüfen das Verhalten OHNE Auth (204/202 ohne Token).
+
+    Ohne dieses Clearing leckt in der vollen Suite ein via `config.settings` →
+    `load_dotenv()` aus der lokalen `.env` geladenes `AAIA_ACCESS_TOKEN` in `os.environ`
+    (sobald irgendein früher Test `config` importiert) → die token-losen Requests hier
+    bekämen 401 statt 204/202. Das Leeren macht die Tests unabhängig vom Ambient-Env.
+
+    `RENDER` wird ebenfalls geleert: bei *leerem* Token UND gesetztem `RENDER` wirft
+    `create_app` bewusst einen `RuntimeError` (Fail-closed in Produktion, app_factory.py).
+    In einem Ambient-Env mit `RENDER` (z. B. Suite-Lauf auf einer Render-Shell) würden
+    diese Tests sonst crashen statt grün zu sein — analog zu test_routes_auth.py.
+    """
+    monkeypatch.delenv("AAIA_ACCESS_TOKEN", raising=False)
+    monkeypatch.delenv("RENDER", raising=False)
+
+
 def _default_cockpit() -> CockpitResult:
     return CockpitResult(
         macro=MacroChiefAgent.default(),
