@@ -604,6 +604,8 @@ Alle Cockpit-Drilldowns (US3–US9) über Demo-Naht (Tausch-Naht `useView`/`load
   - [ ] **Folge: echter Inbox-Endpunkt** — `data/api/inbox.ts` (`fetchInbox`) statt Demo; Naht-Zeile in `data/inbox.ts` tauschen. Lösungsansatz: gehaltene Positionen × aktuelles AAIA-Urteil serverseitig gegen `detectConflict` prüfen und als `InboxView`-Vertrag liefern.
   - [ ] **Folge: Status-Persistenz** — Offen/Erledigt-Status lebt aktuell nur im Komponenten-State (Reset bei Reload). Ansatz: Entscheidungen serverseitig/lokal persistieren (Audit-Trail dauerhaft).
   - [ ] **Folge: WebSocket-Push** — Inbox-Badge proaktiv aktualisieren, sobald ein Urteil zu einer gehaltenen Position kippt (statt nur beim Laden).
+  - [ ] **Folge (Minor, Whole-Review): Kopf-Auslöser bei long-Konflikt via Short-Signal** — `ConflictCard` zeigt im Kopf für long-Positionen `newLongVerdict`; bei GC=F (long, newLong=HOLD, newShort=SHORT) ist der eigentliche Auslöser aber das SHORT-Signal. Ansatz: im Kopf das gegenläufige Signal wählen (analog `detectConflict`/`conflictNote`). conflictNote + suggestVerdict kommunizieren es bereits korrekt.
+  - [ ] **Folge (Minor, Whole-Review): Demo-Querlink-Drift Inbox↔Portfolio** — GC=F/TSLA sind in der Inbox-Demo Konflikte, im Portfolio-Demo (andere Momentaufnahme) nicht; nur XLE deckungsgleich. Ansatz: beim echten Endpunkt sind beide aus derselben Quelle konsistent; für die Demo optional die Inbox-Konflikte 1:1 aus dem Portfolio-Demo spiegeln.
 
 ---
 
