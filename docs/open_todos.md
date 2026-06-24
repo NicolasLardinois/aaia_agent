@@ -665,6 +665,10 @@ Jede Analyse gibt pro Linse genau eine Aktion. **HOLD vs NONE:** HOLD = Position
 - [ ] **Konflikt-Backtester (eigener Block)** — bewertet `conflict_resolution` (war der erkannte
   Konflikt richtig + gut aufgelöst?), nicht `short_action`. Anderes Prüf-Subjekt als der
   Short-Backtester. Speist später die Kalibrierung des Konflikt-Agenten.
+- [ ] **Konflikt-Befolgungsrate (`verdict` vs. `user_decision`)** — verhaltensbezogenes Maß (folgte
+  der Nutzer dem Rat?), getrennt von der Verdikt-Qualität. Liest `conflicts.user_decision`
+  (held/closed) gegen `verdict` (HOLD/EXIT/REVERSE) — **keine** Kurse nötig. Eigener kleiner Block;
+  baut auf der `load_for_backtest`-Lademethode auf. *(Aus dem Konflikt-Backtester-Faden, 2026-06-24.)*
 - [ ] **Short-Konfidenz-Kalibrierung (Rückspeisung)** — die per-Grund-Buckets des Short-Backtesters
   in `compute_confidence` zurückführen (ändert lebendes Verhalten → eigener geprüfter Schritt,
   Disziplin wie Regime-Backtest ②: erst messen, dann anwenden). Hinweis: Die per-Grund-Buckets liegen aktuell nur als Text im `notes`-Feld von `backtester_reports` (kein jsonb) — die Rückspeisung sollte eine `metrics jsonb`-Spalte ergänzen (analog `portfolio_snapshots.metrics`) statt den Notes-String zu parsen.
