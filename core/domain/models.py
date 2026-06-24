@@ -113,6 +113,27 @@ class FuturesAssessment:
         return cls(Signal.NEUTRAL, None, None, None, None, None, None, False, False)
 
 
+@dataclass(frozen=True)
+class FuturesShortAssessment:
+    """Kurven-/kostengetriebener Futures-Short-Block (Phase 3). available=False ⇒ keine Kurvendaten.
+
+    engine_action ist die positions-AGNOSTISCHE Engine-Sicht (SHORT/COVER/NONE); die
+    positions-bewusste ShortAction entsteht später in derive_short_assessment via _action()."""
+    roll_yield_short_ann: float | None    # +slope: der Short profitiert von Contango
+    carry_state: str                      # "contango_tailwind" | "neutral" | "backwardation_headwind"
+    cost_floor: float | None              # Produktionskosten-/AISC-Boden als Preis
+    floor_distance_pct: float | None      # (spot − floor)/floor = Fallhöhe nach unten
+    floor_binds: bool                     # Preis nahe/unter Boden → Deckel aktiv
+    floor_applied: bool                   # Floor-Daten vorhanden und im Deckel berücksichtigt
+    short_confidence: float               # 0.10–1.0 (Schwelle 0.50)
+    engine_action: ShortAction            # positions-agnostische Engine-Sicht
+    available: bool
+
+    @classmethod
+    def unavailable(cls) -> "FuturesShortAssessment":
+        return cls(None, "neutral", None, None, False, False, 0.10, ShortAction.NONE, False)
+
+
 class ShortType(str, Enum):
     DEFENSIVE  = "DEFENSIV"
     AGGRESSIVE = "AGGRESSIV"
@@ -824,6 +845,8 @@ class BottomUpResult:
     futures_curve: Optional["FuturesAssessment"] = None
     # Phase 2b: Fund-Info-Schicht — nur bei wrapper=FUND befüllt, sonst None.
     fund_info: Optional["FundInfo"] = None
+    # Phase 3: Futures-Short-Schicht — nur bei wrapper=FUTURE & Rohstoff/Edelmetall befüllt, sonst None.
+    futures_short: Optional["FuturesShortAssessment"] = None
 
 
 # ─────────────────────────────────────────────
