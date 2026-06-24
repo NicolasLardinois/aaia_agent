@@ -49,3 +49,19 @@ def test_unavailable_futures_short_falls_back():
 def test_long_position_defers_to_none():
     a = _derive(_bottom_up(_fs(0.55)), PositionState.LONG)
     assert a.short_action == ShortAction.NONE          # Long-Titel → kein Short
+
+
+def test_bond_underlying_falls_back():
+    # BOND ist nicht im Futures-Short-Zweig → bisheriger Fallback (conf 0.10).
+    bu = _bottom_up(None, underlying=Underlying.BOND, wrapper=Wrapper.FUTURE)
+    a = _derive(bu, PositionState.NONE)
+    assert a.short_action == ShortAction.NONE
+    assert a.confidence == 0.10
+
+
+def test_commodity_spot_wrapper_falls_back():
+    # Rohstoff OHNE Future-Wrapper → Guard greift nicht, trotz verfügbarem fs → Fallback.
+    bu = _bottom_up(_fs(0.55), underlying=Underlying.COMMODITY, wrapper=Wrapper.SINGLE)
+    a = _derive(bu, PositionState.NONE)
+    assert a.short_action == ShortAction.NONE
+    assert a.confidence == 0.10

@@ -75,7 +75,7 @@ def derive_short_assessment(bottom_up, cockpit, current_position,
         if (underlying in (Underlying.COMMODITY, Underlying.PRECIOUS_METAL)
                 and wrapper == Wrapper.FUTURE and fs is not None and fs.available):
             conf = fs.short_confidence
-            action = _action(current_position, conf, position_pnl_pct)
+            action = _action(current_position, conf, position_pnl_pct, squeeze)
             dist = "n/v" if fs.floor_distance_pct is None else f"{fs.floor_distance_pct:.2f}"
             flags = [f"carry={fs.carry_state}", f"floor_distance={dist}",
                      "floor_binds" if fs.floor_binds else "floor_room"]
