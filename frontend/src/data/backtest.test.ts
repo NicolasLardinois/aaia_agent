@@ -7,7 +7,7 @@ describe("loadBacktest (Tausch-Naht)", () => {
   it("liefert einen Demo-View (isDemo:true) mit Roh-Ergebnissen", async () => {
     const v = await loadBacktest();
     expect(v.isDemo).toBe(true);
-    expect(v.results.length).toBeGreaterThanOrEqual(9);
+    expect(v.results.length).toBeGreaterThanOrEqual(12);
   });
   it("deckt alle drei Bereiche ab (top_down/bottom_up/judgment)", async () => {
     const v = await loadBacktest();

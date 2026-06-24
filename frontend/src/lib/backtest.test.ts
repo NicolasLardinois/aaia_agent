@@ -5,10 +5,10 @@ import type { BacktestResult } from "../contract/backtest";
 
 // Kleines, kontrolliertes Set: 4 Ergebnisse quer ueber Bereich/Ticker/underlying/Regime/Horizont.
 const R: BacktestResult[] = [
-  { id: "1", area: "top_down",  ticker: "SPY",  underlying: "equity_index",   regime: "Aufschwung", horizon: 30, correct: true,  timestamp: "2026-01-01" },
-  { id: "2", area: "top_down",  ticker: "SPY",  underlying: "equity_index",   regime: "Abschwung",  horizon: 60, correct: false, timestamp: "2026-02-01" },
-  { id: "3", area: "judgment",  ticker: "AAPL", underlying: "equity",         regime: "Aufschwung", horizon: 90, correct: true,  timestamp: "2026-03-01" },
-  { id: "4", area: "bottom_up", ticker: "GC=F", underlying: "precious_metal", regime: "Aufschwung", horizon: 30, correct: true,  timestamp: "2026-04-01" },
+  { id: "1", area: "top_down",  ticker: "SPY",  underlying: "equity_index",   regime: "AUFSCHWUNG", horizon: 30, correct: true,  timestamp: "2026-01-01" },
+  { id: "2", area: "top_down",  ticker: "SPY",  underlying: "equity_index",   regime: "ABSCHWUNG",  horizon: 60, correct: false, timestamp: "2026-02-01" },
+  { id: "3", area: "judgment",  ticker: "AAPL", underlying: "equity",         regime: "AUFSCHWUNG", horizon: 90, correct: true,  timestamp: "2026-03-01" },
+  { id: "4", area: "bottom_up", ticker: "GC=F", underlying: "precious_metal", regime: "AUFSCHWUNG", horizon: 30, correct: true,  timestamp: "2026-04-01" },
 ];
 
 describe("filterResults (US32 — additiv/UND)", () => {
@@ -22,13 +22,13 @@ describe("filterResults (US32 — additiv/UND)", () => {
     expect(filterResults(R, { underlying: "equity" }).map((r) => r.id)).toEqual(["3"]);
   });
   it("nach Regime", () => {
-    expect(filterResults(R, { regime: "Aufschwung" })).toHaveLength(3);
+    expect(filterResults(R, { regime: "AUFSCHWUNG" })).toHaveLength(3);
   });
   it("nach Horizont (Zeitfenster)", () => {
     expect(filterResults(R, { horizon: 30 })).toHaveLength(2);
   });
   it("kombiniert (UND): Bereich + Regime", () => {
-    expect(filterResults(R, { area: "top_down", regime: "Aufschwung" }).map((r) => r.id)).toEqual(["1"]);
+    expect(filterResults(R, { area: "top_down", regime: "AUFSCHWUNG" }).map((r) => r.id)).toEqual(["1"]);
   });
   it("Filter ohne Treffer => leere Menge", () => {
     expect(filterResults(R, { ticker: "TSLA" })).toEqual([]);

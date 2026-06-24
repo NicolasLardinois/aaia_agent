@@ -14,6 +14,9 @@ export type BacktestArea = "top_down" | "bottom_up" | "judgment";
 // Zeitfenster/Horizont in Handelstagen — Standardhorizonte des Systems (30/60/90 T, US31/US32).
 export type BacktestHorizon = 30 | 60 | 90;
 
+// Marktregime (Großbuchstaben, konsistent zur Cockpit-Demo). Typisiert -> kein Schreibweisen-Drift im Filter.
+export type BacktestRegime = "BOOM" | "AUFSCHWUNG" | "ABSCHWUNG" | "REZESSION" | "ERHOLUNG";
+
 // Ein historischer Call = eine Beobachtung im Backtest. `correct` ist die einheitliche
 // Erfolgsmetrik je Bereich: Regime korrekt (top_down) / Signal korrekt (bottom_up) /
 // Urteil profitabel (judgment). So bleibt die Trefferquote-Mathematik bereichsunabhaengig.
@@ -22,7 +25,7 @@ export interface BacktestResult {
   area: BacktestArea;
   ticker: string;             // betroffener Titel/Markt (Filter-Achse, US32)
   underlying: Underlying;     // Asset-Klasse (Filter-Achse, US32)
-  regime: string;             // Marktregime zum Zeitpunkt des Calls (Filter-Achse, US32)
+  regime: BacktestRegime;     // Marktregime zum Zeitpunkt des Calls (Filter-Achse, US32)
   horizon: BacktestHorizon;   // Zeitfenster 30/60/90 T (Filter-Achse, US32)
   correct: boolean;           // war der Call im Nachhinein korrekt/profitabel?
   timestamp: string;          // ISO-Datum des Calls (chronologische Achse fuer die Kurve)
