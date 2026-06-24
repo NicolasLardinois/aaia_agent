@@ -13,9 +13,14 @@ const THRESHOLDS: Record<InflationRegion, { low: number; high: number; bearish: 
 };
 
 export interface InflationBand {
+  // SIGNAL-QUELLE (Vertrag): Das im UI angezeigte Signal kommt IMMER vom Backend (InflationRow.signal,
+  // berechnet vom inflation_agent). Dieses `signal` hier ist nur Diagnose/Referenz fuer das Label —
+  // NICHT zum Anzeigen verwenden. So gibt es genau eine Wahrheit; bei kuenftiger Schwellen-Drift kann
+  // das Frontend-Band vom Backend abweichen, ohne die Anzeige zu verfaelschen. Der Guard-Test in
+  // inflation.test.ts haelt Demo-Backend-Signal und Band-Signal deckungsgleich (faengt Drift frueh).
   signal: Signal | null;
   band: "deflation" | "below" | "target" | "elevated" | "high" | "unavailable";
-  // Greifende Schwelle (welche Grenze gerade trennt) als Text fuers UI.
+  // Greifende Schwelle (welche Grenze gerade trennt) als Text fuers UI — DAS ist der UI-Zweck.
   activeThreshold: string;
 }
 

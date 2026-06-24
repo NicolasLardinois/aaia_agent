@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { sortRows, filterRows, vsMedianLabel, toMapPoints } from "./buffett";
+import { sortRows, filterRows, vsMedianLabel, toMapPoints, ISO3_TO_MAP_NAME } from "./buffett";
+import { demoBuffett } from "../data/demo/cockpit";
 import type { BuffettCountry } from "../contract/cockpit";
 
 const makeCountry = (overrides: Partial<BuffettCountry>): BuffettCountry => ({
@@ -223,5 +224,25 @@ describe("toMapPoints — iso3 auf GeoJSON-Namen mappen", () => {
     expect(pts[0].name).toBe("United States");
     expect(pts[1].name).toBe("Switzerland");
     expect(pts[2].name).toBe("Germany");
+  });
+});
+
+// Guard (Befund #1, PR #44-Review): JEDES Land aus den Demo-Daten MUSS in ISO3_TO_MAP_NAME stehen.
+// Sonst faellt toMapPoints auf den deutschen Namen zurueck -> kein GeoJSON-Match -> stumm graue
+// Karte. Dieser Test schlaegt laut fehl, sobald ein Demo-Land ohne Mapping hinzukommt — und
+// erinnert beim Echt-Anschluss (fetchBuffett), die Tabelle auf alle Laender zu erweitern.
+describe("ISO3_TO_MAP_NAME — Vollstaendigkeit ggü. Demo-Daten", () => {
+  it("jedes Demo-Buffett-Land ist gemappt (kein stiller Fallback)", () => {
+    const unmapped = demoBuffett().countries
+      .map((c) => c.iso3)
+      .filter((iso3) => !(iso3 in ISO3_TO_MAP_NAME));
+    expect(unmapped).toEqual([]);
+  });
+
+  it("toMapPoints liefert fuer Demo-Daten keinen deutschen Fallback-Namen", () => {
+    const points = toMapPoints(demoBuffett().countries);
+    // Alle gemappten Namen sind die englischen GeoJSON-Namen -> in den Werten der Tabelle.
+    const mappedValues = Object.values(ISO3_TO_MAP_NAME);
+    expect(points.every((p) => mappedValues.includes(p.name))).toBe(true);
   });
 });

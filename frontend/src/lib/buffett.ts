@@ -6,7 +6,11 @@ import { zScoreFlag } from "./anomaly";
 // Die Demo-Daten (und zukuenftige API-Daten) verwenden deutsche Namen + iso3.
 // Damit buildMapOption() die Laender per nameProperty:"name" findet, muessen die MapPoints
 // den exakten englischen GeoJSON-Namen tragen — sonst bleibt die Karte grau (kein Match).
-const ISO3_TO_MAP_NAME: Record<string, string> = {
+// HINWEIS: deckt aktuell nur die Demo-Laender ab. Beim Echt-Anschluss (fetchBuffett) muss diese
+// Tabelle auf ALLE gelieferten Laender erweitert werden — sonst fallen unbekannte iso3 auf den
+// deutschen Namen zurueck und bleiben stumm grau. Der Guard-Test in buffett.test.ts erzwingt,
+// dass jedes Land aus den Demo-Daten hier gemappt ist (faellt laut aus statt still grau).
+export const ISO3_TO_MAP_NAME: Record<string, string> = {
   USA: "United States",
   CHE: "Switzerland",
   DEU: "Germany",

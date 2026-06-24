@@ -9,7 +9,7 @@ export function demoMacro(): MacroView {
     isDemo: true,
     sourcesActive: 3, sourcesTotal: 3, failed: [],
     inflation: [
-      // USA 3.2 % -> "erhoht" (3–4 %) -> BEARISH; EU/DE 2.4 % -> Zielzone -> BULLISH;
+      // USA 3.2 % -> "erhoht" (3–4 %) -> BEARISH; DE 2.4 % -> Zielzone -> BULLISH;
       // CH 1.1 % -> ueber CH-Ziel-Untergrenze, in CH-Zielzone (0.5–2) -> BULLISH.
       { region: "USA", cpiPct: 3.2, signal: "bearish", dataDate: "2026-05" },
       { region: "DE",  cpiPct: 2.4, signal: "bullish", dataDate: "2026-05" },

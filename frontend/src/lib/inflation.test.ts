@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { inflationBand } from "./inflation";
+import { demoMacro } from "../data/demo/cockpit";
 
 describe("inflationBand — USA", () => {
   it("-0.1 -> deflation / bearish", () => {
@@ -84,6 +85,18 @@ describe("inflationBand — null / UNAVAILABLE", () => {
     expect(r.signal).toBeNull();
     expect(r.activeThreshold).toBe("—");
   });
+});
+
+// Guard (Befund #2, PR #44-Review): Es gibt genau EINE Signal-Wahrheit. Das Backend liefert
+// InflationRow.signal; das Band-Signal aus inflationBand() ist nur Referenz/Label. Dieser Test
+// haelt beide auf den Demo-Daten deckungsgleich — driftet eine Schwelle (Backend vs. Frontend-Band),
+// faellt er auf, bevor Anzeige (Signal) und Label-Begruendung widerspruechlich werden koennen.
+describe("inflationBand — Konsistenz mit Backend-Signal (Demo)", () => {
+  for (const row of demoMacro().inflation) {
+    it(`${row.region} ${row.cpiPct} %: Band-Signal == Backend-Signal`, () => {
+      expect(inflationBand(row.cpiPct, row.region).signal).toBe(row.signal);
+    });
+  }
 });
 
 describe("inflationBand — activeThreshold", () => {

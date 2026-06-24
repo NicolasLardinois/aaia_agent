@@ -67,7 +67,7 @@ export function MacroDrilldown({ loader = loadMacro }: { loader?: () => Promise<
             </tbody>
           </table>
           <p className="mt-3 text-xs text-slate-400">
-            Regionen: USA und DE nutzen EU-Schwellen (Zielzone 1–3 %); CH hat strukturell
+            Regionen: USA und DE nutzen Eurozone-Schwellen (Zielzone 1–3 %); CH hat strukturell
             niedrigere Inflation (Zielzone 0,5–2 %). Keine „EU"-Aggregation (länderspezifisch).
           </p>
         </div>
