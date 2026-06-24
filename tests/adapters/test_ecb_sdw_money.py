@@ -60,5 +60,7 @@ def test_get_m3_growth_cap_grenzwerte():
     # Cap ist inklusiv: 50.0 gueltig; -51.0 ausserhalb -> None
     with patch(_GET, return_value=_resp(_bsi_payload(50.0))):
         assert EcbSdwProvider().get_m3_growth() == 50.0
+    with patch(_GET, return_value=_resp(_bsi_payload(-50.0))):
+        assert EcbSdwProvider().get_m3_growth() == -50.0   # untere Grenze inklusiv
     with patch(_GET, return_value=_resp(_bsi_payload(-51.0))):
         assert EcbSdwProvider().get_m3_growth() is None

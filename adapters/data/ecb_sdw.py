@@ -125,10 +125,14 @@ class EcbSdwProvider(EcbDataProvider):
             return None
         return round(raw, 1)
 
-    # ── Stubs ────────────────────────────────────────────────────────────────
+    # ── ECB SDW BSI: Geldmengen-Jahreswachstum (M3/M2) ──────────────────────
     def get_m3_growth(self) -> float | None:
         return self._fetch_bsi_growth("M30")
 
+    def get_m2_growth(self) -> float | None:
+        return self._fetch_bsi_growth("M20")
+
+    # ── Stubs (noch nicht angebunden) ───────────────────────────────────────
     def get_balance_sheet_growth(self) -> Optional[float]:  return None
     def get_cpi(self) -> Optional[float]:                   return None
     def get_core_cpi(self) -> Optional[float]:              return None
@@ -136,9 +140,6 @@ class EcbSdwProvider(EcbDataProvider):
     def get_gdp_growth(self) -> Optional[float]:            return None
     def get_unemployment(self) -> Optional[float]:          return None
     def get_pmi(self) -> Optional[float]:                   return None
-
-    def get_m2_growth(self) -> float | None:
-        return self._fetch_bsi_growth("M20")
 
     def get_sovereign_yields(self) -> dict[str, Optional[float]]:
         return {f"{c}_10y": self._fetch_country_yield(c) for c in EUROZONE_COUNTRIES}
