@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { AppRoutes } from "./routes";
+import { demoInbox } from "./data/demo/inbox";
 
 // Cockpit-Datenhook neutralisieren (kein echter Netz-Call im Routing-Test).
 vi.mock("./hooks/useCockpit", () => ({
@@ -88,13 +89,14 @@ describe("AppRoutes", () => {
     );
   });
 
-  // B3: Topbar-Badge zeigt die echte offene Konflikt-Anzahl (>=3 Demo-Konflikte, US28)
-  it("Topbar-Badge zeigt die echte offene Konflikt-Anzahl (>=3)", async () => {
+  // B3: Topbar-Badge zeigt die echte offene Konflikt-Anzahl (Demo-Fixture aus demoInbox)
+  it("Topbar-Badge zeigt die echte offene Konflikt-Anzahl aus Fixture", async () => {
     renderAt("/cockpit");
     // loadInboxCount laedt asynchron; Badge erscheint nach Promise-Aufloesung
+    const erwartet = demoInbox().conflicts.filter((c) => c.status === "offen").length;
     await waitFor(() => {
       // Das Inbox-Badge zeigt die Zahl als Text in der Topbar (aria-label=Inbox + Badge-Span)
-      const badge = screen.queryByText("3");
+      const badge = screen.queryByText(String(erwartet));
       expect(badge).toBeInTheDocument();
     });
   });

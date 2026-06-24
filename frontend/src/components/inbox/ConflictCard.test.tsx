@@ -25,6 +25,24 @@ const xleConflict: ConflictDTO = {
   status: "offen",
 };
 
+// Short-Konflikt: TSLA short gehalten, neues Long-Urteil BUY -> REVERSE
+const tslaShortConflict: ConflictDTO = {
+  id: "TSLA-short",
+  ticker: "TSLA",
+  name: "Tesla Inc.",
+  underlying: "equity",
+  wrapper: "single",
+  direction: "short",
+  heldVerdict: "SHORT",
+  newLongVerdict: "BUY",
+  newShortVerdict: "COVER",
+  confidence: 0.62,
+  conflictNote: "Short gehalten, aber neues Urteil BUY — These laeuft gegen die Position.",
+  suggestedVerdict: "REVERSE",
+  suggestedRationale: "Short-These traegt nicht mehr (BUY), Richtung umkehren erwaegen.",
+  status: "offen",
+};
+
 function renderCard(
   conflict: ConflictDTO = xleConflict,
   onResolve?: (id: string, decision: "gefolgt" | "ignoriert" | "vertagt") => void,
@@ -118,5 +136,13 @@ describe("ConflictCard (US29/US30)", () => {
   it("ohne onResolve werden keine Aktions-Buttons gerendert", () => {
     renderCard(xleConflict); // onResolve nicht gesetzt
     expect(screen.queryByRole("button", { name: /Gefolgt/i })).toBeNull();
+  });
+
+  it("Short-Konflikt: zeigt newShortVerdict im Kopf (COVER bei TSLA short)", () => {
+    renderCard(tslaShortConflict);
+    expect(screen.getByText("TSLA")).toBeInTheDocument();
+    // Das hervorgehobene COVER-Urteil steht als <span> im Kopf (konsistent mit Short-Richtung).
+    const coverElems = screen.getAllByText("COVER");
+    expect(coverElems.length).toBeGreaterThanOrEqual(1);
   });
 });

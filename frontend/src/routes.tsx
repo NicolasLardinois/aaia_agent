@@ -27,7 +27,8 @@ export function AppRoutes({ deps, onLogout }: { deps?: UseCockpitDeps; onLogout?
     loadInboxCount(deps && deps.token ? { token: deps.token } : undefined)
       .then(setInboxCount)
       .catch(() => {/* Fehler still -> Badge bleibt 0 */});
-  // Einmaliger Ladeaufruf beim Mount. deps wird nicht erneut beobachtet (Demo-Vereinfachung).
+  // Demo: einmaliger Ladeaufruf beim Mount genuegt (Demo-Daten konstant);
+  // bei echtem Token-Wechsel hier deps.token ergaenzen.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

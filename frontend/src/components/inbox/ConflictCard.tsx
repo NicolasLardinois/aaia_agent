@@ -32,8 +32,8 @@ function relevantesUrteils(conflict: ConflictDTO): { label: string; colorClass: 
   if (conflict.direction === "long") {
     return verdictToVisual(conflict.newLongVerdict);
   }
-  // Short-Position: neues Long-Urteil zeigt den Gegenwind
-  return verdictToVisual(conflict.newLongVerdict);
+  // Short-Position: newShortVerdict zeigt den relevanten Druck (COVER/SHORT/HOLD/NONE) — Farbe passend zum Text.
+  return verdictToVisual(conflict.newShortVerdict);
 }
 
 export function ConflictCard({ conflict, onResolve, loggedDecision }: ConflictCardProps) {
