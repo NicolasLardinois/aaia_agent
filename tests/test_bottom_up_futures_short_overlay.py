@@ -63,3 +63,12 @@ def test_cost_floor_provider_exception_does_not_crash():
     res = asyncio.run(orch.run("CL", underlying=Underlying.COMMODITY, wrapper=Wrapper.FUTURE))
     assert res.futures_short is not None
     assert res.futures_short.floor_applied is False
+
+
+def test_precious_metal_future_attaches_futures_short():
+    provider = MagicMock(spec=FuturesCurveProvider)
+    provider.get_curve = AsyncMock(return_value=_snap())
+    orch = _orchestrator(futures_curve_provider=provider)
+    res = asyncio.run(orch.run("GC", underlying=Underlying.PRECIOUS_METAL, wrapper=Wrapper.FUTURE))
+    assert res.futures_short is not None
+    assert res.futures_short.available is True
