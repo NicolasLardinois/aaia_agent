@@ -5,14 +5,15 @@
 // Vier Filter-Achsen (US32): Ticker, Asset-Klasse (underlying), Regime, Zeitfenster (Horizont).
 import type { BacktestFilters as Filters } from "../../lib/backtest";
 import type { Underlying } from "../../contract/common";
+import type { BacktestRegime, BacktestHorizon } from "../../contract/backtest";
 
 export interface BacktestFiltersProps {
   // Optionen aus den Roh-Ergebnissen abgeleitet (von BacktesterPage uebergeben).
   tickers: string[];
-  underlyings: string[];    // Underlying-Werte als Strings (Asset-Klasse)
-  regimes: string[];
-  horizons: number[];       // Standardhorizonte 30/60/90 T
-  value: Filters;           // aktueller Filter-Zustand (kontrolliert)
+  underlyings: string[];      // Underlying-Werte als Strings (Asset-Klasse)
+  regimes: BacktestRegime[];  // typisierte Union -> kein Schreibweisen-Drift
+  horizons: number[];         // Standardhorizonte 30/60/90 T
+  value: Filters;             // aktueller Filter-Zustand (kontrolliert)
   onChange: (patch: Partial<Filters>) => void;  // liefert nur das geaenderte Feld
 }
 
@@ -75,7 +76,8 @@ export function BacktestFilters({
           value={value.regime ?? ""}
           onChange={(e) => {
             const v = e.target.value;
-            onChange({ regime: v !== "" ? v : undefined });
+            // Leerer Wert = "Alle" -> undefined; sonst auf die typisierte Union casten.
+            onChange({ regime: v !== "" ? (v as BacktestRegime) : undefined });
           }}
           className="rounded border border-slate-200 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800"
         >
@@ -97,7 +99,7 @@ export function BacktestFilters({
           onChange={(e) => {
             const v = e.target.value;
             // Horizont als number zurueckgeben (30/60/90), nicht als String (US32).
-            onChange({ horizon: v !== "" ? (Number(v) as 30 | 60 | 90) : undefined });
+            onChange({ horizon: v !== "" ? (Number(v) as BacktestHorizon) : undefined });
           }}
           className="rounded border border-slate-200 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800"
         >

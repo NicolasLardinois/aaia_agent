@@ -3,7 +3,7 @@
 // und die kumulierte Trefferkurve (LineCurve). Die Karte empfaengt bereits gefilterte
 // Ergebnisse — die Seite (BacktesterPage) wendet filterResults + area-Filter an.
 // WICHTIG: leere Stichprobe => "n.v.", NICHT "0 %" (UNAVAILABLE != 0, Spec §5.4).
-import { hitRate, equityCurve, formatHitRate } from "../../lib/backtest";
+import { hitRate, hitRateCurve, formatHitRate } from "../../lib/backtest";
 import type { BacktestResult, BacktestArea } from "../../contract/backtest";
 import { LineCurve } from "../charts/LineCurve";
 
@@ -24,7 +24,7 @@ export function BacktestCard({ area, results }: BacktestCardProps) {
   // hitRate liefert rate:null bei n=0 (leere Stichprobe = "n.v.", nicht "0 %").
   const hr = hitRate(results);
   // Kumulierte Trefferquote ueber die Zeit; leere Menge => [] (keine Null-Linie).
-  const curve = equityCurve(results);
+  const curve = hitRateCurve(results);
 
   return (
     <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">

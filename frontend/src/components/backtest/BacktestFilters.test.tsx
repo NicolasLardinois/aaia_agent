@@ -3,12 +3,14 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BacktestFilters } from "./BacktestFilters";
+import type { BacktestRegime } from "../../contract/backtest";
 
 describe("BacktestFilters (US32)", () => {
+  // regimes als typisierte Union (BacktestRegime[]) — spiegelt den verschaerften Prop-Typ.
   const defaultProps = {
     tickers: ["SPY", "AAPL"],
     underlyings: ["equity", "equity_index"],
-    regimes: ["AUFSCHWUNG", "ABSCHWUNG"],
+    regimes: ["AUFSCHWUNG", "ABSCHWUNG"] as BacktestRegime[],
     horizons: [30, 60, 90],
     value: {},
     onChange: vi.fn(),

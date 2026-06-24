@@ -1,15 +1,16 @@
 // frontend/src/lib/backtest.ts
-import type { BacktestResult, BacktestArea, BacktestHorizon } from "../contract/backtest";
+import type { BacktestResult, BacktestArea, BacktestHorizon, BacktestRegime } from "../contract/backtest";
 import type { LinePoint } from "../components/charts/LineCurve";
 import type { Underlying } from "../contract/common";
 
 // Filter-Achsen (US32). Jede Achse optional: undefined => kein Filter auf dieser Achse.
 // `area` ist kein Nutzer-Filter, sondern die Bereichs-Auswahl der jeweiligen Karte.
+// Regime als typisierte Union (BacktestRegime) statt string -> kein Schreibweisen-Drift.
 export interface BacktestFilters {
   area?: BacktestArea;
   ticker?: string;
   underlying?: Underlying;
-  regime?: string;
+  regime?: BacktestRegime;
   horizon?: BacktestHorizon;
 }
 
@@ -41,8 +42,14 @@ export function hitRate(results: BacktestResult[]): HitRate {
 
 // Kumulierte Trefferquote ueber die Zeit (chronologisch). Jeder Punkt = laufender Anteil
 // korrekter Calls bis dahin, in %. Leere Menge => leeres Array (keine irrefuehrende Null-Linie).
-export function equityCurve(results: BacktestResult[]): LinePoint[] {
-  const sorted = [...results].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+// HINWEIS: bewusst die Treffer-QUOTE (nicht eine P/L-Equity-Kurve) — daher hitRateCurve.
+// Eine echte P/L-basierte Equity-Kurve (equityCurvePnl) kommt erst mit dem echten Endpunkt.
+// Bei gleichem Timestamp deterministisch nach id reihen (stabiler Tiebreaker) -> die Kurve
+// haengt nicht von der Eingabereihenfolge ab.
+export function hitRateCurve(results: BacktestResult[]): LinePoint[] {
+  const sorted = [...results].sort(
+    (a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id),
+  );
   let correctSoFar = 0;
   return sorted.map((r, i) => {
     if (r.correct) correctSoFar += 1;

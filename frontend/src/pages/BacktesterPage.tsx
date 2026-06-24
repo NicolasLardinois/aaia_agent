@@ -65,7 +65,7 @@ export function BacktesterPage({ loader = loadBacktest }: { loader?: () => Promi
 
           {/* Drei Karten (US31): je Bereich gefilterte Ergebnisse berechnen.
               Der Nutzer-Filter (Ticker/underlying/Regime/Horizont) wirkt auf alle drei Karten.
-              Die Karte selbst rechnet hitRate + equityCurve ueber die gefilterte Teilmenge.
+              Die Karte selbst rechnet hitRate + hitRateCurve ueber die gefilterte Teilmenge.
               Leerer Schnitt -> Karte zeigt "n.v." (nicht 0 %) — UNAVAILABLE != 0. */}
           <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-3">
             {AREAS.map((area) => {

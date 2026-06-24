@@ -1,6 +1,6 @@
 // frontend/src/lib/backtest.test.ts
 import { describe, it, expect } from "vitest";
-import { filterResults, hitRate, equityCurve, formatHitRate } from "./backtest";
+import { filterResults, hitRate, hitRateCurve, formatHitRate } from "./backtest";
 import type { BacktestResult } from "../contract/backtest";
 
 // Kleines, kontrolliertes Set: 4 Ergebnisse quer ueber Bereich/Ticker/underlying/Regime/Horizont.
@@ -52,23 +52,36 @@ describe("hitRate (US31 — Trefferquote + n; UNAVAILABLE != 0)", () => {
   });
 });
 
-describe("equityCurve (US31 — kumulierte Trefferquote ueber die Zeit)", () => {
+describe("hitRateCurve (US31 — kumulierte Trefferquote ueber die Zeit)", () => {
   it("leere Menge => leeres Array (keine Null-Linie)", () => {
-    expect(equityCurve([])).toEqual([]);
+    expect(hitRateCurve([])).toEqual([]);
   });
   it("ein Punkt je Ergebnis, chronologisch sortiert", () => {
-    const pts = equityCurve(R);
+    const pts = hitRateCurve(R);
     expect(pts).toHaveLength(4);
     expect(pts.map((p) => p.x)).toEqual(["2026-01-01", "2026-02-01", "2026-03-01", "2026-04-01"]);
   });
   it("kumulierte Quote: 1. korrekt=100 %, nach 2. (1 falsch)=50 %", () => {
-    const pts = equityCurve(R);
+    const pts = hitRateCurve(R);
     expect(pts[0].y).toBeCloseTo(100, 5);
     expect(pts[1].y).toBeCloseTo(50, 5);
   });
   it("sortiert unabhaengig von Eingabereihenfolge", () => {
-    const pts = equityCurve([R[3], R[0], R[2], R[1]]);
+    const pts = hitRateCurve([R[3], R[0], R[2], R[1]]);
     expect(pts.map((p) => p.x)).toEqual(["2026-01-01", "2026-02-01", "2026-03-01", "2026-04-01"]);
+  });
+  it("bei gleichem Timestamp deterministisch (stabiler Tiebreaker nach id)", () => {
+    // Zwei Calls am selben Tag: die kumulierte Kurve darf NICHT von der Eingabereihenfolge
+    // abhaengen (sonst springt die angezeigte Kurve je nach Datenreihenfolge).
+    const sameDay: BacktestResult[] = [
+      { id: "b", area: "top_down", ticker: "SPY", underlying: "equity_index", regime: "AUFSCHWUNG", horizon: 30, correct: false, timestamp: "2026-05-01" },
+      { id: "a", area: "top_down", ticker: "SPY", underlying: "equity_index", regime: "AUFSCHWUNG", horizon: 30, correct: true,  timestamp: "2026-05-01" },
+    ];
+    const fwd = hitRateCurve(sameDay);
+    const rev = hitRateCurve([sameDay[1], sameDay[0]]);
+    expect(fwd.map((p) => p.y)).toEqual(rev.map((p) => p.y));
+    // id "a" (correct) wird durch den Tiebreaker zuerst gereiht -> erster Punkt = 100 %
+    expect(fwd[0].y).toBeCloseTo(100, 5);
   });
 });
 
