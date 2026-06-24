@@ -104,3 +104,10 @@ def test_eu_neutral_wenn_cpi_fehlt():
     agent = _make_agent(eu_m3=2.7, eu_gdp=0.3, eu_cpi=None)
     result = asyncio.run(agent.run())
     assert result.eurozone.signal == Signal.NEUTRAL
+
+
+def test_eu_neutral_wenn_bip_fehlt():
+    """M3 + CPI vorhanden, reales BIP fehlt → eu_nom_gdp None → NEUTRAL (symmetrisch zum CPI-Fall)."""
+    agent = _make_agent(eu_m3=2.7, eu_gdp=None, eu_cpi=2.0)
+    result = asyncio.run(agent.run())
+    assert result.eurozone.signal == Signal.NEUTRAL
