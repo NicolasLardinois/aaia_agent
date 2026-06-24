@@ -94,6 +94,7 @@ export function ConflictCard({ conflict, onResolve, loggedDecision }: ConflictCa
                 key={v}
                 role="button"
                 aria-pressed={istDefault ? "true" : "false"}
+                title={VERDIKT_LABEL[v]}
                 className={[
                   "rounded px-3 py-1 text-sm font-medium cursor-default select-none",
                   istDefault
