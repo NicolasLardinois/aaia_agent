@@ -16,10 +16,9 @@ function renderAt(path: string) {
 }
 
 describe("AppRoutes", () => {
-  it("zeigt Portfolio-Platzhalter unter /portfolio", () => {
-    renderAt("/portfolio");
-    expect(screen.getByRole("heading", { name: /Portfolio/i })).toBeInTheDocument();
-    expect(screen.getByText(/in einem folgenden Slice/i)).toBeInTheDocument();
+  it("/portfolio rendert die PortfolioPage (Exposure-Panel sichtbar)", async () => {
+    renderAt("/portfolio"); // bestehender Render-Helfer der Datei
+    await waitFor(() => expect(screen.getByText(/Brutto-Exposure/)).toBeInTheDocument());
   });
 
   it("leitet / auf das Cockpit", () => {
