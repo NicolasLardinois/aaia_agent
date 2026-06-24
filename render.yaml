@@ -33,6 +33,13 @@ services:
     rootDir: frontend              # build + publish relativ zu diesem Verzeichnis
     buildCommand: npm install && npm run build
     staticPublishPath: dist
+    routes:
+      # SPA-Fallback: Client-Routing (react-router/BrowserRouter) nutzt echte Pfade
+      # (/cockpit, /deep-dive/:ticker). Ohne diese Regel liefert der Static-Host bei
+      # Reload/Deep-Link einen 404 -> alle unbekannten Pfade auf index.html umschreiben.
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
         sync: false                # = Backend-URL (nach 1. Deploy eintragen, siehe Doku)

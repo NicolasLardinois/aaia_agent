@@ -18,10 +18,11 @@ export function Topbar({ inboxCount, onSearch, onLogout }: TopbarProps) {
         className="flex-1"
       >
         <input
+          type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="🔍 Ticker/Markt suchen …"
-          aria-label="Ticker/Markt suchen"
+          placeholder="z. B. AAPL, Gold, EUR …"
+          aria-label="Ticker oder Markt suchen"
           className="w-full max-w-md rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800"
         />
       </form>

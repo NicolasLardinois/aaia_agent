@@ -12,7 +12,9 @@ describe("Topbar", () => {
   it("ruft onSearch mit dem eingegebenen Ticker", async () => {
     const onSearch = vi.fn();
     render(<MemoryRouter><Topbar inboxCount={0} onSearch={onSearch} /></MemoryRouter>);
-    await userEvent.type(screen.getByPlaceholderText(/Ticker/i), "AAPL{enter}");
+    // Zugriff ueber den barrierefreien Namen (aria-label), nicht ueber den Placeholder
+    // (Placeholder ist nur ein Beispiel-Hinweis, kein Label).
+    await userEvent.type(screen.getByRole("searchbox", { name: /suchen/i }), "AAPL{enter}");
     expect(onSearch).toHaveBeenCalledWith("AAPL");
   });
 });
