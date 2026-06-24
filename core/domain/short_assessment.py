@@ -70,6 +70,24 @@ def derive_short_assessment(bottom_up, cockpit, current_position,
     squeeze, htb, dtc = _squeeze(getattr(bottom_up, "short_interest", None))
 
     if underlying != Underlying.EQUITY:
+        # Phase 3: kurven-/kostengetriebener Futures-Short für Rohstoff/Edelmetall (wrapper=future).
+        fs = getattr(bottom_up, "futures_short", None)
+        if (underlying in (Underlying.COMMODITY, Underlying.PRECIOUS_METAL)
+                and wrapper == Wrapper.FUTURE and fs is not None and fs.available):
+            conf = fs.short_confidence
+            action = _action(current_position, conf, position_pnl_pct)
+            dist = "n/v" if fs.floor_distance_pct is None else f"{fs.floor_distance_pct:.2f}"
+            flags = [f"carry={fs.carry_state}", f"floor_distance={dist}",
+                     "floor_binds" if fs.floor_binds else "floor_room"]
+            size = None
+            if action == ShortAction.SHORT:
+                size = round(_position_size_pct(conf) * 0.5, 1)
+            elif action == ShortAction.SHORT_PLUS:
+                size = round(_position_size_pct(conf) * 0.25, 1)
+            stop = 15.0
+            return _mk(underlying, wrapper, action, conf, ["carry_short"], flags,
+                       regime, squeeze, htb, size, stop)
+        # andere Nicht-Equity (bond; oder commodity/metal ohne Future-Wrapper): bisheriger Fallback.
         action = ShortAction.HOLD if current_position == PositionState.SHORT else ShortAction.NONE
         return _mk(underlying, wrapper, action, 0.10, [],
                    ["Fallback: klassenspezifische Short-Logik folgt"], regime, squeeze, htb)
