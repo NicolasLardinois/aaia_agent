@@ -2,15 +2,36 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./shell/AppShell";
 import { CockpitPage } from "./pages/CockpitPage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
+import { MacroDrilldown } from "./pages/cockpit/MacroDrilldown";
+import { CommoditiesDrilldown } from "./pages/cockpit/CommoditiesDrilldown";
+import { SentimentDrilldown } from "./pages/cockpit/SentimentDrilldown";
+import { YieldCurveDrilldown } from "./pages/cockpit/YieldCurveDrilldown";
+import { SectorsDrilldown } from "./pages/cockpit/SectorsDrilldown";
+import { BuffettWidget } from "./pages/cockpit/BuffettWidget";
+import { BigMacWidget } from "./pages/cockpit/BigMacWidget";
 import type { UseCockpitDeps } from "./hooks/useCockpit";
 
 // Routen unter der Shell. Inbox-Anzahl ist in Slice 0 noch 0 (Slice 4 speist sie).
+// Drilldown-Routen (B7): /cockpit/<domain> -> jeweilige Drilldown-Seite.
+// Buffett + Big-Mac (Dispatch C, C3): echte Widgets eingehaengt.
 export function AppRoutes({ deps, onLogout }: { deps?: UseCockpitDeps; onLogout?: () => void }) {
   return (
     <Routes>
       <Route element={<AppShell inboxCount={0} onLogout={onLogout} />}>
         <Route index element={<Navigate to="/cockpit" replace />} />
         <Route path="/cockpit" element={<CockpitPage deps={deps} />} />
+
+        {/* Cockpit-Drilldowns (Slice 1, Dispatch B) */}
+        <Route path="/cockpit/macro" element={<MacroDrilldown />} />
+        <Route path="/cockpit/commodities" element={<CommoditiesDrilldown />} />
+        <Route path="/cockpit/sentiment" element={<SentimentDrilldown />} />
+        <Route path="/cockpit/yield-curve" element={<YieldCurveDrilldown />} />
+        <Route path="/cockpit/sectors" element={<SectorsDrilldown />} />
+
+        {/* Spezial-Widgets (Slice 1, Dispatch C) */}
+        <Route path="/cockpit/buffett" element={<BuffettWidget />} />
+        <Route path="/cockpit/big-mac" element={<BigMacWidget />} />
+
         <Route path="/deep-dive" element={<PlaceholderPage title="Deep-Dive — Titel über die Suche oben öffnen" />} />
         <Route path="/deep-dive/:ticker" element={<PlaceholderPage title="Deep-Dive" />} />
         <Route path="/portfolio" element={<PlaceholderPage title="Portfolio" />} />

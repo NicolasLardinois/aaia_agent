@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { AppRoutes } from "./routes";
 
@@ -8,6 +8,9 @@ vi.mock("./hooks/useCockpit", () => ({
   useCockpit: () => ({ overview: null, phase: "ready", error: null, events: [], startAnalysis: () => {} }),
 }));
 
+// ECharts im jsdom neutralisieren (LineCurve in YieldCurveDrilldown).
+vi.mock("echarts-for-react", () => ({ default: () => null }));
+
 function renderAt(path: string) {
   return render(<MemoryRouter initialEntries={[path]}><AppRoutes /></MemoryRouter>);
 }
@@ -15,13 +18,61 @@ function renderAt(path: string) {
 describe("AppRoutes", () => {
   it("zeigt Portfolio-Platzhalter unter /portfolio", () => {
     renderAt("/portfolio");
-    // Platzhalter-Seite zeigt Überschrift + Hinweis
     expect(screen.getByRole("heading", { name: /Portfolio/i })).toBeInTheDocument();
     expect(screen.getByText(/in einem folgenden Slice/i)).toBeInTheDocument();
   });
+
   it("leitet / auf das Cockpit", () => {
     renderAt("/");
-    // Nach Redirect: Cockpit-Übersichtsseite sichtbar
     expect(screen.getByRole("heading", { name: /Cockpit — Übersicht/i })).toBeInTheDocument();
+  });
+
+  // Drilldown-Routen (B7)
+  it("Navigation zu /cockpit/macro rendert Makro-Drilldown", async () => {
+    renderAt("/cockpit/macro");
+    await waitFor(() => expect(screen.getByText(/Makro/i)).toBeInTheDocument());
+    // Zurück-Link vorhanden
+    expect(screen.getByRole("link", { name: /zurück/i })).toBeInTheDocument();
+  });
+
+  it("Navigation zu /cockpit/yield-curve rendert Zinskurve-Drilldown", async () => {
+    renderAt("/cockpit/yield-curve");
+    await waitFor(() => expect(screen.getByText(/Zinskurve/i)).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: /zurück/i })).toBeInTheDocument();
+  });
+
+  it("Navigation zu /cockpit/commodities rendert Rohstoffe-Drilldown", async () => {
+    renderAt("/cockpit/commodities");
+    await waitFor(() => expect(screen.getByText(/Rohstoffe/i)).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: /zurück/i })).toBeInTheDocument();
+  });
+
+  it("Navigation zu /cockpit/sentiment rendert Sentiment-Drilldown", async () => {
+    renderAt("/cockpit/sentiment");
+    await waitFor(() => expect(screen.getByText(/Sentiment/i)).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: /zurück/i })).toBeInTheDocument();
+  });
+
+  it("Navigation zu /cockpit/sectors rendert Sektoren-Drilldown", async () => {
+    renderAt("/cockpit/sectors");
+    await waitFor(() => expect(screen.getByText(/Sektor/i)).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: /zurück/i })).toBeInTheDocument();
+  });
+
+  // Dispatch C: Buffett + Big-Mac-Routen (C3)
+  it("Navigation zu /cockpit/buffett rendert Buffett-Widget (Tabelle)", async () => {
+    renderAt("/cockpit/buffett");
+    await waitFor(() => expect(screen.getByText(/Buffett/i)).toBeInTheDocument());
+    // Tabelle-Default: USA-Zeile sichtbar
+    await waitFor(() => expect(screen.getByText("USA")).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: /zurück/i })).toBeInTheDocument();
+  });
+
+  it("Navigation zu /cockpit/big-mac rendert Big-Mac-Widget", async () => {
+    renderAt("/cockpit/big-mac");
+    await waitFor(() => expect(screen.getByText(/Big-Mac/i)).toBeInTheDocument());
+    // Publikationsdatum sichtbar
+    await waitFor(() => expect(screen.getByText(/2026-01/)).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: /zurück/i })).toBeInTheDocument();
   });
 });

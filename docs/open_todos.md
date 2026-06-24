@@ -570,6 +570,30 @@ Router + App-Shell (Sidebar/Topbar mit Suche/Inbox-Badge/Health/Theme/Logout); T
 
 - [ ] **Slice 1–5 (Cockpit-Drilldowns, Deep-Dive, Portfolio, Inbox, Backtester)** — je eigener Plan + PR; echte Backend-Endpunkte je Bereich (Tausch-Naht vorbereitet).
 
+### Frontend-Vollausbau — Slice 1 (Cockpit-Drilldowns, Branch `feat/frontend-slice1-cockpit-drilldowns`)
+
+**✅ Umgesetzt (Dispatch A+B+C, 2026-06-23):**
+Alle Cockpit-Drilldowns (US3–US9) über Demo-Naht (Tausch-Naht `useView`/`load*`/`demo/`):
+- **Naht + Helfer (A):** Vertrag `contract/cockpit.ts`, generischer `useView`-Hook, pure `inflationBand` (USA/DE/CH, lückenlose Bänder), Tausch-Naht `data/cockpit.ts` + Demo-Fixtures `data/demo/cockpit.ts`, neue Chart-Wrapper `BarChart`/`buildBarOption` (Farbe nach Vorzeichen), `ChoroplethMap`/`buildMapOption` (Choropleth + grazilem GeoJSON-Fallback), pure Buffett-Logik `lib/buffett.ts` (Sortierung/Filter/vs-Median).
+- **Drilldown-Seiten + Routing (B):** `DrilldownShell` (Zurück-Link, DemoBadge, SourceHealth); Makro/Rohstoffe/Sentiment/Zinskurve/Sektoren-Drilldown; klickbare Kacheln (`DomainTile` → Link); `routes.tsx` mit allen `/cockpit/<domain>`-Routen.
+- **Spezial-Widgets (C):** `BuffettWidget` (Tabelle Default + Karten-Tab + 10-J-Drilldown + Filter onlyZOutlier/onlyBearish + analysiertes Land hervorgehoben + Global-Median + Einschränkungen); `BigMacWidget` (BarChart + Publikationsdatum); `/cockpit/buffett` + `/cockpit/big-mac` eingehängt. Schnellzugriff-Links in `CockpitPage` führen dorthin.
+- TDD vollständig: 45 Test-Dateien, 204 Tests grün. `npm run build` erfolgreich.
+- Plan: `docs/superpowers/plans/2026-06-23-frontend-slice1-cockpit-drilldowns.md`
+
+**Offene Folge-Aufgaben:**
+
+- [ ] **Echte Endpunkte je Drilldown-Bereich anbinden:** je Funktion in `data/cockpit.ts` die auskommentierte `fetch*`-Zeile aktivieren (`isDemo:false`). Voraussetzung: Backend-Endpunkte (Bottom-Up-Flow, Buffett/Big-Mac API, Cockpit-Domänen-Detail-Endpunkte) — Backend-Folgeaufgabe #4 (oben).
+- [x] **Welt-GeoJSON:** `frontend/public/world.geo.json` (987 KB, Apache-2.0, englische Ländernamen) liegt im Repo; `ChoroplethMap` registriert sie zur Laufzeit. Buffett-Karte joint per iso3→englischem GeoJSON-Namen (`toMapPoints` in `lib/buffett.ts`). In jsdom-Tests ist `fetch("/world.geo.json")` nicht auflösbar → Karten-Test prüft den Fallback (kein Produktionsproblem).
+- [ ] **Inflations-UI: Core/PPI/Trend/Realzins-Modifikatoren spiegeln (optional):** `lib/inflation.ts` bildet nur die CPI-Bänder ab; Backend `inflation_agent` hat zusätzliche Modifikatoren. Bei Bedarf als weiterer Indikator im Makro-Drilldown zeigen.
+- [ ] **Slice-0-Followup: LoginGate/Sidebar-Tests flakig unter paralleler Last** — unter der vollen Suite (45 parallele Test-Dateien) können `LoginGate`/`Sidebar`/`AppShell`-Tests gelegentlich durch I/O-Verzögerungen in Vitest (jsdom) einen Timeout treffen. Kein Logik-Fehler; tritt isoliert nicht auf. *Ansatz:* globales `testTimeout` in `vitest.config.ts` auf 15 000 ms erhöhen, oder flakige Tests mit `{ timeout: 15000 }` absichern; alternativ parallele Umgebungsanzahl begrenzen (`maxConcurrency`).
+
+**Review-Befunde PR #44 (2026-06-24) — im selben PR adressiert:**
+
+- [x] **#2 Doppelte Signal-Quelle (Vertragsklärung):** Backend `InflationRow.signal` ist die EINZIGE Signal-Wahrheit; `inflationBand().signal` ist nur Referenz/Label (UI rendert bereits `row.signal`). Im `InflationBand`-Interface (`lib/inflation.ts`) dokumentiert + Guard-Test (`inflation.test.ts`) hält Demo-Backend-Signal und Band-Signal deckungsgleich (fängt künftige Schwellen-Drift).
+- [x] **#3 Kommentar-Wortlaut:** „EU/DE" in `demo/cockpit.ts` → „DE"; Makro-Drilldown-Fußnote „EU-Schwellen" → „Eurozone-Schwellen" (konsistent mit „keine EU-Aggregation").
+- [x] **#4 `world.geo.json` (987 KB):** bewusste Entscheidung — lazy zur Laufzeit registriert (kein Initial-Bundle-Impact), Apache-2.0 lizenziert. Akzeptiert; nur als Asset-Größe bewusst halten (siehe abgehakter GeoJSON-Punkt oben).
+- [ ] **#1 Buffett-Karten-Mapping beim Echt-Anschluss vervollständigen:** `ISO3_TO_MAP_NAME` (`lib/buffett.ts`) deckt aktuell nur die 5 Demo-Länder ab; unbekannte iso3 fallen auf den deutschen Namen zurück → stumm graue Karte. Beim Aktivieren von `fetchBuffett` die Tabelle auf ALLE gelieferten Länder erweitern. *Abgesichert:* Guard-Test (`buffett.test.ts`) erzwingt, dass jedes Land aus den Demo-Daten gemappt ist (lauter Fehlschlag statt stiller grauer Karte).
+
 ---
 
 ## 8. DESIGN-ENTSCHEIDUNGEN (Frontend — docs/frontend_notes.md)

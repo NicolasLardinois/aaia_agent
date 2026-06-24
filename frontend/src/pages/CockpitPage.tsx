@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useCockpit, type UseCockpitDeps } from "../hooks/useCockpit";
 import { RegimeBanner } from "../components/RegimeBanner";
 import { DomainTile } from "../components/DomainTile";
@@ -25,11 +26,34 @@ export function CockpitPage({ deps }: { deps?: UseCockpitDeps }) {
 
       {overview && (
         <>
-          <RegimeBanner overview={overview} />
+          {/* Regime-Banner: klickbar -> Makro-Drilldown (B7) */}
+          <Link to="/cockpit/macro" className="block hover:opacity-90 transition-opacity">
+            <RegimeBanner overview={overview} />
+          </Link>
+
+          {/* Domain-Kacheln: jede verlinkt auf ihren Drilldown (B7, DomainTile ist jetzt ein Link) */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {overview.domains.map((d) => (
               <DomainTile key={d.key} domain={d} />
             ))}
+          </div>
+
+          {/* Schnellzugriff Buffett-Indikator + Big-Mac-Index (B7, Dispatch C füllt die Seiten) */}
+          <div className="flex gap-3">
+            <Link
+              to="/cockpit/buffett"
+              className="flex-1 rounded-lg border border-slate-200 p-3 text-center text-sm font-medium
+                         text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
+            >
+              Buffett-Indikator →
+            </Link>
+            <Link
+              to="/cockpit/big-mac"
+              className="flex-1 rounded-lg border border-slate-200 p-3 text-center text-sm font-medium
+                         text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
+            >
+              Big-Mac-Index →
+            </Link>
           </div>
         </>
       )}
