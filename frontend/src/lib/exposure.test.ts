@@ -35,12 +35,24 @@ describe("netExposure (long − short)", () => {
 });
 
 describe("netBeta (aktien-only, signiert × β)", () => {
-  it("ohne Aktien (nur Bond/Commodity/Precious) => 0", () => {
+  it("ohne Aktien (nur Bond/Commodity/Precious) => null (UNAVAILABLE, NICHT 0)", () => {
+    // Kein einziger Aktien-Beta-Wert vorhanden -> net_beta ist UNBEKANNT, nicht 0.
+    // 0 wuerde faelschlich "marktneutral" suggerieren (AGENTS.md §3: UNAVAILABLE ≠ 0).
     expect(netBeta([
       p({ underlying: "bond", beta: null }),
       p({ underlying: "commodity", beta: null }),
       p({ underlying: "precious_metal", beta: null }),
-    ])).toBe(0);
+    ])).toBeNull();
+  });
+  it("leeres Portfolio => null (kein net_beta bildbar)", () => {
+    expect(netBeta([])).toBeNull();
+  });
+  it("Aktien vorhanden, aber ALLE beta=null => null (UNAVAILABLE, nicht 0)", () => {
+    // Beta-Feed komplett ausgefallen -> net_beta unbekannt, nie als 0 ausgewiesen.
+    expect(netBeta([
+      p({ underlying: "equity", direction: "long", sizePctNav: 10, beta: null }),
+      p({ underlying: "equity_index", direction: "short", sizePctNav: 5, beta: null }),
+    ])).toBeNull();
   });
   it("zaehlt equity und equity_index, nicht bond/commodity/precious", () => {
     // long 10 (β1.2) + short 5 (β1.0) aktien; bond 20 ignoriert

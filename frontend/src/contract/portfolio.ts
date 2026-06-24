@@ -37,7 +37,7 @@ export interface PositionDTO {
 export interface ExposureDTO {
   grossPct: number;             // Brutto = Σ|Position| in % NAV
   netPct: number;               // Netto = long − short in % NAV
-  netBeta: number;              // beta-gewichtete Aktien-Netto-Exposure in % NAV (aktien-only)
+  netBeta: number | null;       // beta-gewichtete Aktien-Netto-Exposure in % NAV (aktien-only); null => UNAVAILABLE (keine verwertbare Aktien-Beta-Position; nie 0 unterstellt)
   annualizedVolPct: number | null; // annualisierte Portfolio-Vola in %; null => UNAVAILABLE
   volAsOf: string;              // Stand der Vola-Berechnung (Datierung, PR #11)
 }

@@ -1,20 +1,21 @@
 import { Link } from "react-router-dom";
 import type { PositionDTO } from "../../contract/portfolio";
+import type { LongVerdict, ShortVerdict } from "../../contract/common";
 import { UnderlyingWrapperBadge } from "../UnderlyingWrapperBadge";
 import { ConfidenceBar } from "../ConfidenceBar";
 import { verdictToVisual } from "../../lib/judgment";
 import { detectConflict, conflictNote } from "../../lib/conflict";
 
 // Das fuer die Positionsrichtung relevante Urteil: long -> Long-Linse, short -> Short-Linse.
-function relevantVerdict(p: PositionDTO): string {
+// Sauber typisiert (LongVerdict | ShortVerdict) -> kein Cast bei verdictToVisual noetig.
+function relevantVerdict(p: PositionDTO): LongVerdict | ShortVerdict {
   return p.direction === "long" ? p.judgment.longVerdict : p.judgment.shortVerdict;
 }
 
 function Row({ p }: { p: PositionDTO }) {
   const conflict = detectConflict(p.direction, p.judgment);
   const note = conflictNote(p.direction, p.judgment);
-  const verdict = relevantVerdict(p);
-  const v = verdictToVisual(verdict as Parameters<typeof verdictToVisual>[0]);
+  const v = verdictToVisual(relevantVerdict(p));
   const signedSize = p.direction === "long" ? `+${p.sizePctNav} %` : `−${p.sizePctNav} %`;
   return (
     <tr

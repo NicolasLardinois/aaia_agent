@@ -1,7 +1,8 @@
+import type { ReactNode } from "react";
 import type { ExposureDTO } from "../../contract/portfolio";
 import { UnavailableField } from "../UnavailableField";
 
-function Metric({ label, value, definition }: { label: string; value: string; definition: string }) {
+function Metric({ label, value, definition }: { label: string; value: ReactNode; definition: string }) {
   return (
     <div className="flex-1 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
       <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
@@ -23,7 +24,11 @@ export function ExposurePanel({ exposure }: { exposure: ExposureDTO }) {
         <Metric label="Netto-Exposure" value={net} definition="long − short — Netto-Marktrichtung" />
         <Metric
           label="net_beta (aktien-only)"
-          value={`${exposure.netBeta} %`}
+          // null => UNAVAILABLE statt "0 %": 0 wuerde faelschlich "marktneutral" suggerieren,
+          // obwohl der Wert mangels Aktien-Beta schlicht unbekannt ist (AGENTS.md §3).
+          value={exposure.netBeta === null
+            ? <UnavailableField reason="net_beta nicht verfügbar (kein Aktien-Beta)" />
+            : `${exposure.netBeta} %`}
           definition="beta-gewichtetes Aktien-Netto — Marktsensitivität (nur Aktien/Index)"
         />
       </div>

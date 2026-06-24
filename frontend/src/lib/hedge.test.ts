@@ -22,6 +22,21 @@ describe("hedgeSuggestions", () => {
     const out = hedgeSuggestions(exp(NET_BETA_HEDGE_THRESHOLD * 100), []);
     expect(out.some((h) => /Index-Short|VIX/i.test(h.text))).toBe(false);
   });
+  it("net_beta stark NEGATIV (netto short) ueber Schwelle => Hedge-Vorschlag (Index-Long/Eindecken)", () => {
+    // Ein stark net-short Buch ist genauso marktsensitiv (Rally-Risiko) -> symmetrische Schwelle.
+    const out = hedgeSuggestions(exp(-(NET_BETA_HEDGE_THRESHOLD * 100) - 0.5), []);
+    expect(out.some((h) => /Index-Long|Eindecken/i.test(h.text))).toBe(true);
+    // KEIN Index-Short-Vorschlag bei net-short Buch (falsche Richtung).
+    expect(out.some((h) => /Index-Short/i.test(h.text))).toBe(false);
+  });
+  it("net_beta genau auf der negativen Schwelle => KEIN Vorschlag (|net_beta| strikt groesser)", () => {
+    const out = hedgeSuggestions(exp(-(NET_BETA_HEDGE_THRESHOLD * 100)), []);
+    expect(out.some((h) => /Index-Long|Index-Short|VIX|Eindecken/i.test(h.text))).toBe(false);
+  });
+  it("net_beta null (UNAVAILABLE) => KEIN net_beta-Vorschlag (nicht aus unbekanntem Wert raten)", () => {
+    const out = hedgeSuggestions({ ...exp(0), netBeta: null }, []);
+    expect(out.some((h) => /Index-Short|Index-Long|VIX|Eindecken/i.test(h.text))).toBe(false);
+  });
   it("alles im Rahmen, keine Klumpen => leere Liste", () => {
     expect(hedgeSuggestions(exp(0), [])).toEqual([]);
   });

@@ -28,4 +28,10 @@ describe("ExposurePanel", () => {
     render(<ExposurePanel exposure={{ ...exp, annualizedVolPct: null }} />);
     expect(screen.getByText(/nicht verfügbar/i)).toBeInTheDocument();
   });
+  it("zeigt net_beta als 'nicht verfügbar' wenn null (nie als 0 % — kein falsches 'marktneutral')", () => {
+    render(<ExposurePanel exposure={{ ...exp, netBeta: null }} />);
+    // net_beta-Kachel zeigt UNAVAILABLE statt "0 %"; "0 %" darf NICHT erscheinen.
+    expect(screen.getAllByText(/nicht verfügbar/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/^0 %$/)).toBeNull();
+  });
 });

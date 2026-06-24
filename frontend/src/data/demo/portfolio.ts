@@ -55,10 +55,12 @@ const POSITIONS: PositionDTO[] = [
 ];
 
 export function demoPortfolio(): PortfolioView {
+  // netBeta kann null sein (keine verwertbare Aktien-Beta-Position) -> nie .toFixed auf null.
+  const nb = netBeta(POSITIONS);
   const exposure = {
     grossPct: Number(grossExposure(POSITIONS).toFixed(2)),
     netPct: Number(netExposure(POSITIONS).toFixed(2)),
-    netBeta: Number(netBeta(POSITIONS).toFixed(2)),
+    netBeta: nb === null ? null : Number(nb.toFixed(2)),
     annualizedVolPct: 13.8,            // datierte Portfolio-Vola (Demo, PR #11)
     volAsOf: "2026-06-20",
   };
