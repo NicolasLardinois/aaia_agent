@@ -33,7 +33,7 @@ export function BacktesterPage({ loader = loadBacktest }: { loader?: () => Promi
       {/* Seitenkopf mit DemoBadge + SourceHealth */}
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold">
-          Backtester — haetten die alten Calls Geld gebracht?
+          Backtester — hätten die alten Calls Geld gebracht?
         </h2>
         {data && <DemoBadge isDemo={data.isDemo} />}
         {data && (
