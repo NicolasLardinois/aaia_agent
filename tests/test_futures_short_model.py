@@ -25,5 +25,6 @@ def test_can_construct_available():
 def test_bottom_up_result_defaults_futures_short_none():
     from core.domain.models import BottomUpResult
     import dataclasses
-    f = {fld.name for fld in dataclasses.fields(BottomUpResult)}
-    assert "futures_short" in f
+    fld_map = {fld.name: fld for fld in dataclasses.fields(BottomUpResult)}
+    assert "futures_short" in fld_map
+    assert fld_map["futures_short"].default is None

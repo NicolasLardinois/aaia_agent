@@ -65,6 +65,7 @@ def test_band_boundary_dist_exactly_025():
     a = assess_futures_short(_snap(125.0, 100.0, 106.0), 100.0)
     assert a.short_confidence == 0.55
     assert a.floor_binds is False
+    assert a.engine_action == ShortAction.SHORT
 
 
 def test_band_boundary_dist_exactly_010_does_not_bind():
