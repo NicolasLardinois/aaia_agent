@@ -579,7 +579,10 @@ Router + App-Shell (Sidebar/Topbar mit Suche/Inbox-Badge/Health/Theme/Logout); T
 
 **Offene Folge-Aufgaben:**
 
-- [ ] **Slice 1–5 (Cockpit-Drilldowns, Deep-Dive, Portfolio, Inbox, Backtester)** — je eigener Plan + PR; echte Backend-Endpunkte je Bereich (Tausch-Naht vorbereitet).
+- [x] **Slice 1 (Cockpit-Drilldowns)** — siehe Vermerk unten.
+- [ ] **Slice 2–5 (Deep-Dive, Portfolio, Inbox, Backtester)** — je eigener Plan + PR; echte Backend-Endpunkte je Bereich (Tausch-Naht vorbereitet).
+
+> **PR-Protokoll (§5): PR #44 am 2026-06-24 in `feat/frontend-vollausbau` gemergt** (Merge-Commit; MERGEABLE/CLEAN, CI grün, Frontend lokal 219/219 + Build ok). Slice 1 = alle Cockpit-Drilldowns (US3–US9) + Buffett/Big-Mac über die Demo-Tausch-Naht. Im Review (4 Befunde, alle im selben PR adressiert): (#2) Signal-Vertrag geklärt — Backend `InflationRow.signal` ist die einzige Wahrheit, `inflationBand().signal` nur Label, Konsistenz-Guard-Test; (#1) Buffett-Karten-Mapping `ISO3_TO_MAP_NAME` mit Guard-Test gegen stille graue Karte (Backend-Vervollständigung als Folgeaufgabe); (#3) Wortlaut „EU/DE→DE"; (#4) `world.geo.json` 987 KB als bewusste Entscheidung dokumentiert. *(Vermerk direkt auf `master`: bewusste Logbuch-Ausnahme; Detail-Logbuch liegt auf `feat/frontend-vollausbau` und fließt mit dessen Master-Merge nach.)*
 
 ---
 
