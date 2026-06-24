@@ -79,4 +79,23 @@ describe("AppRoutes", () => {
     renderAt("/deep-dive/AAPL");
     await waitFor(() => expect(screen.getByText(/Apple/)).toBeInTheDocument());
   });
+
+  // B3: /inbox rendert InboxPage (US28/US30)
+  it("/inbox rendert die InboxPage (Ueberschrift sichtbar)", async () => {
+    renderAt("/inbox");
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: /Konflikt-Inbox/i })).toBeInTheDocument(),
+    );
+  });
+
+  // B3: Topbar-Badge zeigt die echte offene Konflikt-Anzahl (>=3 Demo-Konflikte, US28)
+  it("Topbar-Badge zeigt die echte offene Konflikt-Anzahl (>=3)", async () => {
+    renderAt("/cockpit");
+    // loadInboxCount laedt asynchron; Badge erscheint nach Promise-Aufloesung
+    await waitFor(() => {
+      // Das Inbox-Badge zeigt die Zahl als Text in der Topbar (aria-label=Inbox + Badge-Span)
+      const badge = screen.queryByText("3");
+      expect(badge).toBeInTheDocument();
+    });
+  });
 });
