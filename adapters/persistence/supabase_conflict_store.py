@@ -9,6 +9,7 @@ import os
 import time
 import urllib.parse
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 
 import psycopg2
 import psycopg2.extras
@@ -225,7 +226,6 @@ class SupabaseConflictStore(ConflictStorePort):
 
     def load_for_backtest(self, days: int = 180) -> list[ConflictItem]:
         """Lädt Konflikte mit created_at >= now()-days (für den Konflikt-Backtester)."""
-        from datetime import datetime, timedelta, timezone
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         try:
             with self._connect() as conn:

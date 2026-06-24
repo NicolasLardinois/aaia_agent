@@ -62,17 +62,24 @@ class ConflictBacktesterAgent:
 
             entry_px = self.price_on_horizon(ticker, created, 0)
             fwd_px = self.price_on_horizon(ticker, created, horizon)
-            if entry_px is None or fwd_px is None:
+            if entry_px is None:
                 continue
+            # fwd_px=None (delistet/insolvent) wird BEWUSST NICHT übersprungen: forward_return
+            # liefert dafür -1.0 (Totalverlust, „Survivorship-Fix", wie der Long-Backtester).
+            # Sonst fiele ein gehaltenes Long, das auf null ging, still weg — ein katastrophal
+            # falsches HOLD würde die HOLD-Trefferquote künstlich beschönigen. Markt-Default USA.
             raw = forward_return(entry_px, fwd_px)
-            if raw is None:
+            if raw is None:        # greift nur noch bei entry_px <= 0 (kein gültiger Basispreis)
                 continue
 
             bench = self.benchmark_return("USA", created, horizon)   # conflicts trägt kein market → USA
             adj = market_adjusted_return(raw, bench)
             r = held_return(getattr(c, "direction", "long"), adj)
             correct, payoff = grade_verdict(verdict, r, self.cost_per_side)
-            graded.append({"archetypes": [verdict], "correct": correct, "payoff": payoff})
+            # date=created → aggregate_by_reason sortiert die Payoffs chronologisch für den
+            # reihenfolge-abhängigen Max-Drawdown (der Store lädt ORDER BY created_at DESC).
+            graded.append({"archetypes": [verdict], "correct": correct,
+                           "payoff": payoff, "date": created})
 
         for verdict, m in aggregate_by_reason(graded).items():
             self.memory.save_backtester_report({

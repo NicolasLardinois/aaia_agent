@@ -117,7 +117,17 @@ Einheitlich: `raw = forward_return(einstieg, forward)`, `adj = market_adjusted_r
 - Der In-Memory-/Fake-Store der Tests bekommt dieselbe Methode (gibt die gehaltenen Items zurück).
 - **Horizont/Reife:** wie die anderen Backtester — `horizon = max(h ∈ HORIZONS_DAYS, h ≤ alter_tage)`;
   zu junge Konflikte (kein reifer Horizont) → übersprungen. Einstiegspreis = Provider an `created_at`
-  (Horizont 0), Forward = Provider an `created_at + horizon`. Fehlender Kurs → übersprungen.
+  (Horizont 0), Forward = Provider an `created_at + horizon`.
+- **Delisting/Insolvenz (entschieden — Review PR #49):** Fehlender **Einstiegs**preis → übersprungen
+  (kein gültiger Basispreis). Fehlender **Folgekurs** wird **NICHT** übersprungen, sondern an
+  `forward_return` durchgereicht → `-1.0` (Totalverlust), genau wie der Long-Backtester. Begründung:
+  Ein gehaltenes Long, das auf null ging, ist ein **katastrophal falsches HOLD**; würde man es
+  überspringen, fiele der schlimmste HOLD-Ausgang still weg und die HOLD-Trefferquote würde künstlich
+  beschönigt (Survivorship-Bias in die **gefährliche** Richtung — Überschätzung von HOLD). Das ist die
+  **bewusste Asymmetrie** zum Short-Backtester (der fehlende Folgekurse überspringt): dort *unterzählt*
+  Überspringen Short-Gewinne (konservativ); hier *überzählt* Überspringen die HOLD-Qualität (gefährlich)
+  → deshalb hier zählen. **Rest-Vorbehalt:** `None` vermischt „delistet" mit „Quelle hatte keine Daten";
+  die Reife-Schwelle (≥ 30 Tage) macht aber Delisting zur wahrscheinlicheren Ursache.
 - **Markt:** `conflicts` trägt kein `market` → Default `"USA"` (wie `JudgmentBacktesterAgent`).
   Dokumentierte Vereinfachung; Region-Ableitung/-Feld ist Folge-Aufgabe.
 
@@ -161,9 +171,10 @@ der **Maschinerie** — die Daten laufen seit PR #28 in die `conflicts`-Tabelle 
 - **Reine Funktionen, Grenzfälle:** `held_return` long/short (Vorzeichen-Flip); `grade_verdict`:
   HOLD bei `r` knapp >0/<0/=0, EXIT analog, REVERSE **exakt an der Kosten-Schwelle**
   (`apply_costs(−r)=0` → nicht korrekt), unbekanntes Verdikt → übersprungen.
-- **Agent (Fake-Store + injizierte Preis-Callables, kein Netz):** short-Konflikt mit fallendem Kurs
-  → HOLD falsch / EXIT richtig; fehlender Forward-Preis → übersprungen, kein Crash; unreifer Konflikt
-  (zu jung) → übersprungen; leere Ladung → keine Reports; `n < MIN_SAMPLE` → kein Aggregat.
+- **Agent (Fake-Store + injizierte Preis-Callables, kein Netz):** Long-Konflikt mit fallendem Kurs
+  → HOLD falsch / EXIT richtig; fehlender **Einstiegs**preis → übersprungen, kein Crash; fehlender
+  **Folgekurs** (Delisting) → als Totalverlust (-100 %) **gezählt**, nicht übersprungen; unreifer
+  Konflikt (zu jung) → übersprungen; leere Ladung → keine Reports; `n < MIN_SAMPLE` → kein Aggregat.
 - **Port-Erweiterung:** `load_for_backtest` im Fake liefert die Items; (Supabase-SELECT durch Lesen
   der Query verifiziert, kein Live-DB-Test).
 - **Verdrahtung:** `BacktesterChiefAgent` startet den Konflikt-Backtester; fehlender Store → übersprungen.
