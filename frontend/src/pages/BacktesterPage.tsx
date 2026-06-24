@@ -69,7 +69,7 @@ export function BacktesterPage({ loader = loadBacktest }: { loader?: () => Promi
               Leerer Schnitt -> Karte zeigt "n.v." (nicht 0 %) — UNAVAILABLE != 0. */}
           <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-3">
             {AREAS.map((area) => {
-              // Nutzer-Filter + Bereichs-Filter addditiv kombinieren (UND-Verknuepfung).
+              // Nutzer-Filter + Bereichs-Filter additiv kombinieren (UND-Verknuepfung).
               const areaResults = filterResults(data.results, { ...filters, area });
               return (
                 <BacktestCard key={area} area={area} results={areaResults} />

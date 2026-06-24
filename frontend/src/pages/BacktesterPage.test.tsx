@@ -25,8 +25,8 @@ describe("BacktesterPage (US31/US32)", () => {
   it("zeigt alle drei Bereichs-Karten (Top-Down/Bottom-Up/Judgment)", async () => {
     renderPage();
     await screen.findByText(/Top-Down/i);
-    expect(screen.getByText(/Bottom-Up/i)).toBeInTheDocument();
-    expect(screen.getByText(/Judgment/i)).toBeInTheDocument();
+    await screen.findByText(/Bottom-Up/i);
+    await screen.findByText(/Judgment/i);
   });
 
   it("zeigt DemoBadge (Fixture isDemo:true)", async () => {
@@ -44,9 +44,8 @@ describe("BacktesterPage (US31/US32)", () => {
   it("'haetten die alten Calls Geld gebracht'-Beschriftung auf allen Karten", async () => {
     renderPage();
     await screen.findByText(/Top-Down/i);
-    // Alle drei Karten tragen die Pflicht-Beschriftung (US31) — mindestens 3x vorhanden
-    const matches = screen.getAllByText(/Geld gebracht/i);
-    expect(matches.length).toBeGreaterThanOrEqual(3);
+    // Alle drei Karten tragen die Pflicht-Beschriftung (US31) — 3 Karten + 1 Seitentitel = 4x vorhanden
+    expect(screen.getAllByText(/Geld gebracht/i)).toHaveLength(4);
   });
 
   it("Filter nach Ticker 'XLE' (nur in judgment) -> zwei Karten zeigen 'n.v.'", async () => {

@@ -33,7 +33,7 @@ export function BacktestCard({ area, results }: BacktestCardProps) {
 
       {/* Pflicht-Beschriftung US31: klar als rueckblickende Treffsicherheit markieren */}
       <p className="mt-0.5 text-xs text-slate-500">
-        Haetten die alten Calls Geld gebracht?
+        Hätten die alten Calls Geld gebracht?
       </p>
 
       {/* Trefferquote + Stichprobengroesse */}
