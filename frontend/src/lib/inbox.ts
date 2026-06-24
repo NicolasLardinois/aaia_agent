@@ -21,23 +21,23 @@ export function suggestVerdict(
   if (direction === "long") {
     // SHORT-Setup = aktiver Gegenhandlungsdruck: Richtung drehen ist staerker als bloss raus
     if (newShort === "SHORT") {
-      return { verdict: "REVERSE", rationale: "Aktives Short-Setup gegen die Long-Position — Richtung drehen erwaegen." };
+      return { verdict: "REVERSE", rationale: "Aktives Short-Setup gegen die Long-Position — Richtung drehen erwägen." };
     }
     // SELL = Long-These traegt nicht mehr, aber kein bestaetigtes Short-Setup vorhanden
     if (newLong === "SELL") {
-      return { verdict: "EXIT", rationale: "Long-These traegt nicht mehr (SELL), aber kein bestaetigtes Short — Ausstieg erwaegen." };
+      return { verdict: "EXIT", rationale: "Long-These trägt nicht mehr (SELL), aber kein bestätigtes Short — Ausstieg erwägen." };
     }
     // Kein echtes Gegensignal: vorerst halten
-    return { verdict: "HOLD", rationale: "Kein tragfaehiges Gegensignal — vorerst halten." };
+    return { verdict: "HOLD", rationale: "Kein tragfähiges Gegensignal — vorerst halten." };
   }
   // Short-Position (spiegelbildlich zur Long-Logik oben):
   // BUY-Setup = aktiver Gegenhandlungsdruck: Richtung drehen ist staerker als bloss eindecken
   if (newLong === "BUY") {
-    return { verdict: "REVERSE", rationale: "Aktives Long-Setup gegen die Short-Position — Richtung drehen erwaegen." };
+    return { verdict: "REVERSE", rationale: "Aktives Long-Setup gegen die Short-Position — Richtung drehen erwägen." };
   }
   // COVER = Short-These traegt nicht mehr, aber kein bestaetigtes Long-Setup vorhanden
   if (newShort === "COVER") {
-    return { verdict: "EXIT", rationale: "Short-These traegt nicht mehr (COVER), aber kein bestaetigtes Long — Eindecken erwaegen." };
+    return { verdict: "EXIT", rationale: "Short-These trägt nicht mehr (COVER), aber kein bestätigtes Long — Eindecken erwägen." };
   }
   // Kein echtes Gegensignal: vorerst halten
   return { verdict: "HOLD", rationale: "Kein tragfaehiges Gegensignal — vorerst halten." };

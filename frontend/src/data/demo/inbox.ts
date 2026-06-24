@@ -38,7 +38,7 @@ const SOURCE_POSITIONS: SourcePosition[] = [
     newLong: "SELL", newShort: "NONE", confidence: 0.58,
   },
   {
-    // GC=F: long gehalten, Short-Urteil SHORT aktiv (akives Gegen-Setup).
+    // GC=F: long gehalten, Short-Urteil SHORT aktiv (aktives Gegen-Setup).
     // suggestVerdict: REVERSE (SHORT vorhanden -> Richtung drehen ist staerker als EXIT).
     ticker: "GC=F", name: "Gold",
     underlying: "precious_metal", wrapper: "future",
