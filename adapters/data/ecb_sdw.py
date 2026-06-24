@@ -4,10 +4,13 @@ Fetcht Euro-Area AAA Yield Curve Daten für Spread-Berechnungen.
 Alle anderen EcbDataProvider-Methoden bleiben gestubbt bis Eurostat/ECB-SDW vollständig angebunden ist.
 """
 import csv
+import logging
 import requests
 from typing import Optional
 
 from core.ports.data_provider import EcbDataProvider
+
+_log = logging.getLogger(__name__)
 
 _BASE = (
     "https://data-api.ecb.europa.eu/service/data/YC/"
@@ -33,6 +36,26 @@ EUROZONE_COUNTRIES = [
     "NL", "PT", "SI", "SK",
 ]
 
+_BSI_BASE = (
+    "https://data-api.ecb.europa.eu/service/data/BSI/"
+    "M.U2.Y.V.{item}.X.I.U2.2300.Z01.A"
+    "?format=jsondata&lastNObservations=1"
+)
+
+
+def _parse_sdmx_last_observation(data: dict) -> float | None:
+    """Rein: letzter Beobachtungswert aus ECB-SDMX-JSON
+    (data["dataSets"][0]["series"][<key>]["observations"][<key>][0]).
+    None bei fehlender Struktur, leerer Reihe oder nicht-numerischem Wert."""
+    try:
+        series = data["dataSets"][0]["series"]
+        first_key = next(iter(series))
+        observations = series[first_key]["observations"]
+        last_key = next(reversed(observations))
+        return float(observations[last_key][0])
+    except (KeyError, IndexError, TypeError, ValueError, StopIteration):
+        return None
+
 
 class EcbSdwProvider(EcbDataProvider):
     """ECB SDW: nur Yield-Spreads implementiert; alle anderen Methoden → None."""
@@ -46,16 +69,10 @@ class EcbSdwProvider(EcbDataProvider):
         return {"10y2y": spread_10y2y, "10y3m": spread_10y3m}
 
     def _fetch_yield(self, maturity: str) -> Optional[float]:
-        url = _BASE.format(mat=maturity)
         try:
-            response = requests.get(url, timeout=10)
+            response = requests.get(_BASE.format(mat=maturity), timeout=10)
             response.raise_for_status()
-            data = response.json()
-            series = data["dataSets"][0]["series"]
-            first_key = next(iter(series))
-            observations = series[first_key]["observations"]
-            last_key = next(reversed(observations))
-            return float(observations[last_key][0])
+            return _parse_sdmx_last_observation(response.json())
         except Exception:
             return None
 
@@ -90,8 +107,28 @@ class EcbSdwProvider(EcbDataProvider):
         except Exception:
             return []
 
+    def _fetch_bsi_growth(self, item: str) -> float | None:
+        """ECB-SDW BSI-Jahreswachstum (M30/M20) in %. Sanity-Cap -50..50, Rundung 1 Stelle;
+        Fehler/Strukturbruch/implausibel → logging.warning → None (Beobachtbarkeit)."""
+        try:
+            response = requests.get(_BSI_BASE.format(item=item), timeout=10)
+            response.raise_for_status()
+            raw = _parse_sdmx_last_observation(response.json())
+        except Exception as exc:
+            _log.warning("ECB SDW BSI %s nicht abrufbar (%s) — UNAVAILABLE", item, exc)
+            return None
+        if raw is None:
+            _log.warning("ECB SDW BSI %s: keine Beobachtung (Strukturbruch?) — UNAVAILABLE", item)
+            return None
+        if not (-50.0 <= raw <= 50.0):
+            _log.warning("ECB SDW BSI %s: implausibler Wert %s — UNAVAILABLE", item, raw)
+            return None
+        return round(raw, 1)
+
     # ── Stubs ────────────────────────────────────────────────────────────────
-    def get_m3_growth(self) -> Optional[float]:             return None
+    def get_m3_growth(self) -> float | None:
+        return self._fetch_bsi_growth("M30")
+
     def get_balance_sheet_growth(self) -> Optional[float]:  return None
     def get_cpi(self) -> Optional[float]:                   return None
     def get_core_cpi(self) -> Optional[float]:              return None
@@ -99,20 +136,16 @@ class EcbSdwProvider(EcbDataProvider):
     def get_gdp_growth(self) -> Optional[float]:            return None
     def get_unemployment(self) -> Optional[float]:          return None
     def get_pmi(self) -> Optional[float]:                   return None
-    def get_m2_growth(self) -> Optional[float]:             return None
+
+    def get_m2_growth(self) -> float | None:
+        return self._fetch_bsi_growth("M20")
     def get_sovereign_yields(self) -> dict[str, Optional[float]]:
         return {f"{c}_10y": self._fetch_country_yield(c) for c in EUROZONE_COUNTRIES}
 
     def _fetch_country_yield(self, country: str) -> Optional[float]:
-        url = _IRS_BASE.format(country=country)
         try:
-            response = requests.get(url, timeout=10)
+            response = requests.get(_IRS_BASE.format(country=country), timeout=10)
             response.raise_for_status()
-            data = response.json()
-            series = data["dataSets"][0]["series"]
-            first_key = next(iter(series))
-            observations = series[first_key]["observations"]
-            last_key = next(reversed(observations))
-            return float(observations[last_key][0])
+            return _parse_sdmx_last_observation(response.json())
         except Exception:
             return None
