@@ -6,9 +6,11 @@ from agents.backtester.top_down_backtester_agent import TopDownBacktesterAgent
 from agents.backtester.bottom_up_backtester_agent import (
     BottomUpBacktesterAgent, _default_benchmark_return, _default_price_on_horizon,
 )
+from agents.backtester.conflict_backtester_agent import ConflictBacktesterAgent
 from agents.backtester.judgment_backtester_agent import JudgmentBacktesterAgent
 from agents.backtester.short_backtester_agent import ShortBacktesterAgent
 from core.domain.events import BacktesterChiefReady
+from core.ports.conflict_store import ConflictStorePort
 from core.ports.event_bus import EventBus
 from core.ports.memory_port import MemoryPort
 
@@ -20,6 +22,7 @@ class BacktesterChiefAgent:
         bus: EventBus,
         price_on_horizon: Callable[[str, datetime, int], Optional[float]] = _default_price_on_horizon,
         benchmark_return: Callable[[str, datetime, int], Optional[float]] = _default_benchmark_return,
+        conflict_store: Optional[ConflictStorePort] = None,
     ):
         self.memory = memory
         self.bus    = bus
@@ -32,17 +35,28 @@ class BacktesterChiefAgent:
         # je Grund). Gleiche Provider-Injektion wie die anderen → läuft im selben Lauf mit.
         self.short_backtester = ShortBacktesterAgent(
             memory, price_on_horizon=price_on_horizon, benchmark_return=benchmark_return)
+        # Konflikt-Backtester nur, wenn ein Store vorliegt (defensiv: sonst übersprungen).
+        # Fehlt der Store → kein Crash, die vier Standard-Backtester laufen unverändert weiter.
+        self.conflict_backtester = (
+            ConflictBacktesterAgent(conflict_store, memory,
+                                    price_on_horizon=price_on_horizon,
+                                    benchmark_return=benchmark_return)
+            if conflict_store is not None else None
+        )
 
     def load_context(self) -> dict:
         return self.memory.load_latest_backtester_report("judgment") or {}
 
     async def run(self) -> None:
-        results = await asyncio.gather(
+        tasks = [
             self.td_backtester.run(),
             self.bu_backtester.run(),
             self.j_backtester.run(),
             self.short_backtester.run(),
-            return_exceptions=True,
-        )
+        ]
+        # Konflikt-Backtester bedingt hinzufügen (nur wenn Store vorhanden)
+        if self.conflict_backtester is not None:
+            tasks.append(self.conflict_backtester.run())
+        results = await asyncio.gather(*tasks, return_exceptions=True)
         failures = sum(1 for r in results if isinstance(r, Exception))
         self.bus.publish(BacktesterChiefReady(source="backtester_chief_agent", payload={"failures": failures}))

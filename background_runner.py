@@ -87,7 +87,13 @@ async def main() -> None:
     memory = SupabaseMemory()
     bus    = InMemoryEventBus()
 
-    backtester = BacktesterChiefAgent(memory, bus)
+    # Konflikt-Store defensiv aufbauen: schlägt der Store-Aufbau fehl (z. B. kein Supabase),
+    # läuft der Backtester ohne Konflikt-Backtester weiter → kein Crash des Runners.
+    try:
+        conflict_store = SupabaseConflictStore()
+    except Exception:
+        conflict_store = None
+    backtester = BacktesterChiefAgent(memory, bus, conflict_store=conflict_store)
 
     market = YahooFinanceProvider()
     agents = [

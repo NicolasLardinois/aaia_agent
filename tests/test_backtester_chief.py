@@ -49,3 +49,32 @@ def test_chief_run_publishes_ready():
     chief = BacktesterChiefAgent(memory, bus)
     asyncio.run(chief.run())
     assert bus.publish.called
+
+
+def test_conflict_store_wird_mitgestartet(monkeypatch):
+    """ConflictBacktesterAgent wird gestartet, wenn conflict_store übergeben wird."""
+
+    class _Store:
+        def __init__(self):
+            self.called = False
+
+        def load_for_backtest(self, days=180):
+            self.called = True
+            return []
+
+    memory = MagicMock()
+    memory.load_global_history.return_value = []
+    bus = MagicMock()
+    store = _Store()
+    chief = BacktesterChiefAgent(memory, bus, conflict_store=store)
+    asyncio.run(chief.run())
+    assert store.called is True   # Konflikt-Backtester lief mit
+
+
+def test_ohne_conflict_store_kein_crash():
+    """BacktesterChiefAgent.run() darf nicht crashen, wenn kein conflict_store übergeben wird."""
+    memory = MagicMock()
+    memory.load_global_history.return_value = []
+    bus = MagicMock()
+    chief = BacktesterChiefAgent(memory, bus)   # conflict_store default None
+    asyncio.run(chief.run())                    # darf nicht crashen

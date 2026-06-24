@@ -9,6 +9,7 @@ import os
 import time
 import urllib.parse
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 
 import psycopg2
 import psycopg2.extras
@@ -220,3 +221,25 @@ class SupabaseConflictStore(ConflictStorePort):
                 conn.commit()
         except Exception:
             _log.exception("resolve(id=%r) fehlgeschlagen", conflict_id)
+
+    # ── load_for_backtest ──────────────────────────────────────────────────────
+
+    def load_for_backtest(self, days: int = 180) -> list[ConflictItem]:
+        """Lädt Konflikte mit created_at >= now()-days (für den Konflikt-Backtester)."""
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        try:
+            with self._connect() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        f"""
+                        SELECT {_SELECT_COLS}
+                        FROM conflicts
+                        WHERE created_at >= %s
+                        ORDER BY created_at DESC
+                        """,
+                        (cutoff,),
+                    )
+                    return [_row_to_item(dict(r)) for r in cur.fetchall()]
+        except Exception:
+            _log.exception("load_for_backtest(%r) fehlgeschlagen", days)
+            return []
