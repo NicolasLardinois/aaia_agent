@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { AppShell } from "./shell/AppShell";
 import { CockpitPage } from "./pages/CockpitPage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
@@ -11,15 +12,29 @@ import { BuffettWidget } from "./pages/cockpit/BuffettWidget";
 import { BigMacWidget } from "./pages/cockpit/BigMacWidget";
 import { DeepDivePage } from "./pages/DeepDivePage";
 import { PortfolioPage } from "./pages/PortfolioPage";
+import { InboxPage } from "./pages/InboxPage";
+import { loadInboxCount } from "./data/inboxCount";
 import type { UseCockpitDeps } from "./hooks/useCockpit";
 
-// Routen unter der Shell. Inbox-Anzahl ist in Slice 0 noch 0 (Slice 4 speist sie).
+// Routen unter der Shell. Inbox-Anzahl wird einmalig ueber loadInboxCount geladen (Slice 4, US28).
 // Drilldown-Routen (B7): /cockpit/<domain> -> jeweilige Drilldown-Seite.
 // Buffett + Big-Mac (Dispatch C, C3): echte Widgets eingehaengt.
 export function AppRoutes({ deps, onLogout }: { deps?: UseCockpitDeps; onLogout?: () => void }) {
+  // Offene Konflikt-Anzahl fuer den Topbar-Badge (US28). Getrennter Datenpfad — stoert useCockpit nicht.
+  // Fehler werden still geschluckt (bleibt 0, kein Crash). Reset bei Reload akzeptabel (Demo).
+  const [inboxCount, setInboxCount] = useState<number>(0);
+  useEffect(() => {
+    loadInboxCount(deps && deps.token ? { token: deps.token } : undefined)
+      .then(setInboxCount)
+      .catch(() => {/* Fehler still -> Badge bleibt 0 */});
+  // Demo: einmaliger Ladeaufruf beim Mount genuegt (Demo-Daten konstant);
+  // bei echtem Token-Wechsel hier deps.token ergaenzen.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <Routes>
-      <Route element={<AppShell inboxCount={0} onLogout={onLogout} />}>
+      <Route element={<AppShell inboxCount={inboxCount} onLogout={onLogout} />}>
         <Route index element={<Navigate to="/cockpit" replace />} />
         <Route path="/cockpit" element={<CockpitPage deps={deps} />} />
 
@@ -37,7 +52,7 @@ export function AppRoutes({ deps, onLogout }: { deps?: UseCockpitDeps; onLogout?
         <Route path="/deep-dive" element={<PlaceholderPage title="Deep-Dive — Titel über die Suche oben öffnen" />} />
         <Route path="/deep-dive/:ticker" element={<DeepDivePage />} />
         <Route path="/portfolio" element={<PortfolioPage />} />
-        <Route path="/inbox" element={<PlaceholderPage title="Inbox" />} />
+        <Route path="/inbox" element={<InboxPage />} />
         <Route path="/backtester" element={<PlaceholderPage title="Backtester" />} />
         <Route path="/einstellungen" element={<PlaceholderPage title="Einstellungen" />} />
         <Route path="*" element={<Navigate to="/cockpit" replace />} />

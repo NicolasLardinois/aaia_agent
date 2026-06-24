@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { AppRoutes } from "./routes";
+import { demoInbox } from "./data/demo/inbox";
 
 // Cockpit-Datenhook neutralisieren (kein echter Netz-Call im Routing-Test).
 vi.mock("./hooks/useCockpit", () => ({
@@ -78,5 +79,26 @@ describe("AppRoutes", () => {
   it("/deep-dive/AAPL rendert die DeepDivePage", async () => {
     renderAt("/deep-dive/AAPL");
     await waitFor(() => expect(screen.getByText(/Apple/)).toBeInTheDocument());
+  });
+
+  // B3: /inbox rendert InboxPage (US28/US30)
+  it("/inbox rendert die InboxPage (Ueberschrift sichtbar)", async () => {
+    renderAt("/inbox");
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: /Konflikt-Inbox/i })).toBeInTheDocument(),
+    );
+  });
+
+  // B3: Topbar-Badge zeigt die echte offene Konflikt-Anzahl (Demo-Fixture aus demoInbox)
+  it("Topbar-Badge zeigt die echte offene Konflikt-Anzahl aus Fixture", async () => {
+    renderAt("/cockpit");
+    // loadInboxCount laedt asynchron; Badge erscheint nach Promise-Aufloesung.
+    const erwartet = demoInbox().conflicts.filter((c) => c.status === "offen").length;
+    // Scope auf die Inbox-Navigation (aria-label="Inbox") statt globalem Text-Match:
+    // so trifft der Test nur die Badge-Zahl im Inbox-Link, nicht zufaellig eine andere "N" in der UI.
+    await waitFor(() => {
+      const inboxLinks = screen.getAllByRole("link", { name: /Inbox/i });
+      expect(inboxLinks.some((l) => l.textContent?.includes(String(erwartet)))).toBe(true);
+    });
   });
 });
