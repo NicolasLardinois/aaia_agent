@@ -607,6 +607,17 @@ Alle Cockpit-Drilldowns (US3–US9) über Demo-Naht (Tausch-Naht `useView`/`load
   - [ ] **Folge (Minor, Whole-Review): Kopf-Auslöser bei long-Konflikt via Short-Signal** — `ConflictCard` zeigt im Kopf für long-Positionen `newLongVerdict`; bei GC=F (long, newLong=HOLD, newShort=SHORT) ist der eigentliche Auslöser aber das SHORT-Signal. Ansatz: im Kopf das gegenläufige Signal wählen (analog `detectConflict`/`conflictNote`). conflictNote + suggestVerdict kommunizieren es bereits korrekt.
   - [ ] **Folge (Minor, Whole-Review): Demo-Querlink-Drift Inbox↔Portfolio** — GC=F/TSLA sind in der Inbox-Demo Konflikte, im Portfolio-Demo (andere Momentaufnahme) nicht; nur XLE deckungsgleich. Ansatz: beim echten Endpunkt sind beide aus derselben Quelle konsistent; für die Demo optional die Inbox-Konflikte 1:1 aus dem Portfolio-Demo spiegeln.
 
+### Frontend-Vollausbau — Slice 5 (Backtester, Branch `feat/frontend-slice5-backtester`)
+
+- [x] **Frontend Slice 5 — Backtester** (Konzept §2.6, Spec §7/§10 US31–US32). Lösung: Backtester über die Tausch-Naht `loadBacktest()` (Demo-Fixture: 12 `BacktestResult[]` quer über Top-Down/Bottom-Up/Judgment × Ticker × underlying × Regime × Horizont). Drei Karten (`BacktestCard`) je Bereich mit Trefferquote, Stichprobengröße n und kumulierter Trefferkurve (`LineCurve` — Wiederverwendung). Vier Filter (`BacktestFilters`): Ticker, Asset-Klasse (underlying), Regime, Zeitfenster (30/60/90 T) — Optionen aus den Roh-Ergebnissen abgeleitet (keine hartkodierten Listen). **UNAVAILABLE ≠ 0** lückenlos durchgezogen: `hitRate([])→rate:null`, `formatHitRate(null)→"n.v."`, leere `equityCurve→[]`, Karte zeigt „n.v."/"Keine Daten" statt „0 %"/Null-Linie. Pure getestete Logik `filterResults`/`hitRate`/`equityCurve`/`formatHitRate`. `/backtester`-Route verdrahtet. TDD grün (alle Tests, inkl. Routing), `npm run build` erfolgreich. Plan: `docs/superpowers/plans/2026-06-23-frontend-slice5-backtester.md`
+  > **Abschluss: Mit Slice 5 ist der Frontend-Vollausbau (alle 6 Slices US1–US36) abgeschlossen.**
+  > Slice 0 (Fundament/Shell) · Slice 1 (Cockpit-Drilldowns) · Slice 2 (Deep-Dive) · Slice 3 (Portfolio) · Slice 4 (Inbox) · Slice 5 (Backtester) — alle Demo-Naht verdrahtet, TDD grün, `npm run build` erfolgreich.
+
+  **Offene Folge-Aufgaben:**
+  - [ ] **Echter Backtest-Endpunkt anbinden** — `data/api/backtest.ts` (`fetchBacktest`) statt Demo; die auskommentierte Naht-Zeile in `data/backtest.ts` aktivieren (`isDemo:false`). Backend liefert die historischen Calls je Bereich (Top-Down-Regime-Check, Bottom-Up-Signal-Check, Judgment-Profitabilität) im `BacktestResult[]`-Vertrag.
+  - [ ] **P/L-basierte Equity-Kurve** — zusätzliches Feld `pnl` je `BacktestResult` und eine `equityCurvePnl`-Variante (kumulierter P/L in %). Heute bewusst Trefferquote, da kein P/L im Demo-Vertrag (kein Kurs-Zugriff). Erst sinnvoll, wenn der echte Endpunkt P&L je Call liefert.
+  - [ ] **US21-Verknüpfung Deep-Dive-Tab** — der Deep-Dive-Tab „Backtest-Kontext" (Slice 2, US21) kann `loadBacktest` + `filterResults({ ticker })` wiederverwenden → Ticker-spezifische Treffsicherheit am Urteil zeigen (Wiederverwendung statt zweiter Quelle). Naht und Filter-Logik sind bereits vorhanden; nur der Tab-Inhalt muss `BacktestCard` einbinden.
+
 ---
 
 ## 8. DESIGN-ENTSCHEIDUNGEN (Frontend — docs/frontend_notes.md)
