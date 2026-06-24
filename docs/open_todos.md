@@ -665,9 +665,10 @@ Jede Analyse gibt pro Linse genau eine Aktion. **HOLD vs NONE:** HOLD = Position
 - **Inhalte:** **gespiegelte Returns** (Short verdient bei Fall), **Borrow-Kosten** im Backtest, **asymmetrisches Risiko**/MaxDrawdown der Short-Seite, Hit-Rate **vs. Payoff** (eine hohe Trefferquote kann durch seltene Squeeze-Großverluste negativ werden).
 - **Heute vorhanden (Plan A):** Backtester spiegelt SHORT/SELL-Returns bereits vorzeichen-korrekt; Borrow-Kosten + getrennte Short-Auswertung fehlen.
 
-- [ ] **Konflikt-Backtester (eigener Block)** — bewertet `conflict_resolution` (war der erkannte
+- [x] **Konflikt-Backtester (eigener Block)** — bewertet `conflict_resolution` (war der erkannte
   Konflikt richtig + gut aufgelöst?), nicht `short_action`. Anderes Prüf-Subjekt als der
   Short-Backtester. Speist später die Kalibrierung des Konflikt-Agenten.
+  **✅ Erledigt — PR #49 am 2026-06-24 gemergt** (Merge-Commit `53ab8e1`). Eigener `ConflictBacktesterAgent` benotet die Verdikte (`HOLD`/`EXIT`/`REVERSE` aus der `conflicts`-Tabelle) gegen die Kursrealität der gehaltenen Position: `r = held_return(direction, adj)` (long→adj, short→−adj); HOLD richtig ⟺ r>0, EXIT ⟺ r<0, REVERSE ⟺ `apply_costs(−r)>0` (strenger). Je Verdikt-Typ aufgeschlüsselt (reuse `aggregate_by_reason`), nur messen. Port-Methode `load_for_backtest`, keine DB-Migration. In `BacktesterChiefAgent` verdrahtet. Umgesetzt subagent-getrieben + Voll-Branch-Review (Opus: „Ready to merge: Yes"), 37 Tests grün. **Im Review (zweiter Blick) nachgebessert:** (1) `graded`-Eintrag trägt `date` → Max-Drawdown chronologisch (Store lädt DESC); (2) fehlender Folgekurs (Delisting) wird als Totalverlust gezählt statt übersprungen (sonst beschönigt ein weggefallenes katastrophales HOLD die HOLD-Trefferquote — Survivorship-Bias; bewusste Asymmetrie zum Short-Backtester, im Spec §5 festgehalten). **Offen (eigene Folge-Blöcke, oben §9):** Befolgungsrate (`verdict` vs. `user_decision`), Kalibrierungs-Rückspeisung.
 - [ ] **Konflikt-Befolgungsrate (`verdict` vs. `user_decision`)** — verhaltensbezogenes Maß (folgte
   der Nutzer dem Rat?), getrennt von der Verdikt-Qualität. Liest `conflicts.user_decision`
   (held/closed) gegen `verdict` (HOLD/EXIT/REVERSE) — **keine** Kurse nötig. Eigener kleiner Block;
