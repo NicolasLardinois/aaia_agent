@@ -89,6 +89,14 @@ describe("AppRoutes", () => {
     );
   });
 
+  // B4: /backtester rendert BacktesterPage (drei Bereichs-Karten-Titel sichtbar)
+  it("/backtester rendert die BacktesterPage (drei Karten)", async () => {
+    renderAt("/backtester");
+    await waitFor(() => expect(screen.getByText(/Top-Down/i)).toBeInTheDocument());
+    expect(screen.getByText(/Bottom-Up/i)).toBeInTheDocument();
+    expect(screen.getByText(/Judgment/i)).toBeInTheDocument();
+  });
+
   // B3: Topbar-Badge zeigt die echte offene Konflikt-Anzahl (Demo-Fixture aus demoInbox)
   it("Topbar-Badge zeigt die echte offene Konflikt-Anzahl aus Fixture", async () => {
     renderAt("/cockpit");

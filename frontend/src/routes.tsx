@@ -13,6 +13,7 @@ import { BigMacWidget } from "./pages/cockpit/BigMacWidget";
 import { DeepDivePage } from "./pages/DeepDivePage";
 import { PortfolioPage } from "./pages/PortfolioPage";
 import { InboxPage } from "./pages/InboxPage";
+import { BacktesterPage } from "./pages/BacktesterPage";
 import { loadInboxCount } from "./data/inboxCount";
 import type { UseCockpitDeps } from "./hooks/useCockpit";
 
@@ -53,7 +54,7 @@ export function AppRoutes({ deps, onLogout }: { deps?: UseCockpitDeps; onLogout?
         <Route path="/deep-dive/:ticker" element={<DeepDivePage />} />
         <Route path="/portfolio" element={<PortfolioPage />} />
         <Route path="/inbox" element={<InboxPage />} />
-        <Route path="/backtester" element={<PlaceholderPage title="Backtester" />} />
+        <Route path="/backtester" element={<BacktesterPage />} />
         <Route path="/einstellungen" element={<PlaceholderPage title="Einstellungen" />} />
         <Route path="*" element={<Navigate to="/cockpit" replace />} />
       </Route>
