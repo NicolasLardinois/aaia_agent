@@ -4,9 +4,11 @@
 // Querlinks (Portfolio / Deep-Dive) + Protokoll-Aktionen (KEINE Trade-Ausfuehrung).
 import { Link } from "react-router-dom";
 import type { ConflictDTO, ConflictDecision, ConflictVerdict } from "../../contract/inbox";
+import type { PositionJudgmentDTO } from "../../contract/portfolio";
 import { UnderlyingWrapperBadge } from "../UnderlyingWrapperBadge";
 import { ConfidenceBar } from "../ConfidenceBar";
 import { verdictToVisual } from "../../lib/judgment";
+import { conflictTrigger } from "../../lib/conflict";
 
 export interface ConflictCardProps {
   conflict: ConflictDTO;
@@ -26,14 +28,21 @@ const VERDIKT_LABEL: Record<ConflictVerdict, string> = {
   REVERSE: "REVERSE — Richtung drehen",
 };
 
-// Kipp-Text: welches neue Urteil laeuft gegen die Position? Long-Seite: newLongVerdict;
-// Short-Seite: newShortVerdict zeigt den Druck. Einfaerbung via verdictToVisual.
+// Kipp-Text: welches neue Urteil laeuft gegen die Position? conflictTrigger (lib/conflict)
+// liefert das AUSLOESENDE Signal — eine Quelle der Wahrheit, identisch zur conflictNote.
+// So zeigt der Kopf z. B. bei long+HOLD/SHORT korrekt das SHORT (nicht das begleitende HOLD).
 function relevantesUrteils(conflict: ConflictDTO): { label: string; colorClass: string } {
-  if (conflict.direction === "long") {
-    return verdictToVisual(conflict.newLongVerdict);
-  }
-  // Short-Position: newShortVerdict zeigt den relevanten Druck (COVER/SHORT/HOLD/NONE) — Farbe passend zum Text.
-  return verdictToVisual(conflict.newShortVerdict);
+  const judgment: PositionJudgmentDTO = {
+    longVerdict: conflict.newLongVerdict,
+    shortVerdict: conflict.newShortVerdict,
+    confidence: conflict.confidence,
+  };
+  // In der Inbox ist jeder Eintrag ein echter Konflikt -> trigger ist nie null.
+  // Fallback (richtungsabhaengig) nur als defensiver Typ-Anker.
+  const trigger =
+    conflictTrigger(conflict.direction, judgment) ??
+    (conflict.direction === "long" ? conflict.newLongVerdict : conflict.newShortVerdict);
+  return verdictToVisual(trigger);
 }
 
 export function ConflictCard({ conflict, onResolve, loggedDecision }: ConflictCardProps) {
@@ -64,7 +73,7 @@ export function ConflictCard({ conflict, onResolve, loggedDecision }: ConflictCa
             <span className="text-sm">
               → neues Urteil:{" "}
               <span className={`font-semibold ${neuesUrteil.colorClass}`}>
-                {conflict.direction === "long" ? conflict.newLongVerdict : conflict.newShortVerdict}
+                {neuesUrteil.label}
               </span>{" "}
               <span className="text-slate-400">({Math.round(confidence * 100)} %)</span>
             </span>
@@ -86,14 +95,14 @@ export function ConflictCard({ conflict, onResolve, loggedDecision }: ConflictCa
         <p className="mb-1 text-xs font-medium text-slate-500 uppercase tracking-wide">
           Beratendes Verdikt (Vorschlag):
         </p>
-        <div className="flex flex-wrap gap-2">
+        {/* Reine Anzeige (kein Klick): role=group statt Buttons; Default via aria-current markiert. */}
+        <div role="group" aria-label="Beratendes Verdikt (Vorschlag)" className="flex flex-wrap gap-2">
           {VERDIKT_OPTIONEN.map((v) => {
             const istDefault = v === suggestedVerdict;
             return (
               <span
                 key={v}
-                role="button"
-                aria-pressed={istDefault ? "true" : "false"}
+                aria-current={istDefault ? "true" : undefined}
                 title={VERDIKT_LABEL[v]}
                 className={[
                   "rounded px-3 py-1 text-sm font-medium cursor-default select-none",

@@ -92,12 +92,13 @@ describe("AppRoutes", () => {
   // B3: Topbar-Badge zeigt die echte offene Konflikt-Anzahl (Demo-Fixture aus demoInbox)
   it("Topbar-Badge zeigt die echte offene Konflikt-Anzahl aus Fixture", async () => {
     renderAt("/cockpit");
-    // loadInboxCount laedt asynchron; Badge erscheint nach Promise-Aufloesung
+    // loadInboxCount laedt asynchron; Badge erscheint nach Promise-Aufloesung.
     const erwartet = demoInbox().conflicts.filter((c) => c.status === "offen").length;
+    // Scope auf die Inbox-Navigation (aria-label="Inbox") statt globalem Text-Match:
+    // so trifft der Test nur die Badge-Zahl im Inbox-Link, nicht zufaellig eine andere "N" in der UI.
     await waitFor(() => {
-      // Das Inbox-Badge zeigt die Zahl als Text in der Topbar (aria-label=Inbox + Badge-Span)
-      const badge = screen.queryByText(String(erwartet));
-      expect(badge).toBeInTheDocument();
+      const inboxLinks = screen.getAllByRole("link", { name: /Inbox/i });
+      expect(inboxLinks.some((l) => l.textContent?.includes(String(erwartet)))).toBe(true);
     });
   });
 });

@@ -43,6 +43,25 @@ const tslaShortConflict: ConflictDTO = {
   status: "offen",
 };
 
+// Long-Konflikt, der vom SHORT-Signal getrieben wird: GC=F long, neues Long-Urteil HOLD,
+// aber neues Short-Urteil SHORT. Der Kopf muss das AUSLOESENDE SHORT zeigen — nicht das HOLD.
+const gcfConflict: ConflictDTO = {
+  id: "GC=F-long",
+  ticker: "GC=F",
+  name: "Gold",
+  underlying: "precious_metal",
+  wrapper: "future",
+  direction: "long",
+  heldVerdict: "BUY",
+  newLongVerdict: "HOLD",
+  newShortVerdict: "SHORT",
+  confidence: 0.55,
+  conflictNote: "Long gehalten, Urteil SHORT läuft gegen die Position.",
+  suggestedVerdict: "REVERSE",
+  suggestedRationale: "Aktives Short-Setup gegen die Long-Position — Richtung drehen erwägen.",
+  status: "offen",
+};
+
 function renderCard(
   conflict: ConflictDTO = xleConflict,
   onResolve?: (id: string, decision: "gefolgt" | "ignoriert" | "vertagt") => void,
@@ -65,6 +84,14 @@ describe("ConflictCard (US29/US30)", () => {
     expect(sellElems.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("Kopf zeigt bei long-Konflikt via Short-Signal das AUSLOESENDE SHORT (nicht das HOLD)", () => {
+    renderCard(gcfConflict);
+    // Der Kipp-Kopf ("→ neues Urteil: …") muss das auslösende Short-Signal zeigen.
+    const kopf = screen.getByText(/neues Urteil/);
+    expect(kopf).toHaveTextContent("SHORT");
+    expect(kopf).not.toHaveTextContent("HOLD");
+  });
+
   it("rendert den vollstaendigen Namen", () => {
     renderCard();
     expect(screen.getByText(/Energy Select Sector SPDR/i)).toBeInTheDocument();
@@ -80,16 +107,22 @@ describe("ConflictCard (US29/US30)", () => {
     expect(screen.getByText(/These laeuft gegen die Position/i)).toBeInTheDocument();
   });
 
-  it("Default-Verdikt (EXIT) ist hervorgehoben (aria-pressed=true)", () => {
+  it("Default-Verdikt (EXIT) ist als Vorschlag markiert (genau ein aria-current)", () => {
     renderCard(xleConflict, vi.fn());
-    // Das DEFAULT-Verdikt EXIT hat aria-pressed=true (US29: Default hervorgehoben)
-    expect(screen.getByRole("button", { name: /EXIT/ })).toHaveAttribute("aria-pressed", "true");
+    // US29: genau EIN Verdikt ist der hervorgehobene Vorschlag (aria-current=true) und traegt EXIT.
+    const markiert = document.querySelectorAll('[aria-current="true"]');
+    expect(markiert).toHaveLength(1);
+    expect(markiert[0]).toHaveTextContent("EXIT");
+    expect(markiert[0]).toHaveTextContent(/Vorschlag/);
   });
 
-  it("Nicht-Default-Verdikts (HOLD, REVERSE) haben aria-pressed=false", () => {
+  it("Verdikt-Optionen sind nicht-interaktive Anzeige (keine Button-Rolle)", () => {
     renderCard(xleConflict, vi.fn());
-    expect(screen.getByRole("button", { name: /HOLD/ })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: /REVERSE/ })).toHaveAttribute("aria-pressed", "false");
+    // Die Verdikt-Chips sind reine Anzeige (kein Klick) -> keine role=button.
+    // Nur die echten Protokoll-Aktionen (Gefolgt/Ignoriert/Vertagt) sind Buttons.
+    expect(screen.queryByRole("button", { name: /^EXIT/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^HOLD/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^REVERSE/ })).toBeNull();
   });
 
   it("Deep-Dive-Link zeigt auf /deep-dive/XLE", () => {
