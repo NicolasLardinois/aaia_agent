@@ -139,6 +139,7 @@ class EcbSdwProvider(EcbDataProvider):
 
     def get_m2_growth(self) -> float | None:
         return self._fetch_bsi_growth("M20")
+
     def get_sovereign_yields(self) -> dict[str, Optional[float]]:
         return {f"{c}_10y": self._fetch_country_yield(c) for c in EUROZONE_COUNTRIES}
 
