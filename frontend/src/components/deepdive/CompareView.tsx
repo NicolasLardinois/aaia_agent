@@ -2,6 +2,7 @@ import type { DeepDiveView } from "../../contract/deepdive";
 import { UnderlyingWrapperBadge } from "../UnderlyingWrapperBadge";
 import { rollYieldVisual, leverageFactor } from "../../lib/futures";
 import { verdictToVisual } from "../../lib/judgment";
+import { formatNumber, formatSigned } from "../../lib/format";
 
 // Roll-Yield-Zelle: Future -> Vorzeichen + %/Jahr; sonst "kein Roll" (physisch/Fund).
 function rollCell(v: DeepDiveView) {
@@ -9,7 +10,7 @@ function rollCell(v: DeepDiveView) {
   const r = rollYieldVisual(v.futures.rollYieldAnnualPct, v.futures.form);
   return (
     <span className={r.colorClass}>
-      {v.futures.rollYieldAnnualPct >= 0 ? "+" : ""}{v.futures.rollYieldAnnualPct} %/Jahr {r.arrow}
+      {formatSigned(v.futures.rollYieldAnnualPct)} %/Jahr {r.arrow}
     </span>
   );
 }
@@ -17,7 +18,7 @@ function rollCell(v: DeepDiveView) {
 // Hebel-Zelle: Future -> effektiver Hebel (Nominal/Margin); sonst 1x (voll besichert).
 function levCell(v: DeepDiveView) {
   if (!v.futures) return <span>1× (voll besichert)</span>;
-  return <span>≈ {leverageFactor(v.futures.notional, v.futures.marginInitial).toFixed(1)}×</span>;
+  return <span>≈ {formatNumber(leverageFactor(v.futures.notional, v.futures.marginInitial), 1)}×</span>;
 }
 
 // Urteil-Zelle: Long-Verdict + Konfidenz %.
@@ -35,6 +36,17 @@ function verdictCell(v: DeepDiveView) {
 // (1x bei physisch/Fund), laufende Kosten, Gegenparteirisiko und Long-Urteil je Wrapper —
 // damit der Nutzer die Hüllenwahl informiert treffen kann (z. B. GC=F Future HOLD vs. 4GLD physisch BUY).
 export function CompareView({ left, right }: { left: DeepDiveView; right: DeepDiveView }) {
+  // Vergleich ist nur sinnvoll fuer ZWEI HUELLEN DESSELBEN Basiswerts (Konzept §5.2/US11):
+  // z. B. Gold-Future vs. physisches Gold-ETC. Unterschiedliche underlyings (Apple vs. Gold)
+  // ergeben keinen sinnvollen Huellen-Vergleich -> defensiver Hinweis statt irrefuehrender Tabelle.
+  if (left.underlying !== right.underlying) {
+    return (
+      <p className="text-sm text-slate-500">
+        Vergleich nur für denselben Basiswert sinnvoll (zwei Hüllen desselben underlyings).
+      </p>
+    );
+  }
+
   const cols = [left, right];
   const Row = ({
     label,

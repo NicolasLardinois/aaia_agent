@@ -1,4 +1,5 @@
 import type { IndexBlockDTO } from "../../../contract/deepdive";
+import { formatNumber } from "../../../lib/format";
 import { SignalBadge } from "../../SignalBadge";
 import { UnavailableField } from "../../UnavailableField";
 
@@ -12,7 +13,7 @@ export function IndexTab({ block }: { block: IndexBlockDTO }) {
         {block.valuationPe === null ? (
           <UnavailableField />
         ) : (
-          <span className="font-medium">{block.valuationPe}</span>
+          <span className="font-medium">{formatNumber(block.valuationPe)}</span>
         )}
       </div>
       <div>
@@ -20,7 +21,7 @@ export function IndexTab({ block }: { block: IndexBlockDTO }) {
         {block.breadthPct === null ? (
           <UnavailableField />
         ) : (
-          <span className="font-medium">{block.breadthPct} % über 200-Tage-Linie</span>
+          <span className="font-medium">{formatNumber(block.breadthPct)} % über 200-Tage-Linie</span>
         )}
       </div>
       <div>Momentum: <SignalBadge signal={block.momentumSignal} /></div>
@@ -28,7 +29,7 @@ export function IndexTab({ block }: { block: IndexBlockDTO }) {
         <div className="text-xs uppercase text-slate-500">Sektorkomposition</div>
         <ul>
           {block.composition.map((c) => (
-            <li key={c.sector}>{c.sector}: {c.weightPct} %</li>
+            <li key={c.sector}>{c.sector}: {formatNumber(c.weightPct)} %</li>
           ))}
         </ul>
       </div>

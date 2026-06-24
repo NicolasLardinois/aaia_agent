@@ -1,5 +1,6 @@
 import type { BondBlockDTO } from "../../../contract/deepdive";
 import { durationRisk } from "../../../lib/duration";
+import { formatNumber } from "../../../lib/format";
 import { UnavailableField } from "../../UnavailableField";
 
 // bond-Variante (US14): Duration (Zinsrisiko), Credit-Rating (Ausfallrisiko), Spread.
@@ -14,7 +15,7 @@ export function BondTab({ block }: { block: BondBlockDTO }) {
           <UnavailableField reason="Duration nicht verfügbar" />
         ) : (
           <span className="font-medium">
-            {block.modifiedDuration} J · Risiko {risk.level} ({risk.note})
+            {formatNumber(block.modifiedDuration)} J · Risiko {risk.level} ({risk.note})
           </span>
         )}
       </div>
@@ -31,7 +32,7 @@ export function BondTab({ block }: { block: BondBlockDTO }) {
         {block.spreadBps === null ? (
           <UnavailableField />
         ) : (
-          <span className="font-medium">{block.spreadBps} bps</span>
+          <span className="font-medium">{formatNumber(block.spreadBps)} bps</span>
         )}
       </div>
     </div>

@@ -1,6 +1,7 @@
 import type { EquityBlockDTO } from "../../../contract/deepdive";
 import { combineValuationRange, valuationPosition } from "../../../lib/valuationRange";
 import { altmanClass } from "../../../lib/altman";
+import { formatNumber } from "../../../lib/format";
 import { SignalBadge } from "../../SignalBadge";
 import { UnavailableField } from "../../UnavailableField";
 
@@ -13,7 +14,7 @@ const ALTMAN_LABEL: Record<string, string> = {
 const MOAT_LABEL: Record<string, string> = { wide: "breit", narrow: "schmal", none: "keiner" };
 
 function num(v: number | null, suffix = ""): React.ReactNode {
-  return v === null ? <UnavailableField /> : <span className="font-medium">{v}{suffix}</span>;
+  return v === null ? <UnavailableField /> : <span className="font-medium">{formatNumber(v)}{suffix}</span>;
 }
 
 // Kontextabhaengige equity-Tabs (US13): Bewertung/Qualitaet/Signale. Pure-Logik aus lib/.
@@ -41,15 +42,15 @@ export function EquityTabs({ block, tab }: { block: EquityBlockDTO; tab: "valuat
             {block.valuation.methods.map((m) => (
               <tr key={m.name}>
                 <td>{m.name}</td>
-                <td>{m.low}</td>
-                <td>{m.high}</td>
+                <td>{formatNumber(m.low)}</td>
+                <td>{formatNumber(m.high)}</td>
               </tr>
             ))}
           </tbody>
         </table>
         {range && (
           <div className="rounded bg-slate-50 p-2 dark:bg-slate-800">
-            Kombinierte Bandbreite: <span className="font-medium">{range.low}–{range.high}</span>
+            Kombinierte Bandbreite: <span className="font-medium">{formatNumber(range.low)}–{formatNumber(range.high)}</span>
             {pos && (
               <>
                 {" · "}Position:{" "}

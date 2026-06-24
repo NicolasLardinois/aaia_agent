@@ -1,6 +1,7 @@
 import type { FuturesBlockDTO } from "../../../contract/deepdive";
 import { LineCurve } from "../../charts/LineCurve";
 import { rollYieldVisual, leverageFactor } from "../../../lib/futures";
+import { formatNumber, formatSigned } from "../../../lib/format";
 
 // Futures-Tab (US33–36, Konzept §5.1): Terminkurve (Contango = aufwärts, Backwardation = abwärts)
 // über LineCurve; Roll-Yield mit Vorzeichen und Richtung benannt (Contango < 0 = Gegenwind,
@@ -21,7 +22,7 @@ export function FuturesTab({ block }: { block: FuturesBlockDTO }) {
       <div>
         Roll-Yield:{" "}
         <span className={`font-medium ${roll.colorClass}`}>
-          {block.rollYieldAnnualPct >= 0 ? "+" : ""}{block.rollYieldAnnualPct} %/Jahr {roll.arrow}
+          {formatSigned(block.rollYieldAnnualPct)} %/Jahr {roll.arrow}
         </span>{" "}
         <span className="text-slate-500">({roll.label})</span>
       </div>
@@ -29,9 +30,9 @@ export function FuturesTab({ block }: { block: FuturesBlockDTO }) {
       <div>Nächster Roll-Termin: <span className="font-medium">{block.nextRollDate}</span></div>
       <div>
         {/* Nominalwert + Margin zeigen, damit der Hebel nachvollziehbar ist (Herleitung: Nominal / Margin) */}
-        Nominal: <span className="font-medium">{block.notional}</span>{" "}
-        · Margin (Initial): <span className="font-medium">{block.marginInitial}</span>{" "}
-        → Hebel ≈ {lev.toFixed(1)}×
+        Nominal: <span className="font-medium">{formatNumber(block.notional)}</span>{" "}
+        · Margin (Initial): <span className="font-medium">{formatNumber(block.marginInitial)}</span>{" "}
+        → Hebel ≈ {formatNumber(lev, 1)}×
       </div>
     </div>
   );

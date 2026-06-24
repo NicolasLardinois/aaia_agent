@@ -1,4 +1,5 @@
 import type { BacktestContextDTO } from "../../../contract/deepdive";
+import { formatNumber } from "../../../lib/format";
 import { UnavailableField } from "../../UnavailableField";
 
 // Backtester-Kontext fuer DIESEN Ticker (US21): wie treffsicher war das System hier bisher.
@@ -11,9 +12,9 @@ export function BacktestContextTab({ ctx }: { ctx: BacktestContextDTO }) {
         {ctx.hitRatePct === null ? (
           <UnavailableField reason="keine Backtest-Daten" />
         ) : (
-          <span className="font-medium">{ctx.hitRatePct} %</span>
+          <span className="font-medium">{formatNumber(ctx.hitRatePct)} %</span>
         )}{" "}
-        ({ctx.sampleSize} historische Calls)
+        ({formatNumber(ctx.sampleSize)} historische Calls)
       </div>
       {ctx.history.length === 0 ? (
         <p className="text-slate-500">Keine Einzel-Historie für diesen Ticker.</p>

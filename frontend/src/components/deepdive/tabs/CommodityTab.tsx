@@ -1,4 +1,5 @@
 import type { CommodityBlockDTO } from "../../../contract/deepdive";
+import { formatNumber, formatSigned } from "../../../lib/format";
 import { SignalBadge } from "../../SignalBadge";
 import { UnavailableField } from "../../UnavailableField";
 
@@ -20,7 +21,7 @@ export function CommodityTab({ block }: { block: CommodityBlockDTO }) {
           <ul>
             {block.seasonality.map((s) => (
               <li key={s.month}>
-                {s.month}: {s.avgReturnPct >= 0 ? "+" : ""}{s.avgReturnPct} %
+                {s.month}: {formatSigned(s.avgReturnPct)} %
               </li>
             ))}
           </ul>
@@ -32,7 +33,7 @@ export function CommodityTab({ block }: { block: CommodityBlockDTO }) {
           <UnavailableField reason="COT nicht verfügbar" />
         ) : (
           <span className="font-medium">
-            {block.cotIndex}/100 · <SignalBadge signal={block.cotSignal} />{" "}
+            {formatNumber(block.cotIndex)}/100 · <SignalBadge signal={block.cotSignal} />{" "}
             <span className="text-xs text-slate-500">(konträr: hoher Index = bearish)</span>
           </span>
         )}
@@ -43,7 +44,7 @@ export function CommodityTab({ block }: { block: CommodityBlockDTO }) {
           <ul>
             {block.crossMetal.map((r) => (
               <li key={r.name}>
-                {r.name}: <span className="font-medium">{r.value}</span> — {r.note}
+                {r.name}: <span className="font-medium">{formatNumber(r.value)}</span> — {r.note}
               </li>
             ))}
           </ul>

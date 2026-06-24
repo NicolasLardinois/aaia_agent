@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { MemoryRouter, Routes, Route, Link } from "react-router-dom";
 import { DeepDivePage } from "./DeepDivePage";
 import { loadDeepDive } from "../data/deepdive";
 
@@ -51,6 +51,36 @@ describe("DeepDivePage", () => {
     await waitFor(() => screen.getByRole("tab", { name: /Futures/ }));
     fireEvent.click(screen.getByRole("tab", { name: /Futures/ }));
     expect(screen.getByText(/Roll-Yield/)).toBeInTheDocument();
+  });
+  it("Ticker-Wechsel mit aktivem, im neuen Tab-Set fehlendem Tab => kein Crash (Tab-Reset)", async () => {
+    // Regression: gleiche Komponenten-Instanz bei /deep-dive/:ticker -> useState(active) ueberlebt
+    // den Wechsel. AAPL hat "Qualität" (equity), TLT (bond) nicht. Ohne Absicherung wuerde der
+    // alte Tab "quality" einen leeren equity-Block dereferenzieren (Crash). Erwartet: Fallback
+    // auf den ersten gueltigen Tab ("Anleihe"), kein Absturz.
+    render(
+      <MemoryRouter initialEntries={["/deep-dive/AAPL"]}>
+        <Link to="/deep-dive/TLT">zu-TLT</Link>
+        <Routes>
+          <Route path="/deep-dive/:ticker" element={<DeepDivePage loader={loadDeepDive} />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => screen.getByRole("tab", { name: /Qualität/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Qualität/ })); // active = "quality"
+    fireEvent.click(screen.getByText("zu-TLT"));                    // Ticker -> TLT (bond)
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Anleihe/ })).toBeInTheDocument());
+    expect(screen.queryByRole("tab", { name: /Qualität/ })).not.toBeInTheDocument();
+  });
+  it("kein 'vergleichen'-Button ohne sinnvolles Gegenstück (AAPL)", async () => {
+    renderAt("AAPL");
+    await waitFor(() => expect(screen.getByText(/Apple/)).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /vergleichen/i })).not.toBeInTheDocument();
+  });
+  it("'vergleichen'-Button vorhanden bei Ticker mit Gegenstück (GC=F)", async () => {
+    renderAt("GC=F");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /vergleichen/i })).toBeInTheDocument(),
+    );
   });
   it("Vergleich: ?vergleich=4GLD zeigt CompareView mit beiden Tickern", async () => {
     render(

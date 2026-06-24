@@ -11,7 +11,7 @@ describe("DeepDiveHeader", () => {
     expect(screen.getByText("Edelmetall")).toBeInTheDocument(); // underlying-Badge
     expect(screen.getByText("Future")).toBeInTheDocument();     // wrapper-Badge
     expect(screen.getByText(/COMEX/)).toBeInTheDocument();
-    expect(screen.getByText(/2380/)).toBeInTheDocument();
+    expect(screen.getByText(/2\.380/)).toBeInTheDocument(); // DE-Tausenderpunkt
   });
   it("ruft onCompare beim Klick auf 'vergleichen'", () => {
     const onCompare = vi.fn();

@@ -68,9 +68,12 @@ export function DeepDivePage({
     return () => { cancelled = true; };
   }, [compareTicker, loader]);
 
+  // Vergleich nur anbieten, wenn es ein sinnvolles Gegenstück desselben Basiswerts gibt
+  // (Konzept §5.2/US11). Kein blinder "4GLD"-Fallback mehr — sonst landete man von z. B.
+  // AAPL bei einem Gold-ETC (verschiedene underlyings -> sinnloser Vergleich).
   const onCompare = () => {
-    const partner = COMPARE_DEFAULT[data?.ticker ?? ""] ?? "4GLD";
-    setParams({ vergleich: partner });
+    const partner = COMPARE_DEFAULT[data?.ticker ?? ""];
+    if (partner) setParams({ vergleich: partner });
   };
 
   if (loading) return <p className="text-slate-500">Lädt …</p>;
@@ -88,12 +91,19 @@ export function DeepDivePage({
   }
 
   const tabs = tabsFor(data);
-  const current = active ?? tabs[0]?.key ?? null;
+  // Aktiven Tab gegen die aktuelle Tab-Menge absichern: Bei Ticker-Wechsel (gleiche Komponenten-
+  // Instanz, da Route /deep-dive/:ticker erhalten bleibt) kann ein zuvor gewaehlter Tab-Key in der
+  // neuen Tab-Menge fehlen (z. B. "quality" von AAPL existiert bei TLT/bond nicht). Ohne diese
+  // Absicherung wuerde TabContent einen leeren Block dereferenzieren (Crash). Fallback: erster Tab.
+  const current = tabs.some((t) => t.key === active) ? active : (tabs[0]?.key ?? null);
+
+  // Gegenstück für den Vergleich (Demo): nur zeigen, wenn vorhanden (US11, gleicher Basiswert).
+  const comparePartner = COMPARE_DEFAULT[data.ticker];
 
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <DeepDiveHeader view={data} onCompare={onCompare} />
+        <DeepDiveHeader view={data} onCompare={comparePartner ? onCompare : undefined} />
         <DemoBadge isDemo={data.isDemo} />
       </div>
       <SourceHealth active={data.sourcesActive} total={data.sourcesTotal} failed={data.failed} />

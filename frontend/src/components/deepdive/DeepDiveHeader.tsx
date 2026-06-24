@@ -1,6 +1,7 @@
 import type { DeepDiveView } from "../../contract/deepdive";
 import { UnderlyingWrapperBadge } from "../UnderlyingWrapperBadge";
 import { UnavailableField } from "../UnavailableField";
+import { formatNumber } from "../../lib/format";
 
 // Header (Konzept §4.5): beide Etiketten (underlying x wrapper) + Kurs/Markt + "vergleichen mit"-Einstieg.
 export function DeepDiveHeader({ view, onCompare }: { view: DeepDiveView; onCompare?: () => void }) {
@@ -13,7 +14,7 @@ export function DeepDiveHeader({ view, onCompare }: { view: DeepDiveView; onComp
           Kurs:{" "}
           {view.price === null
             ? <UnavailableField reason="Kurs nicht verfügbar" />
-            : <span className="font-medium">{view.price} {view.currency}</span>}
+            : <span className="font-medium">{formatNumber(view.price)} {view.currency}</span>}
         </span>
         <span>· Markt: {view.market || "—"}</span>
         {onCompare && (

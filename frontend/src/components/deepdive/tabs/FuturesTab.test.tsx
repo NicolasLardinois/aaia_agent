@@ -10,8 +10,8 @@ describe("FuturesTab", () => {
     render(<FuturesTab block={demoDeepDive("GC=F").futures!} />);
     // form "contango" als uppercase-Span sichtbar
     expect(screen.getByText("contango", { selector: ".font-medium.uppercase" })).toBeInTheDocument();
-    // Roll-Yield: -3.1 %/Jahr im Roll-Yield-Abschnitt
-    expect(screen.getByText(/-3\.1/)).toBeInTheDocument();
+    // Roll-Yield: -3,1 %/Jahr im Roll-Yield-Abschnitt (DE-Komma)
+    expect(screen.getByText(/-3,1/)).toBeInTheDocument();
     // rollYieldVisual-Label: Gegenwind (Contango)
     expect(screen.getByText(/Gegenwind/i)).toBeInTheDocument();
     // Verfall und Roll-Termin: Labels sichtbar
@@ -21,9 +21,9 @@ describe("FuturesTab", () => {
     expect(screen.getAllByText(/2026-06-26/)).toHaveLength(2);
     // Nominalwert + Margin in der Hebel-Zeile sichtbar (Fix 3: Herleitung transparent)
     expect(screen.getByText(/Nominal/i)).toBeInTheDocument();
-    expect(screen.getByText(/238000/)).toBeInTheDocument();
+    expect(screen.getByText(/238\.000/)).toBeInTheDocument(); // DE-Tausenderpunkt
     expect(screen.getByText(/Margin \(Initial\)/i)).toBeInTheDocument();
-    // Hebel ≈ 33x (238000 / 7150 ≈ 33.3)
-    expect(screen.getByText(/33/)).toBeInTheDocument();
+    // Hebel ≈ 33,3× (238000 / 7150 ≈ 33.3; DE-Komma)
+    expect(screen.getByText(/33,3/)).toBeInTheDocument();
   });
 });
