@@ -26,6 +26,8 @@ describe("CockpitPage", () => {
     expect(screen.getByText("71 %")).toBeInTheDocument();
     expect(screen.getByText("BEARISH")).toBeInTheDocument();
     expect(screen.getByText("4/5 Quellen aktiv")).toBeInTheDocument();
+    // Seitenspezifischer Titel (globaler Header jetzt in Topbar)
+    expect(screen.getByText("Cockpit — Übersicht")).toBeInTheDocument();
     // ausgefallene Sektoren-Domaene: kein Signal, sondern 'nicht verfuegbar'
     expect(screen.getByText("nicht verfügbar")).toBeInTheDocument();
   });
