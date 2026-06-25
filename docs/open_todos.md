@@ -208,7 +208,7 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 - [x] **USA PCE** — FRED `PCEPI` via `extended_state` angebunden (PR #62 am 2026-06-25 gemergt).
   Befüllt `InflationDataPoint.pce` (Fed-Ziel = PCE). Live verifiziert: 4.07 %. (Reines Anzeige-/Transparenzfeld, noch kein Signal-Input.)
 
-- [x] **Eurozone Real Rate 10Y** — angebunden (PR offen, 2026-06-25).
+- [x] **Eurozone Real Rate 10Y** — angebunden (PR #64 am 2026-06-25 gemergt; Merge-Konflikt mit #62 in isoliertem Worktree aufgelöst, betroffene Tests + CI grün. Review Claude: Fisher-Näherung + SR_10Y-Serie verifiziert, Realzins>2%→BEARISH konsistent zur USA, keine Befunde).
   Neue Port-Methode `EcbDataProvider.get_aaa_10y_yield()` (Default None), implementiert im `EcbSdwProvider` (Yield-Curve `SR_10Y`), durchgereicht vom `EurostatEcbProvider`. `inflation_agent` rechnet `eu_real_10y = ECB-AAA-10Y − EU-HICP` und speist es ins EU-`_signal` (Realzins-Gegenwind >2% → BEARISH, konsistent zur USA). Live verifiziert: 2.94 − 2.0 = 0.94 %.
 
 - [ ] **Schweiz PPI** (`InflationDataPoint.ppi` für CH ist `None`)
