@@ -56,6 +56,12 @@ function aapl(): DeepDiveView {
         earningsTrend: null,   // UNAVAILABLE (Stub) — NICHT 0/neutral
         moat: "wide",
       },
+      // Erweiterter Kennzahlen-Katalog (B1). pegRatio bewusst null -> "n.v."-Pfad.
+      fundamentals: {
+        forwardPe: 28.2, shillerCape: 34.0, pegRatio: null, evRevenue: 8.1,
+        priceBook: 46.0, priceSales: 8.3, priceFcf: 30.0, dividendYieldPct: 0.5,
+        waccPct: 8.4, revenueCagr3yPct: 8.0, debtToEquity: 1.5,
+      },
     },
     backtestContext: {
       hitRatePct: 64, sampleSize: 25,

@@ -57,10 +57,27 @@ export interface EquitySignalsDTO {
   earningsTrend: Signal | null;      // Earnings-Revisions-Trend
   moat: "wide" | "narrow" | "none" | null; // Buffett-Burggraben
 }
+// Erweiterter Fundamental-Katalog (US13, Teil-Projekt B1) — spiegelt das Backend-Modell
+// FundamentalsSnapshot (snake→camel), damit der spätere Echt-Anschluss 1:1 mappt.
+// Optional am EquityBlock: Alt-Fixtures ohne diesen Block bleiben gültig.
+export interface EquityFundamentalsDTO {
+  forwardPe: number | null;        // KGV auf Basis erwarteter 12M-Gewinne
+  shillerCape: number | null;      // zyklisch bereinigtes KGV (10J inflationsbereinigte Gewinne)
+  pegRatio: number | null;         // KGV ÷ Gewinnwachstum (≈1 fair)
+  evRevenue: number | null;        // Unternehmenswert / Umsatz
+  priceBook: number | null;        // KBV
+  priceSales: number | null;       // KUV
+  priceFcf: number | null;         // Kurs / freier Cashflow
+  dividendYieldPct: number | null; // Dividendenrendite in %
+  waccPct: number | null;          // gewichtete Kapitalkosten in %
+  revenueCagr3yPct: number | null; // Umsatzwachstum p.a. (3J), in %
+  debtToEquity: number | null;     // Verschuldungsgrad (Fremd-/Eigenkapital)
+}
 export interface EquityBlockDTO {
   valuation: EquityValuationDTO;
   quality: EquityQualityDTO;
   signals: EquitySignalsDTO;
+  fundamentals?: EquityFundamentalsDTO;
 }
 
 // --- bond (US14) ---
