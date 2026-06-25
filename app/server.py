@@ -17,11 +17,15 @@ from adapters.data.cnn_fear_greed import CnnFearGreedProvider
 from adapters.persistence.json_dated_history import JsonDatedHistory
 from adapters.api.ws_broadcaster import WebSocketBroadcaster
 from adapters.api.run_manager import RunManager
+from adapters.api.snapshot_store import JsonCockpitSnapshotStore
 from adapters.api.app_factory import create_app
 from orchestrators.top_down_orchestrator import TopDownOrchestrator
 
 # Persistente 10Y-3M-Historie für das Yield-Curve-Bull-Steepening-Signal (über Läufe hinweg).
 _HISTORY_PATH = os.path.join(os.path.dirname(__file__), "..", ".cache", "yield_spread_history.json")
+# Persistenter Snapshot des letzten Cockpit-Ergebnisses, damit GET /api/cockpit
+# auch direkt nach einem Server-Neustart ein Ergebnis liefert (statt 204).
+_SNAPSHOT_PATH = os.path.join(os.path.dirname(__file__), "..", ".cache", "cockpit_snapshot.json")
 
 
 def make_orchestrator(bus):
@@ -37,7 +41,8 @@ def make_orchestrator(bus):
 
 
 broadcaster = WebSocketBroadcaster()
-run_manager = RunManager(make_orchestrator, broadcaster)
+run_manager = RunManager(make_orchestrator, broadcaster,
+                         snapshot_store=JsonCockpitSnapshotStore(_SNAPSHOT_PATH))
 app = create_app(run_manager)
 
 

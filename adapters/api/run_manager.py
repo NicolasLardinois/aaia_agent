@@ -23,10 +23,16 @@ _logger = logging.getLogger(__name__)
 
 
 class RunManager:
-    def __init__(self, orchestrator_factory: Callable[[EventBus], object], broadcaster: WebSocketBroadcaster):
+    def __init__(self, orchestrator_factory: Callable[[EventBus], object], broadcaster: WebSocketBroadcaster,
+                 snapshot_store=None):
         self._make_orchestrator = orchestrator_factory
         self.broadcaster = broadcaster
         self._latest = None
+        # Optionaler Disk-Store: persistiert das letzte serialisierte Snapshot-Dict,
+        # damit GET /api/cockpit auch nach einem Server-Neustart ein Ergebnis liefert.
+        # Beim Start vorhandenen Snapshot laden (None, wenn kein Store/keine Datei).
+        self._snapshot_store = snapshot_store
+        self._snapshot: dict | None = snapshot_store.load() if snapshot_store else None
         self._tasks: set[asyncio.Task] = set()
         self._broadcast_tasks: set[asyncio.Task] = set()
         self._running: bool = False  # Lauf-Lock: True waehrend ein Lauf aktiv ist
@@ -34,6 +40,17 @@ class RunManager:
     @property
     def latest(self):
         return self._latest
+
+    def latest_snapshot(self) -> dict | None:
+        """Serialisiertes letztes Ergebnis fuer GET /api/cockpit.
+
+        Ein frisches In-Memory-Ergebnis (_latest) gewinnt und wird frisch
+        serialisiert; fehlt es (z. B. direkt nach einem Neustart), wird der
+        von Disk geladene Snapshot geliefert. None, wenn beides fehlt -> 204.
+        """
+        if self._latest is not None:
+            return cockpit_to_dict(self._latest)
+        return self._snapshot
 
     def start_run(self) -> str | None:
         if self._running:
@@ -64,6 +81,12 @@ class RunManager:
             # — kein Ergebnis, das der Client nie als "ready" gesehen hat.
             payload = cockpit_to_dict(result)
             self._latest = result
+            # Snapshot fuer GET nach Neustart: im Speicher halten und (falls Store
+            # injiziert) auf Disk persistieren. Persistier-Fehler crashen den Lauf
+            # nicht (im Store nur geloggt).
+            self._snapshot = payload
+            if self._snapshot_store is not None:
+                self._snapshot_store.save(payload)
             # Fortschritts-Broadcasts (fire-and-forget aus dem Bus-Handler) zuerst
             # abschliessen, damit das terminale CockpitResultReady garantiert ZULETZT
             # beim Client ankommt (Vertrag §4: erst Fortschritt, dann fertig).

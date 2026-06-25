@@ -8,7 +8,6 @@ Ausnahme: GET /healthz ist OEFFENTLICH (Render-Health-Check darf kein Passwort b
 from fastapi import APIRouter, Depends, Response, WebSocket, WebSocketDisconnect, status
 
 from adapters.api.auth import require_token, token_valid
-from adapters.api.cockpit_serializer import cockpit_to_dict
 from adapters.api.run_manager import RunManager
 
 
@@ -24,9 +23,12 @@ def build_router(run_manager: RunManager) -> APIRouter:
 
     @router.get("/api/cockpit")
     def get_cockpit(_: None = Depends(require_token)):
-        if run_manager.latest is None:
+        # latest_snapshot() liefert das frisch serialisierte In-Memory-Ergebnis
+        # oder — nach einem Neustart — den von Disk geladenen Snapshot (sonst None).
+        snapshot = run_manager.latest_snapshot()
+        if snapshot is None:
             return Response(status_code=status.HTTP_204_NO_CONTENT)
-        return cockpit_to_dict(run_manager.latest)
+        return snapshot
 
     @router.post("/api/cockpit/run", status_code=status.HTTP_202_ACCEPTED)
     async def post_run(_: None = Depends(require_token)):
