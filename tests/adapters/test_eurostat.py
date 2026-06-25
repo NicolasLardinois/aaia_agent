@@ -1,7 +1,7 @@
 """TDD-Tests fuer den Eurostat-Adapter (EurostatEcbProvider) und _parse_jsonstat_latest."""
 from unittest.mock import patch, MagicMock
 
-from adapters.data.eurostat import _parse_jsonstat_latest
+from adapters.data.eurostat import _parse_jsonstat_latest, _parse_jsonstat_series
 
 
 # ── _parse_jsonstat_latest (rein, kein Netz) ───────────────────────────────
@@ -27,6 +27,26 @@ def test_parse_fehlendes_value_none():
 
 def test_parse_nicht_numerisch_none():
     assert _parse_jsonstat_latest({"value": {"0": "abc"}}) is None
+
+
+# ── _parse_jsonstat_series (rein, kein Netz) — ganze Reihe, älteste zuerst ──
+def test_parse_series_aelteste_zuerst():
+    assert _parse_jsonstat_series({"value": {"0": 6.0, "1": 6.1, "2": 6.3}}) == [6.0, 6.1, 6.3]
+
+
+def test_parse_series_unsortierte_keys_werden_geordnet():
+    # Reihenfolge folgt dem Integer-Zeit-Index, nicht der dict-Einfügereihenfolge
+    assert _parse_jsonstat_series({"value": {"2": 6.3, "0": 6.0, "1": 6.1}}) == [6.0, 6.1, 6.3]
+
+
+def test_parse_series_leer_oder_fehlend():
+    assert _parse_jsonstat_series({"value": {}}) == []
+    assert _parse_jsonstat_series({}) == []
+    assert _parse_jsonstat_series({"value": None}) == []
+
+
+def test_parse_series_ueberspringt_nicht_numerisch():
+    assert _parse_jsonstat_series({"value": {"0": 6.0, "1": "x", "2": 6.2}}) == [6.0, 6.2]
 
 
 # ── Fetch-Response-Helfer ──────────────────────────────────────────────────
@@ -93,6 +113,32 @@ def test_get_unemployment_codes_nutzt_ea21():
     assert params["sex"] == "T" and params["age"] == "TOTAL"
     assert params["unit"] == "PC_ACT" and params["s_adj"] == "SA"
     assert params["geo"] == "EA21"   # Stolperstein: NICHT EA20
+
+
+def test_get_unemployment_history_codes_und_reihenfolge():
+    from adapters.data.eurostat import EurostatEcbProvider
+    payload = {"value": {"0": 6.0, "1": 6.1, "2": 6.3}}
+    with patch(_GET, return_value=_resp(payload)) as m:
+        hist = EurostatEcbProvider(MagicMock()).get_unemployment_history(months=12)
+    assert hist == [6.0, 6.1, 6.3]   # älteste zuerst
+    url = m.call_args.args[0]
+    params = m.call_args.kwargs["params"]
+    assert "une_rt_m" in url
+    assert params["geo"] == "EA21" and params["unit"] == "PC_ACT" and params["s_adj"] == "SA"
+    assert params["lastTimePeriod"] == 12
+
+
+def test_get_unemployment_history_netzfehler_leer():
+    from adapters.data.eurostat import EurostatEcbProvider
+    with patch(_GET, side_effect=ConnectionError("boom")):
+        assert EurostatEcbProvider(MagicMock()).get_unemployment_history() == []
+
+
+def test_get_unemployment_history_filtert_implausible():
+    from adapters.data.eurostat import EurostatEcbProvider
+    payload = {"value": {"0": 6.0, "1": 999.0, "2": 6.2}}   # 999 außerhalb [0,100]
+    with patch(_GET, return_value=_resp(payload)):
+        assert EurostatEcbProvider(MagicMock()).get_unemployment_history() == [6.0, 6.2]
 
 
 def test_rundet_auf_eine_stelle():
