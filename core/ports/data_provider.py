@@ -77,6 +77,11 @@ class EcbDataProvider(ABC):
         """Datierte EZB-Leitzins-Historie [{"date","rate"}, ...]. Default: leer."""
         return []
 
+    def get_aaa_10y_yield(self) -> Optional[float]:
+        """Euro-Area AAA 10J-Nominalrendite in % (für die EU-Realzins-Berechnung:
+        real = nominal − HICP). Default: None (nur der ECB-SDW-Adapter liefert echte Daten)."""
+        return None
+
 
 class SnbDataProvider(ABC):
     @abstractmethod
@@ -184,6 +189,13 @@ class COTProvider(ABC):
     @abstractmethod
     def get_cot_history(self, commodity: str, years: int = 3) -> list[dict]:
         """[{"date","managed_money_net","open_interest"}], älteste zuerst; leer = nicht verfügbar."""
+        ...
+
+
+class ShillerCapeProvider(ABC):
+    @abstractmethod
+    def get_shiller_cape(self, ticker: str) -> Optional[float]:
+        """Aktuelle Shiller-CAPE (zyklisch bereinigtes KGV) des Index; None = nicht verfügbar."""
         ...
 
 

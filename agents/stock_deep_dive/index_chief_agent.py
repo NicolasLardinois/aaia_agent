@@ -35,10 +35,11 @@ def _aggregate_index_signal(valuation_sig, momentum_sig, earnings_sig,
 
 
 class IndexChiefAgent:
-    def __init__(self, market: MarketDataProvider, bus: EventBus):
+    def __init__(self, market: MarketDataProvider, bus: EventBus,
+                 cape_provider=None):
         self.bus = bus
         self.index_price_agent           = IndexPriceAgent(market, bus)
-        self.index_valuation_agent       = IndexValuationAgent(market, bus)
+        self.index_valuation_agent       = IndexValuationAgent(market, bus, cape_provider=cape_provider)
         self.index_earnings_agent        = IndexEarningsAgent(market, bus)
         self.index_breadth_agent         = IndexBreadthAgent(market, bus)
         self.index_momentum_agent        = IndexMomentumAgent(market, bus)

@@ -1,7 +1,29 @@
+import asyncio
 from datetime import date
-from agents.market_cockpit.macro.interest_rate_agent import _direction, _signal
+from unittest.mock import MagicMock
+
+from agents.market_cockpit.macro.interest_rate_agent import InterestRateAgent, _direction, _signal
 from core.domain.models import Signal
 from adapters.persistence.in_memory_dated_history import InMemoryDatedHistory
+
+
+def test_usa_balance_sheet_growth_aus_extended_state():
+    """USA Fed-Bilanzwachstum (WALCL) wird aus extended_state befüllt (vorher hartcodiert None)."""
+    macro = MagicMock()
+    macro.get_economic_state.return_value = {"fed_rate": 4.0, "inflation": 3.0}
+    macro.get_extended_state.return_value = {"balance_sheet_growth": -8.0}  # QT
+    macro.get_policy_rate_history.return_value = []
+    ecb = MagicMock()
+    for m in ("get_interest_rate", "get_balance_sheet_growth"):
+        getattr(ecb, m).return_value = None
+    ecb.get_interest_rate_history.return_value = []
+    snb = MagicMock()
+    for m in ("get_interest_rate", "get_balance_sheet_growth"):
+        getattr(snb, m).return_value = None
+    snb.get_interest_rate_history.return_value = []
+    agent = InterestRateAgent(macro=macro, ecb=ecb, snb=snb, bus=MagicMock())
+    result = asyncio.run(agent.run())
+    assert result.usa.balance_sheet_growth == -8.0
 
 
 def test_direction_rising_from_dated_history():

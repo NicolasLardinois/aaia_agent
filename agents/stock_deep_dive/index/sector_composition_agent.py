@@ -40,6 +40,10 @@ class SectorCompositionAgent:
         for h in holdings:
             by_sector[h.get("sector") or "Unknown"] += float(h["weight_pct"])
         top_sector, top_sector_w = max(by_sector.items(), key=lambda kv: kv[1])
+        # Liefert die Quelle keine Sektoren (alles "Unknown"), keinen irreführenden
+        # Top-Sektor melden — die Konzentrationsmetriken bleiben davon unberührt.
+        if top_sector == "Unknown":
+            top_sector, top_sector_w = None, None
 
         holdings_sorted = sorted(holdings, key=lambda h: float(h["weight_pct"]), reverse=True)
         top = holdings_sorted[0]
@@ -47,7 +51,8 @@ class SectorCompositionAgent:
         hhi = _hhi(holdings)
 
         result = SectorCompositionSnapshot(
-            top_sector=top_sector, top_sector_weight=round(top_sector_w, 1),
+            top_sector=top_sector,
+            top_sector_weight=round(top_sector_w, 1) if top_sector_w is not None else None,
             top_holding=top.get("name"), top_holding_weight=round(float(top["weight_pct"]), 1),
             top_10_concentration=top10,
             signal=_concentration_signal(hhi), status=SignalStatus.AVAILABLE,

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -7,7 +7,10 @@ from typing import Any
 class AgentEvent:
     source: str
     payload: dict[str, Any]
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    # tz-bewusster UTC-Default: der serialisierte Zeitstempel (event_to_dict) trägt
+    # dadurch eine Zeitzonen-Kennung (+00:00), statt vom Frontend als Lokalzeit
+    # missdeutet zu werden. Ersetzt das deprecatete naive datetime.utcnow().
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # --- Modus 1: Macro ---
