@@ -1,15 +1,16 @@
 import asyncio
 from unittest.mock import MagicMock
 
-from agents.market_cockpit.macro.inflation_agent import InflationAgent, _signal
+from agents.market_cockpit.macro.inflation_agent import InflationAgent, _signal, _cpi_trend
 from core.domain.models import Signal
 
 
 def _make_agent(*, eco=None, ext=None, ecb_cpi=None, ecb_core=None, ecb_ppi=None,
-                ecb_10y=None):
+                ecb_10y=None, cpi_hist=None):
     macro = MagicMock()
     macro.get_economic_state.return_value = eco or {}
     macro.get_extended_state.return_value = ext or {}
+    macro.get_cpi_history.return_value = cpi_hist if cpi_hist is not None else []
     ecb = MagicMock()
     ecb.get_cpi.return_value = ecb_cpi
     ecb.get_core_cpi.return_value = ecb_core
@@ -144,3 +145,68 @@ def test_cpi_2_with_high_real_rate_is_bearish():
 
 def test_cpi_2_with_normal_real_rate_stays_bullish():
     assert _signal(2.0, real_rate_10y=0.5) == Signal.BULLISH
+
+
+# ── Trend-Modifikator: "rising" verschärft (symmetrisch zu "falling") ──────
+
+def test_cpi_high_low_core_but_rising_resharpens_to_bearish():
+    """CPI 4.5% (>Ziel), Core 2.2% (≤high) → sonst NEUTRAL (transitorisch), aber
+    Inflation BESCHLEUNIGT → 'transitorisch'-These untergraben → zurück auf BEARISH."""
+    assert _signal(4.5, core_cpi=2.2, trend="rising") == Signal.BEARISH
+
+
+def test_cpi_high_low_core_falling_stays_neutral():
+    """Gegenprobe: gleiche Lage, aber fallend → bleibt entschärft NEUTRAL."""
+    assert _signal(4.5, core_cpi=2.2, trend="falling") == Signal.NEUTRAL
+
+
+def test_cpi_in_band_rising_stays_bullish():
+    """CPI 2.5% im Ziel (BULLISH). Steigender Trend allein kippt ein gesundes
+    LEVEL nicht — Trend verschärft nur den core-entschärften Sonderfall."""
+    assert _signal(2.5, trend="rising") == Signal.BULLISH
+
+
+def test_cpi_high_rising_no_core_stays_bearish():
+    """Erhöhte CPI ohne Core-Rabatt ist bereits BEARISH; rising lässt das unverändert."""
+    assert _signal(4.5, trend="rising") == Signal.BEARISH
+
+
+# ── _cpi_trend: Klassifizierung der YoY-CPI-Historie ──────────────────────
+
+def test_cpi_trend_rising():
+    """YoY-CPI steigt klar über das Fenster (Δ Halbmittel ≥ 0.3pp) → 'rising'."""
+    assert _cpi_trend([2.0, 2.2, 2.5, 2.9, 3.2, 3.5]) == "rising"
+
+
+def test_cpi_trend_falling():
+    assert _cpi_trend([5.0, 4.6, 4.0, 3.5, 3.0, 2.5]) == "falling"
+
+
+def test_cpi_trend_stable_within_deadband():
+    """Δ Halbmittel < 0.3pp → Rauschen → 'stable' (kein Flip-Flop)."""
+    assert _cpi_trend([2.0, 2.05, 2.1, 2.1, 2.15, 2.2]) == "stable"
+
+
+def test_cpi_trend_empty_is_stable():
+    assert _cpi_trend([]) == "stable"
+
+
+def test_cpi_trend_single_is_stable():
+    assert _cpi_trend([2.5]) == "stable"
+
+
+# ── run()-Wiring: USA-CPI-Trend aus get_cpi_history ───────────────────────
+
+def test_usa_cpi_trend_aus_history_resharpens_via_run():
+    """CPI 4.5% + Core 2.2% → ohne Trend NEUTRAL; mit steigender History → BEARISH."""
+    agent = _make_agent(eco={"inflation": 4.5}, ext={"core_cpi": 2.2},
+                        cpi_hist=[2.0, 2.5, 3.0, 3.5, 4.0, 4.5])
+    result = asyncio.run(agent.run())
+    assert result.usa.signal == Signal.BEARISH
+
+
+def test_usa_ohne_cpi_history_bleibt_neutral_via_run():
+    """Ohne History (Default []) → Trend 'stable' → core-entschärftes NEUTRAL bleibt."""
+    agent = _make_agent(eco={"inflation": 4.5}, ext={"core_cpi": 2.2})
+    result = asyncio.run(agent.run())
+    assert result.usa.signal == Signal.NEUTRAL

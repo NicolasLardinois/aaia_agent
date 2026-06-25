@@ -38,6 +38,7 @@ class _FakeProvider:
     def get_yield_spreads(self): return dict(self._d["spreads"])
     def get_buffett_data(self): return {"market_cap_bn": None, "gdp_bn": None}
     def get_buffett_history(self, years=10): return []
+    def get_cpi_history(self, months=6): return []  # Port-Default: kein CPI-Trend → "stable"
 
 
 @pytest.mark.parametrize("data", [_BEARISH, _BULLISH], ids=["bearish", "bullish"])
