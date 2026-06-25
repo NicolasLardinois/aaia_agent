@@ -398,8 +398,7 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 
 ### Aus Plan 0 (Review 2026-06-16 — bewusst zurückgestellte Minor-Robustheit, niedrige Prio)
 
-- [ ] `core/utils/relative.py` `_winsorize` — kein Guard bei `fraction >= 0.5`: dann gilt `lo_idx >= hi_idx` und alle Werte kollabieren still auf einen einzigen Wert.
-  **Ansatz:** entweder `if fraction >= 0.5: raise ValueError(...)` oder Docstring-Constraint „nur `fraction < 0.5` sinnvoll" + früher Return. Aufrufer nutzen 0.05–0.1 → derzeit kein realer Schaden.
+- [x] `core/utils/relative.py` `_winsorize` — Guard bei `fraction >= 0.5` **ergänzt** (2026-06-25, TDD). Ab 0.5 überlappen die gekappten Tails (`lo_idx >= hi_idx`) → alle Werte kollabierten still auf einen Punkt. **Lösung:** `if fraction >= 0.5: raise ValueError(...)` (fail-loud, weil `fraction` ein Code-Parameter/Programmierfehler ist, kein Datenwert) + Docstring-Constraint. Verifiziert: kein Aufrufer übergibt ≥ 0.5 (alle nutzen 0.0/0.05). 3 neue Tests (≥0.5 wirft, knapp-unter-0.5 kappt sauber, `percentile_rank` reicht den ValueError durch). Suite 1169 grün.
 - [ ] `adapters/persistence/json_dated_history.py` (`JsonDatedHistory`, JSON-Adapter von `DatedHistoryPort`) — JSON-Leaf-Werte werden nicht typvalidiert: ein manuell korrumpiertes `{"series": {"2026-01-01": "text"}}` liefert `(date, str)` statt `(date, float)`; der Fehler explodiert erst beim Aufrufer.
   **Ansatz:** in `values()` `float(v)` casten (und unparsebare Einträge überspringen) oder beim `_load()` validieren; alternativ Docstring-Hinweis „Werte müssen float sein".
 - [ ] `core/utils/statistics.py` — Datei trägt zwei Verantwortlichkeiten (klassisch `z_score`/`compute_severity` vs. robust `robust_z_score`/`bonferroni_z_threshold`).
