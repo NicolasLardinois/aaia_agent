@@ -175,10 +175,8 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
   Gibt nur Default-Werte zurück. Benötigt Preisdaten aller Index-Komponenten.
   Quellen: FRED (SPSICOMP), StockCharts, Bloomberg Terminal.
 
-- [ ] **`agents/stock_deep_dive/commodity/cot_agent.py` (Zeile 11)**
-  CFTC Commitment of Traders Report. Format: CSV, wöchentlich.
-  Signallogik: KONTRÄR — Spekulanten liegen am Extrempunkt oft falsch.
-  Quelle: https://www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm
+- [x] **`agents/stock_deep_dive/commodity/cot_agent.py`** — CFTC COT **angebunden** (PR #67 am 2026-06-25 gemergt; Review Claude: Dataset/Netto-Berechnung/Ticker-Mapping verifiziert, defensiv/hexagonal, kontrarische Signallogik bleibt im COTAgent, CI grün).
+  **Lösung:** neuer Adapter `adapters/data/cftc_cot.py` (`CftcCotProvider`, COTProvider-Port) liest die Disaggregated-Futures-Only-Managed-Money-Positionen über die CFTC-Socrata-API (Dataset `72hh-3qpy`); Managed-Money-Netto = long − short, plus Open Interest. Mapping Yahoo-Futures-Ticker → exakter CFTC-Hauptkontrakt (16 Rohstoffe, live verifiziert; bewusst der Yahoo-passende Kontrakt, z. B. NG=F = `NAT GAS NYME` Henry-Hub-NYMEX statt der größeren ICE-LD1-Reihe). Verdrahtung über optionales `cot_provider`-Argument: `BottomUpOrchestrator` → `CommodityChiefAgentMikro(cot_provider=…)` → `COTAgent`; in `app/main.py` mit `CftcCotProvider()` gesetzt. Ausfall/unbekannter Ticker → `[]` → `SignalStatus.UNAVAILABLE` (nicht-brechend). Live verifiziert: Gold 180 Wochen, Netto +113 721 / OI 339 330.
 
 - [ ] **`agents/stock_deep_dive/commodity/supply_demand_agent.py` (Zeile 61)**
   EIA API (Öl/Gas), USDA (Agrar), LME (Metalle) nicht angebunden.
@@ -208,8 +206,8 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 - [x] **USA PCE** — FRED `PCEPI` via `extended_state` angebunden (PR #62 am 2026-06-25 gemergt).
   Befüllt `InflationDataPoint.pce` (Fed-Ziel = PCE). Live verifiziert: 4.07 %. (Reines Anzeige-/Transparenzfeld, noch kein Signal-Input.)
 
-- [ ] **Eurozone Real Rate 10Y** (`InflationDataPoint.real_rate_10y` für EU ist `None`)
-  Berechnung: EZB 10Y-Rendite minus EZB CPI.
+- [x] **Eurozone Real Rate 10Y** — angebunden (PR #64 am 2026-06-25 gemergt; Merge-Konflikt mit #62 in isoliertem Worktree aufgelöst, betroffene Tests + CI grün. Review Claude: Fisher-Näherung + SR_10Y-Serie verifiziert, Realzins>2%→BEARISH konsistent zur USA, keine Befunde).
+  Neue Port-Methode `EcbDataProvider.get_aaa_10y_yield()` (Default None), implementiert im `EcbSdwProvider` (Yield-Curve `SR_10Y`), durchgereicht vom `EurostatEcbProvider`. `inflation_agent` rechnet `eu_real_10y = ECB-AAA-10Y − EU-HICP` und speist es ins EU-`_signal` (Realzins-Gegenwind >2% → BEARISH, konsistent zur USA). Live verifiziert: 2.94 − 2.0 = 0.94 %.
 
 - [ ] **Schweiz PPI** (`InflationDataPoint.ppi` für CH ist `None`)
   Quelle: SNB / BFS Erzeugerpreisindex.
@@ -226,10 +224,12 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 ### agents/market_cockpit/macro/credit_agent.py (Zeilen 38–39)
 - [ ] EU-Kreditwachstum via ECB API (aktuell immer NEUTRAL)
 - [ ] CH-Kreditwachstum via SNB API (aktuell immer NEUTRAL)
+  > **Eigener PR nötig (Folge-Aufgabe, 2026-06-25):** `credit_agent` (wie `labor_income_agent`) bekommt **nur** den USA-`MacroDataProvider` injiziert und wird auch im Backtester (`agents/backtester/regime_replay.py`, point-in-time) konstruiert. EU/CH erfordern: (a) **optionale** `ecb=None`/`snb=None`-Konstruktorargumente (rückwärtskompatibel — Backtester bleibt unverändert, EU/CH dort weiter NEUTRAL), Wiring nur im `macro_chief_agent`; (b) neue ECB/SNB-Datenmethoden: EU-Kredit via ECB-BSI (Kredite an privaten Sektor, YoY), CH-Kredit via data.snb.ch. Erst Datenquelle verifizieren, dann TDD.
 
 ### agents/market_cockpit/macro/labor_income_agent.py (Zeilen 38–39)
 - [ ] EU-Löhne via Eurostat / ECB API (aktuell immer NEUTRAL)
 - [ ] CH-Löhne via SNB API (aktuell immer NEUTRAL)
+  > **Eigener PR nötig (Folge-Aufgabe, 2026-06-25):** wie credit_agent — optionale `ecb`/`snb`-Injektion (Backtester-kompatibel) + neue Datenmethoden: EU-Löhne via ECB „Negotiated wages"/Eurostat Arbeitskostenindex, CH-Löhne via BFS/SNB. Real-Lohn = nominal − CPI (Fisher), analog USA.
 
 ### agents/stock_deep_dive/precious_metals/precious_metal_price_agent.py (Zeilen 44–54)
 - [ ] RSI und MA50/MA200 aus Preishistorie berechnen
@@ -245,8 +245,9 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
   - [ ] **Folge-Aufgabe — Sektor-Zuordnung:** slickcharts liefert keine Sektoren → `top_sector` bleibt `None` (Agent meldet bewusst keinen irreführenden „Unknown"-Sektor; Konzentrations-/HHI-Signal ist vollständig). Sektor-Quelle (z. B. Yahoo-Profil je Titel oder ein Sektor-Gewichtungs-Endpoint) separat anbinden.
 
 ### agents/stock_deep_dive/index/index_valuation_agent.py (Zeile 59)
-- [x] Shiller CAPE — **implementiert** (2026-06-19 verifiziert): `earnings_yield`/`equity_risk_premium`/`shiller_cape` im Agenten, zinsabhängiges ERP-Signal.
-  Offen ist nur noch die **Datenquelle 10J-Real-EPS** (FMP) anzubinden, damit `cape` real befüllt wird statt `None` → siehe §2 (Datenadapter).
+- [x] Shiller CAPE — **implementiert** (2026-06-19) **+ Datenquelle angebunden** (PR offen, 2026-06-25).
+  **Lösung:** statt eine 10J-Real-EPS-Reihe selbst zu rekonstruieren (methodisch fehleranfällig), wird die autoritative S&P-500-CAPE direkt von **multpl.com** geholt: neuer Port `ShillerCapeProvider` + Adapter `adapters/data/multpl_shiller.py` (`MultplShillerProvider`, keyless, S&P-500-spezifisch). Verdrahtung über optionales `cape_provider`: `BottomUpOrchestrator` → `IndexChiefAgent` → `IndexValuationAgent`; in `app/main.py` mit `MultplShillerProvider()` gesetzt. Der Agent bevorzugt den Provider-Wert, fällt sonst auf die eps-Berechnung zurück. `cape` ist ein Anzeigefeld (Signal nutzt ERP/PE, nicht CAPE). Live verifiziert: ^GSPC = 40.94; Nicht-S&P-Indizes → None.
+  - **Hinweis:** Der FMP-Weg (10J-Real-EPS) entfällt — FMP-Holdings/Earnings-Endpunkte sind auf unserem Tarif Legacy/gesperrt; multpl ist die robuste freie Quelle für die fertige CAPE.
 
 ### agents/stock_deep_dive/index/index_price_agent.py (Zeile 78–79) — YTD-Basis-Konvention
 - [ ] **YTD-Anker prüfen: erster Handelstag des Jahres vs. Vorjahres-Schlusskurs** *(Folge aus Bug #42, Review 2026-06-21)*
@@ -358,10 +359,10 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 
 ## 6. TEST-LÜCKEN
 
-- [ ] **RegimeDetector** — vollständig ungetestet (Scoring-Logik treibt jede Empfehlung an)
-- [ ] **MoatAgent** — `_overall()`-Schwellenwerte, Score-Clamping, JSON-Parsing ungetestet
-- [ ] **ValuationRangeAgent** — DCF, KGV-Multiple, EV/EBITDA-Formeln ungetestet
-- [ ] **FundamentalsAgent** — `_score()` mit 7 Indikatoren ungetestet
+- [x] **RegimeDetector** — **getestet 2026-06-25.** (Die ursprüngliche „völlig ungetestet"-Aussage war durch die Regime-Kalibrierungs-Arbeit bereits überholt: `test_regime.py`/`test_regime_inputs.py` decken `detect`-Verdrahtung, Trend-Invarianz, Inflations-Scores ab.) Neu geschlossen: die **Kern-Klassifizierung** in `tests/domain/test_regime_classification.py` (25 Tests) — `_regime_from` gewinnt an jedem Phasen-Zentrum die richtige Phase (DEPRESSION/RECESSION/SLOWDOWN/EXPANSION/BOOM), RECOVERY feuert nur mit bestätigtem Aufwärtstrend, ein kräftiger Abwärtstrend kippt einen leicht positiven Composite von EXPANSION nach SLOWDOWN; plus lückenlose `_score_indicator`-Bänder (gdp_growth, unemployment, yield_curve, Inflations-Schultern, unbekannter Key → 0.0). Verhaltens-Tests (keine Gauß-Mathematik nachgerechnet).
+- [x] **MoatAgent** — **abgedeckt** (verifiziert 2026-06-25, `tests/agents/stock_deep_dive/equity/test_moat_agent.py`, 8 Tests): `_overall()`-Schwellen (wide/narrow/none, dominante Quelle, Maximum- statt Summenlogik) + `_signal` (wide→BULLISH, none→NEUTRAL, narrow→NEUTRAL). *(Die §6-„ungetestet"-Aussage war durch Plan-A überholt. Einziger nicht direkt gepinnter Rest: das JSON-Parsing der LLM-Antwort — Minor, separat falls je relevant.)*
+- [x] **ValuationRangeAgent** — **abgedeckt** (verifiziert 2026-06-25, `test_valuation_range_agent.py`, 12 Tests): `two_stage_dcf` (Zwei-Stufen statt Gordon, WACC=g-Edgecase), sektorabhängiges Terminal-Growth, Median-Band-Aggregation (nicht Extrem), EV/EBITDA-Skip bei negativem EBITDA, KGV-Skip bei negativem EPS, DCF-Skip ohne FCF. *(§6-Aussage durch Plan-A überholt.)*
+- [x] **FundamentalsAgent** — **abgedeckt** (verifiziert 2026-06-25, `test_fundamentals_agent.py`): `_score()` sektor-relativ (P/E, EV/EBITDA), PEG nur mit Wachstumsbasis, P/FCF & P/B aktiviert, symmetrische Aggregationsschwellen (±3), negativer forward_pe ohne Bullish-Credit (Fix I2), Exception-Guard in `run()` (Fix M2). *(§6-Aussage durch Plan-A überholt.)*
 - [ ] **Chief-Agent-Tests** — prüfen nur `isinstance(result, XxxResult)`, keine Logik oder Aggregation
 - [ ] **BacktesterChiefAgent** — `backtester_context`-Einfluss auf Confidence nie getestet
 - [x] **ResultCache Bottom-Up Round-Trip** *(Folge aus Bug #1, Audit 2026-06-20)* — **erledigt 2026-06-25** (`tests/adapters/test_result_cache_bottom_up_roundtrip.py`). Disk-Round-Trip (`save_bottom_up` → JSON → `load_bottom_up`) mit **befülltem** `index`+`commodity_deep` (die Bug-#1-auslösenden Felder, die der bestehende `test_taxonomy_model_roundtrip` auf `None` liess) + Gegenprobe (None bleibt None).
@@ -407,8 +408,7 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 ### Aus Plan 0 (Review 2026-06-16 — bewusst zurückgestellte Minor-Robustheit, niedrige Prio)
 
 - [x] `core/utils/relative.py` `_winsorize` — Guard bei `fraction >= 0.5` **ergänzt** (2026-06-25, TDD). Ab 0.5 überlappen die gekappten Tails (`lo_idx >= hi_idx`) → alle Werte kollabierten still auf einen Punkt. **Lösung:** `if fraction >= 0.5: raise ValueError(...)` (fail-loud, weil `fraction` ein Code-Parameter/Programmierfehler ist, kein Datenwert) + Docstring-Constraint. Verifiziert: kein Aufrufer übergibt ≥ 0.5 (alle nutzen 0.0/0.05). 3 neue Tests (≥0.5 wirft, knapp-unter-0.5 kappt sauber, `percentile_rank` reicht den ValueError durch). Suite 1169 grün. **PR #63 am 2026-06-25 gemergt** (Review Claude: Grenzfall verifiziert, CI grün).
-- [ ] `adapters/persistence/json_dated_history.py` (`JsonDatedHistory`, JSON-Adapter von `DatedHistoryPort`) — JSON-Leaf-Werte werden nicht typvalidiert: ein manuell korrumpiertes `{"series": {"2026-01-01": "text"}}` liefert `(date, str)` statt `(date, float)`; der Fehler explodiert erst beim Aufrufer.
-  **Ansatz:** in `values()` `float(v)` casten (und unparsebare Einträge überspringen) oder beim `_load()` validieren; alternativ Docstring-Hinweis „Werte müssen float sein".
+- [x] `adapters/persistence/json_dated_history.py` (`JsonDatedHistory`) — JSON-Leaf-Werte typvalidiert (2026-06-25, TDD). `values()` castet jetzt jeden Wert zu `float` **und** überspringt korrupte Einträge (unparsebares Datum **oder** nicht-numerischer Wert) mit `logger.warning(...)`, statt mit einer Exception beim Aufrufer zu explodieren. Ein einzelner kaputter Leaf vergiftet nicht mehr die ganze Serie (Datenrealität, AGENTS.md §3); `value_on_or_before`/`latest` profitieren automatisch (laufen über `values()`). 3 neue Tests (int→float, korrupter Wert übersprungen, korruptes Datum übersprungen). **PR #65 am 2026-06-25 gemergt** (Review Claude: lokal verifiziert — CI lief nicht auf dem Branch; 11 Tests grün, keine Befunde).
 - [ ] `core/utils/statistics.py` — Datei trägt zwei Verantwortlichkeiten (klassisch `z_score`/`compute_severity` vs. robust `robust_z_score`/`bonferroni_z_threshold`).
   **Ansatz:** *nur bei weiterem Wachstum* Split in z. B. `statistics_robust.py` erwägen. Aktuell (≈60 Zeilen) keine Aktion nötig.
 
@@ -446,7 +446,7 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 - [ ] **Buffett-Agent-Fallback länderspezifisch** (`agents/market_cockpit/macro/buffett_indicator_agent.py`) *(Minor)*.
   Ohne Landeshistorie fällt der Agent auf globale 75/135 % zurück; `core/domain/top_down_context.py` nutzt bereits länderspezifische Korridore (`_BUFFETT_CORRIDORS`).
   **Ansatz:** dieselben länderspezifischen Korridore auch im Agenten-Fallback verwenden (statt global 75/135).
-- [ ] **Doppelte Testdatei** `tests/domain/test_top_down_context.py` vs. `tests/test_top_down_context.py` *(Minor, Aufräumen)* — auf einen Pfad konsolidieren.
+- [x] **Doppelte Testdatei** `tests/domain/test_top_down_context.py` vs. `tests/test_top_down_context.py` — **konsolidiert 2026-06-25.** Beide testeten verschiedene Funktionen desselben Moduls (`_buffett_fallback_note` bzw. `derive_top_down_context`, keine Namens-Kollision). Alle 9 Tests im paketspiegelnden Pfad `tests/domain/test_top_down_context.py` vereint; die Root-Datei entfernt. Suite unverändert grün (kein Test verloren). **PR #68 am 2026-06-25 gemergt** (Review Claude: kein Test verloren, CI grün).
 
 ### Aus Plan D2 (Review 2026-06-17 — Logik korrekt, Daten fehlt)
 
@@ -471,7 +471,8 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
   **Ansatz:** je Quelle einen Adapter implementieren, der die jeweilige Port-Methode befüllt; die Agenten schalten dann automatisch von `UNAVAILABLE` auf echte Signale (keine Agenten-Änderung nötig).
   *(`get_real_rate_history` (FRED DFII10) ist erledigt — siehe gemergte Realzins-/Zins-Adapter.)*
 - **Total-Return-Historie: bewusst NICHT umgesetzt** (2026-06-18). Für die Schweizer Sicht ist Price Return (steuerfreier Kapitalgewinn) der passende Default; TR unterstellt steuerfreie Dividenden-Reinvestition (idealisierte Brutto-Benchmark, ignoriert Steuern). Der tote Haken (`get_total_return_history` im Port + TR-Vorzugslogik im `index_price_agent`) wurde entfernt.
-- [~] `datetime.utcnow()` → `datetime.now(timezone.utc)` (DeprecationWarning unter Python 3.12). **Teilweise erledigt 2026-06-25:** `core/domain/events.py` (tz-bewusster Default-Zeitstempel → löst zugleich den WS-Vertrags-Punkt unten) + `adapters/data/fred_api.py` (3× `utcnow().year`) umgestellt; Suite-Warnings von 256 → 1 gefallen. **Offen:** `adapters/cache/result_cache.py` (3 Stellen: `_is_fresh`-Vergleich + 2× `_saved_at`) — bewusst **separat** gelassen, weil (a) die Datei in PR #57 offen ist (kein doppelter PR auf derselben Datei) und (b) `_is_fresh` alte **naive** Cache-Dateien gegen neue **tz-aware** Stempel vergleichen muss (TypeError-Falle) → eigener kleiner PR mit naive/aware-Normalisierung + Test, **nach** Merge von PR #57. **PR #60 am 2026-06-25 gemergt** (events.py + fred_api.py; Review Claude: `.year` verhaltensgleich, WS-Stempel jetzt tz-aware, CI grün). PR #57 ist inzwischen gemergt → der `result_cache.py`-Rest kann jetzt als eigener PR folgen.
+- [x] `datetime.utcnow()` → `datetime.now(timezone.utc)` (DeprecationWarning unter Python 3.12). **Vollständig erledigt 2026-06-25.** Teilschritte: `core/domain/events.py` (tz-bewusster Default-Zeitstempel → löst zugleich den WS-Vertrags-Punkt unten) + `adapters/data/fred_api.py` (3× `utcnow().year`) umgestellt; Suite-Warnings von 256 → 1 gefallen. **Offen:** `adapters/cache/result_cache.py` (3 Stellen: `_is_fresh`-Vergleich + 2× `_saved_at`) — bewusst **separat** gelassen, weil (a) die Datei in PR #57 offen ist (kein doppelter PR auf derselben Datei) und (b) `_is_fresh` alte **naive** Cache-Dateien gegen neue **tz-aware** Stempel vergleichen muss (TypeError-Falle) → eigener kleiner PR mit naive/aware-Normalisierung + Test, **nach** Merge von PR #57. **PR #60 am 2026-06-25 gemergt** (events.py + fred_api.py; Review Claude: `.year` verhaltensgleich, WS-Stempel jetzt tz-aware, CI grün).
+  **✅ result_cache.py-Rest erledigt 2026-06-25 (TDD, eigener PR):** `_is_fresh`-Vergleich + beide `_saved_at`-Schreibstellen auf `datetime.now(timezone.utc)` umgestellt. `_is_fresh` normalisiert alte **naive** `_saved_at`-Stempel defensiv auf UTC (`tzinfo is None → replace(tzinfo=utc)`), damit der Vergleich gegen das tz-aware `now()` nicht am naive−aware-TypeError scheitert (rückwärtskompatibel mit bestehenden Cache-Dateien). 4 neue `_is_fresh`-Tests (tz-aware frisch, alter naiver Stempel frisch, veraltet, fehlende Datei). **Damit ist die gesamte `utcnow`-Aufgabe abgeschlossen** — Suite-Warnings 256 → 0 (das letzte verbleibende stammt aus einem Test, der `utcnow` bewusst für den Rückwärtskompat-Fall erzeugt). **PR #66 am 2026-06-25 gemergt** (Review Claude: naive/aware-Falle korrekt entschärft, rückwärtskompatibel, CI grün).
 - [ ] I3-Test trennscharf machen (`tests/agents/stock_deep_dive/precious_metals/test_precious_metal_price_agent.py::test_negative_real_yield_correlation_when_inverse`): monoton gegenläufige Daten nutzen, sodass Level-Korr ≈ −1, Return-Korr ≈ 0 — damit eine Regression auf Level-Korrelation den Test bricht. *(Minor, Testqualität.)*
 
 ### Frontend / API-Brücke (Cockpit-Flow) — v1 (2026-06-22)

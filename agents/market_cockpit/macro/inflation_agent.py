@@ -64,12 +64,13 @@ class InflationAgent:
         self.bus   = bus
 
     async def run(self) -> InflationSnapshot:
-        state, ext, ecb_cpi, ecb_core, ecb_ppi, snb_cpi, snb_core = await asyncio.gather(
+        state, ext, ecb_cpi, ecb_core, ecb_ppi, ecb_10y, snb_cpi, snb_core = await asyncio.gather(
             asyncio.to_thread(self.macro.get_economic_state),
             asyncio.to_thread(self.macro.get_extended_state),
             asyncio.to_thread(self.ecb.get_cpi),
             asyncio.to_thread(self.ecb.get_core_cpi),
             asyncio.to_thread(self.ecb.get_ppi),
+            asyncio.to_thread(self.ecb.get_aaa_10y_yield),
             asyncio.to_thread(self.snb.get_cpi),
             asyncio.to_thread(self.snb.get_core_cpi),
             return_exceptions=True,
@@ -81,6 +82,7 @@ class InflationAgent:
         ecb_cpi  = _safe(ecb_cpi)
         ecb_core = _safe(ecb_core)
         ecb_ppi  = _safe(ecb_ppi)
+        ecb_10y  = _safe(ecb_10y)
         snb_cpi  = _safe(snb_cpi)
         snb_core = _safe(snb_core)
 
@@ -95,10 +97,12 @@ class InflationAgent:
             real_rate_10y=ext.get("real_rate_10y"),
             signal=_signal(usa_cpi, core_cpi=usa_core, ppi=usa_ppi, region="usa", real_rate_10y=ext.get("real_rate_10y")),
         )
+        # EU Real Rate 10Y = ECB-AAA-10J-Nominalrendite − EU-HICP (Fisher-Näherung)
+        eu_real_10y = round(ecb_10y - ecb_cpi, 3) if (ecb_10y is not None and ecb_cpi is not None) else None
         eu = InflationDataPoint(
             cpi=ecb_cpi, core_cpi=ecb_core, pce=None,
-            ppi=ecb_ppi, real_rate_10y=None,
-            signal=_signal(ecb_cpi, core_cpi=ecb_core, ppi=ecb_ppi, region="eu"),
+            ppi=ecb_ppi, real_rate_10y=eu_real_10y,
+            signal=_signal(ecb_cpi, core_cpi=ecb_core, ppi=ecb_ppi, region="eu", real_rate_10y=eu_real_10y),
         )
         ch = InflationDataPoint(
             cpi=snb_cpi, core_cpi=snb_core, pce=None,
