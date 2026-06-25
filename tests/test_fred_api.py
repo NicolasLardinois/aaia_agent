@@ -81,6 +81,31 @@ def test_get_extended_state_does_not_call_get_economic_state():
     assert isinstance(result, dict)
 
 
+def test_get_extended_state_includes_core_cpi_pce_balance_sheet():
+    """USA-Reste: Core-CPI (CPILFESL), PCE (PCEPI), Fed-Bilanz (WALCL) als YoY %."""
+    provider = _make_provider()
+
+    def side_effect(series_id, **kwargs):
+        if series_id == "CPILFESL":      # Core-CPI: YoY ~3%
+            return pd.Series([100.0] * 12 + [103.0] * 12,
+                             index=pd.date_range("2022-01-01", periods=24, freq="MS"))
+        if series_id == "PCEPI":         # PCE: YoY ~4%
+            return pd.Series([100.0] * 12 + [104.0] * 12,
+                             index=pd.date_range("2022-01-01", periods=24, freq="MS"))
+        if series_id == "WALCL":         # Fed-Bilanz wöchentlich, YoY (52W) ~ -5% (QT)
+            return pd.Series([200.0] * 52 + [190.0],
+                             index=pd.date_range("2024-01-07", periods=53, freq="W"))
+        return pd.Series([1.0] * 24,
+                         index=pd.date_range("2022-01-01", periods=24, freq="MS"))
+
+    provider.fred.get_series.side_effect = side_effect
+    result = provider.get_extended_state()
+
+    assert result["core_cpi"] == 3.0
+    assert result["pce"] == 4.0
+    assert result["balance_sheet_growth"] == -5.0
+
+
 def test_get_extended_state_still_computes_real_wage_growth():
     """Auch ohne get_economic_state()-Call muss real_wage_growth berechnet werden."""
     provider = _make_provider()

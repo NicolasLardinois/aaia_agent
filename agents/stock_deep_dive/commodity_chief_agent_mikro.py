@@ -6,19 +6,21 @@ from agents.stock_deep_dive.commodity.cot_agent import COTAgent
 from agents.stock_deep_dive.commodity.commodity_valuation_range_agent import CommodityValuationRangeAgent
 from core.domain.events import CommodityBottomUpChiefReady
 from core.domain.models import CommodityBottomUpResult
-from core.ports.data_provider import MarketDataProvider
+from core.ports.data_provider import MarketDataProvider, COTProvider
 from core.ports.event_bus import EventBus
 from core.utils.aggregation import weighted_signal
 
 
 class CommodityChiefAgentMikro:
-    def __init__(self, market: MarketDataProvider, bus: EventBus):
+    def __init__(self, market: MarketDataProvider, bus: EventBus,
+                 cot_provider: COTProvider | None = None):
         self.bus = bus
-        # supply/cot provider ist None bis ein echter Adapter injiziert wird;
-        # die Agenten liefern dann SignalStatus.UNAVAILABLE (nicht-brechend).
+        # supply provider ist None bis ein echter Adapter injiziert wird;
+        # der Agent liefert dann SignalStatus.UNAVAILABLE (nicht-brechend).
         self.supply_demand_agent             = SupplyDemandAgent(None, bus)
         self.seasonality_agent               = SeasonalityAgent(market, bus)
-        self.cot_agent                       = COTAgent(None, bus)
+        # COT: echter CFTC-Adapter, falls injiziert; sonst None → UNAVAILABLE.
+        self.cot_agent                       = COTAgent(cot_provider, bus)
         self.commodity_valuation_range_agent = CommodityValuationRangeAgent(market, bus)
 
     async def run(self, ticker: str) -> CommodityBottomUpResult:

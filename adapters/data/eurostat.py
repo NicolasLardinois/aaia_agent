@@ -118,3 +118,6 @@ class EurostatEcbProvider(EcbDataProvider):
 
     def get_yield_spreads(self) -> dict[str, float | None]:
         return self._base.get_yield_spreads()
+
+    def get_aaa_10y_yield(self) -> float | None:
+        return self._base.get_aaa_10y_yield()

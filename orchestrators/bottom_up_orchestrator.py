@@ -31,11 +31,12 @@ class BottomUpOrchestrator:
         fund_info_provider: "FundInfoProvider | None" = None,
         futures_curve_provider: "FuturesCurveProvider | None" = None,
         cost_floor_provider: "CostFloorProvider | None" = None,
+        cot_provider: "COTProvider | None" = None,
     ):
         self.equity_chief          = EquityChiefAgent(fundamentals_provider, market_provider, llm, bus)
         self.bond_chief            = BondChiefAgent(fundamentals_provider, macro_provider, bus)
         self.index_chief           = IndexChiefAgent(market_provider, bus)
-        self.commodity_chief       = CommodityChiefAgentMikro(market_provider, bus)
+        self.commodity_chief       = CommodityChiefAgentMikro(market_provider, bus, cot_provider=cot_provider)
         self.precious_metals_chief = PreciousMetalsChiefAgent(macro_provider, market_provider, bus)
         self.fund_info_provider     = fund_info_provider
         self.futures_curve_provider = futures_curve_provider

@@ -1,8 +1,37 @@
-from core.utils.relative import percentile_rank, zscore_vs_history
+import pytest
+
+from core.utils.relative import _winsorize, percentile_rank, zscore_vs_history
 
 
 def test_percentile_leere_historie_ist_none():
     assert percentile_rank(5.0, []) is None
+
+
+def test_winsorize_fraction_ab_0_5_wirft_valueerror():
+    """Ab fraction>=0.5 ueberlappen die gekappten Tails (lo_idx>=hi_idx) → alle
+    Werte kollabieren still auf einen Punkt. Statt dieser stillen Falle: fail-loud,
+    weil fraction ein Code-Parameter (Programmierfehler), kein Datenwert ist."""
+    history = [1.0, 2.0, 3.0, 4.0, 5.0]
+    with pytest.raises(ValueError):
+        _winsorize(history, 0.5)
+    with pytest.raises(ValueError):
+        _winsorize(history, 0.7)
+
+
+def test_winsorize_knapp_unter_0_5_funktioniert():
+    """Die obere gueltige Grenze (knapp < 0.5) kappt weiterhin sauber, kein Crash."""
+    history = [1.0, 2.0, 3.0, 4.0, 5.0]
+    out = _winsorize(history, 0.49)
+    assert len(out) == len(history)
+    # Bei n=5, fraction=0.49: lo_idx=int(0.49*4)=1 (→2.0), hi_idx=int(0.51*4)=2 (→3.0)
+    assert min(out) == 2.0
+    assert max(out) == 3.0
+
+
+def test_percentile_rank_reicht_valueerror_durch():
+    """Eine offensichtliche Fehlnutzung (winsorize>=0.5) bleibt nicht still."""
+    with pytest.raises(ValueError):
+        percentile_rank(3.0, [1.0, 2.0, 3.0, 4.0], winsorize=0.5)
 
 
 def test_percentile_median_ist_50():

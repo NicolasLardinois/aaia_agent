@@ -77,6 +77,11 @@ class EcbDataProvider(ABC):
         """Datierte EZB-Leitzins-Historie [{"date","rate"}, ...]. Default: leer."""
         return []
 
+    def get_aaa_10y_yield(self) -> Optional[float]:
+        """Euro-Area AAA 10J-Nominalrendite in % (für die EU-Realzins-Berechnung:
+        real = nominal − HICP). Default: None (nur der ECB-SDW-Adapter liefert echte Daten)."""
+        return None
+
 
 class SnbDataProvider(ABC):
     @abstractmethod
