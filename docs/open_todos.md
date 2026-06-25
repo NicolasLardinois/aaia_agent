@@ -143,17 +143,18 @@ ECB (`EcbStubProvider`) — alle geben `None` zurück:
 - [ ] `get_m2_growth()` — Quelle: ECB SDW
 - [ ] `get_sovereign_yields()` — Quelle: ECB SDW (DE, IT, FR, ES 10Y)
 
-SNB (`SnbStubProvider`) — alle geben `None` zurück:
-- [ ] `get_interest_rate()` — Quelle: data.snb.ch
-- [ ] `get_m3_growth()` — Quelle: data.snb.ch
-- [ ] `get_balance_sheet_growth()` — Quelle: data.snb.ch
-- [ ] `get_cpi()` — Quelle: BFS
-- [ ] `get_core_cpi()` — Quelle: BFS
-- [ ] `get_gdp_growth()` — Quelle: SECO
-- [ ] `get_unemployment()` — Quelle: SECO
-- [ ] `get_m2_growth()` — Quelle: data.snb.ch
-- [ ] `get_sovereign_yield_10y()` — Quelle: Yahoo Finance / SNB
-- [ ] `get_sovereign_yield_2y()` — Quelle: Yahoo Finance / SNB
+SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der `SnbStubProvider`.
+**CH-Makro Slice A (PR offen, 2026-06-25):** Geldmengen/Bilanz/CPI via data.snb.ch, BIP/Yield via FRED.
+- [x] `get_interest_rate()` — data.snb.ch (Cube `snboffzisa`, Reihe LZ) — bereits vorher angebunden
+- [x] `get_m3_growth()` — data.snb.ch (Cube `snbmonagg`, D0=VV/D1=GM3 → YoY %)
+- [x] `get_m2_growth()` — data.snb.ch (Cube `snbmonagg`, D0=VV/D1=GM2 → YoY %)
+- [x] `get_balance_sheet_growth()` — data.snb.ch (Cube `snbbipo`, D0=T0 Bilanzsumme → YoY berechnet)
+- [x] `get_cpi()` — data.snb.ch (Cube `plkopr`, D0=VVP → CPI YoY %; spiegelt BFS-LIK)
+- [x] `get_gdp_growth()` — FRED `CLVMNACSCAB1GQCH` (reales BIP-Niveau → YoY berechnet)
+- [x] `get_sovereign_yield_10y()` — FRED `IRLTLT01CHM156N`
+- [ ] **Slice B — `get_core_cpi()`** — BFS Kerninflation (FRED-OECD-Serie `CPGRLE01CHM659N` ist 2025 eingefroren → nicht nutzbar; BFS px-web/LINDAS anbinden)
+- [ ] **Slice B — `get_unemployment()`** — SECO/amstat (FRED-OECD `LMUNRRTTCHM156S` endet 2023 → unbrauchbar)
+- [ ] `get_sovereign_yield_2y()` — keine freie 2J-CH-Quelle (bleibt None; im Spread via 3M-SARON-Proxy abgedeckt)
 
 ### adapters/event_bus/redis_bus.py (Zeile 36)
 - [ ] Redis-Implementierung für Produktion
