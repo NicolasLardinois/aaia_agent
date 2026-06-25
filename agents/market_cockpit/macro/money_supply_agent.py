@@ -1,7 +1,9 @@
 import asyncio
+from datetime import date, timedelta
 from core.domain.events import MoneySupplyDataReady
 from core.domain.models import MoneySupplySnapshot, MoneySupplyDataPoint, Signal
 from core.ports.data_provider import MacroDataProvider, EcbDataProvider, SnbDataProvider
+from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
 from core.utils.real_nominal import excess_over_nominal_gdp
 
@@ -28,11 +30,34 @@ def _signal(excess_liquidity: float | None, velocity_trend: str | None) -> Signa
 
 
 class MoneySupplyAgent:
-    def __init__(self, macro: MacroDataProvider, ecb: EcbDataProvider, snb: SnbDataProvider, bus: EventBus):
+    def __init__(self, macro: MacroDataProvider, ecb: EcbDataProvider, snb: SnbDataProvider,
+                 bus: EventBus, history: DatedHistoryPort | None = None):
         self.macro = macro
         self.ecb   = ecb
         self.snb   = snb
         self.bus   = bus
+        # Datierte M2-Umlaufgeschwindigkeit (USA): aktiviert den Velocity-Trend-Modifikator
+        # (fallende Velocity dämpft hohe Geldmenge). None = unverändertes Verhalten.
+        self.history = history
+
+    async def _velocity_trend(self, current: float | None, today: date) -> str | None:
+        """Velocity-Trend (USA) aus der Historie: aktuelle vs. Vorperioden-Umlaufgeschwindigkeit.
+        Protokolliert den heutigen Wert für den nächsten Lauf. Datei-I/O in to_thread.
+        None, wenn keine Historie/kein Vorwert (→ _signal bekommt keinen Trend)."""
+        if self.history is None or current is None:
+            return None
+        def _io():
+            prev = self.history.value_on_or_before("usa_money_velocity", today - timedelta(days=1))
+            self.history.append("usa_money_velocity", today, current)
+            return prev
+        prev = await asyncio.to_thread(_io)
+        if prev is None:
+            return None
+        if current < prev:
+            return "falling"
+        if current > prev:
+            return "rising"
+        return "stable"
 
     async def run(self) -> MoneySupplySnapshot:
         ext, ecb_m2, ecb_m3, ecb_gdp, ecb_cpi, snb_m2, snb_m3 = await asyncio.gather(
@@ -63,10 +88,11 @@ class MoneySupplyAgent:
         usa_nom_gdp = (usa_gdp + usa_cpi) if (usa_gdp is not None and usa_cpi is not None) else None
         usa_excess = excess_over_nominal_gdp(usa_m2, usa_nom_gdp) if (usa_m2 is not None and usa_nom_gdp is not None) else None
 
+        usa_vel_trend = await self._velocity_trend(usa_v, date.today())
         usa = MoneySupplyDataPoint(
             m2_growth=usa_m2, m3_growth=None,  # USA publiziert kein M3
             velocity_m2=usa_v,
-            signal=_signal(usa_excess, None),
+            signal=_signal(usa_excess, usa_vel_trend),
         )
         eu_m = ecb_m3 if ecb_m3 is not None else ecb_m2
         # Nominales BIP-Wachstum = reales BIP + CPI (Proxy, analog USA oben)

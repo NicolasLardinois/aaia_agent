@@ -27,7 +27,7 @@ class TopDownOrchestrator:
         sentiment: SentimentDataProvider | None = None,
         history: DatedHistoryPort | None = None,
     ):
-        self.macro_chief       = MacroChiefAgent(macro, ecb, snb, bus)
+        self.macro_chief       = MacroChiefAgent(macro, ecb, snb, bus, history=history)
         self.commodity_chief   = CommodityChiefAgentMakro(market, bus)
         self.sentiment_chief   = SentimentChiefAgent(market, bus, sentiment)
         self.yield_curve_chief = YieldCurveChiefAgent(macro, ecb, snb, bus, history=history)

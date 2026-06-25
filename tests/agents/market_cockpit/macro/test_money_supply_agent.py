@@ -39,7 +39,7 @@ def test_excess_dampened_by_falling_velocity():
 # ── Fix 1: None-Guard ─────────────────────────────────────────────────────────
 
 def _make_agent(*, eu_m3=None, eu_m2=None, eu_gdp=None, eu_cpi=None,
-                ch_m3=None, ch_m2=None, ext=None):
+                ch_m3=None, ch_m2=None, ext=None, history=None):
     """Hilfs-Factory: erstellt MoneySupplyAgent mit gemockten Providern.
 
     eu_gdp/eu_cpi muessen explizit gesetzt werden, sonst liefert der MagicMock
@@ -56,7 +56,62 @@ def _make_agent(*, eu_m3=None, eu_m2=None, eu_gdp=None, eu_cpi=None,
     snb.get_m2_growth.return_value = ch_m2
     snb.get_m3_growth.return_value = ch_m3
     bus = MagicMock()
-    return MoneySupplyAgent(macro=macro, ecb=ecb, snb=snb, bus=bus)
+    return MoneySupplyAgent(macro=macro, ecb=ecb, snb=snb, bus=bus, history=history)
+
+
+# ── USA-Velocity-Trend-Modifikator (§D1): run() leitet den Trend aus History ab ──
+
+def _usa_excess_high():
+    # m2_growth 12, nominales BIP = gdp 2 + cpi 3 = 5 → excess 7 (> 4 → BEARISH-Flanke)
+    return {"m2_growth": 12.0, "money_velocity": 1.10, "gdp_growth": 2.0, "inflation": 3.0}
+
+
+def test_usa_velocity_fallend_daempft_bearish_zu_neutral():
+    """Hohe Überschuss-Liquidität (BEARISH) + aus der History abgeleitete FALLENDE
+    Velocity → Inflationswirkung gedämpft → NEUTRAL (Override greift jetzt im run-Pfad)."""
+    from datetime import date
+    from adapters.persistence.in_memory_dated_history import InMemoryDatedHistory
+    hist = InMemoryDatedHistory({"usa_money_velocity": [(date(2026, 1, 1), 1.30)]})  # prev > current
+    agent = _make_agent(ext=_usa_excess_high(), history=hist)
+    result = asyncio.run(agent.run())
+    assert result.usa.signal == Signal.NEUTRAL
+
+
+def test_usa_ohne_historie_bleibt_bearish():
+    """Ohne History (Default None) bleibt die hohe Überschuss-Liquidität BEARISH
+    (verhaltens-erhaltend — kein verfrühter Velocity-Override)."""
+    agent = _make_agent(ext=_usa_excess_high())  # history=None
+    result = asyncio.run(agent.run())
+    assert result.usa.signal == Signal.BEARISH
+
+
+def test_usa_velocity_steigend_bleibt_bearish():
+    """Steigende Velocity dämpft NICHT — hohe Überschuss-Liquidität bleibt BEARISH."""
+    from datetime import date
+    from adapters.persistence.in_memory_dated_history import InMemoryDatedHistory
+    hist = InMemoryDatedHistory({"usa_money_velocity": [(date(2026, 1, 1), 1.00)]})  # prev < current(1.10)
+    agent = _make_agent(ext=_usa_excess_high(), history=hist)
+    result = asyncio.run(agent.run())
+    assert result.usa.signal == Signal.BEARISH
+
+
+def test_usa_velocity_wird_protokolliert():
+    """Der heutige Velocity-Wert wird für den nächsten Lauf in die History geschrieben."""
+    from datetime import date
+    from adapters.persistence.in_memory_dated_history import InMemoryDatedHistory
+    hist = InMemoryDatedHistory()
+    agent = _make_agent(ext=_usa_excess_high(), history=hist)
+    asyncio.run(agent.run())
+    assert hist.latest("usa_money_velocity") == (date.today(), 1.10)
+
+
+def test_history_durch_macro_chief_verdrahtet():
+    """DI: der MacroChiefAgent reicht die History an den MoneySupplyAgent durch."""
+    from adapters.persistence.in_memory_dated_history import InMemoryDatedHistory
+    from agents.market_cockpit.macro_chief_agent import MacroChiefAgent
+    sentinel = InMemoryDatedHistory()
+    chief = MacroChiefAgent(MagicMock(), MagicMock(), MagicMock(), MagicMock(), history=sentinel)
+    assert chief.money_supply_agent.history is sentinel
 
 
 def test_eu_money_supply_no_gdp_no_crash():
