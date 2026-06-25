@@ -509,6 +509,10 @@ class FinnhubProvider(FundamentalsProvider):
                 if estimate is None or reported is None:
                     continue
                 result.append({
+                    # actual/estimate produktiv mitgeben → SUE (core.utils.scoring) kann
+                    # die Surprise-Magnitude rechnen statt immer None zu liefern.
+                    "actual":   reported,
+                    "estimate": estimate,
                     "beat":     bool(reported > estimate),
                     "revision": 0.0,
                 })
