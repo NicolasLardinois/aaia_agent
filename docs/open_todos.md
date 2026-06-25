@@ -435,9 +435,8 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 
 ### Aus Plan D2 (Review 2026-06-17 — Logik korrekt, Daten fehlt)
 
-- [ ] **SUE in Produktion aktivieren: `get_earnings_history` um `actual`/`estimate` erweitern** (`adapters/data/finnhub.py`).
-  Die SUE-Logik (`core/utils/scoring.py` `standardized_unexpected_earnings`) ist korrekt + getestet, aber der Adapter liefert pro Quartal nur `beat`/`revision`, **kein `actual`/`estimate`** → SUE gibt produktiv immer `None` zurück; `earnings_trend_agent` läuft dann nur über die Revisionen (die Magnitude-Komponente fehlt).
-  **Ansatz:** im Adapter pro Quartal `actual` (EPS-Ist) und `estimate` (EPS-Schätzung) befüllen — yfinance liefert diese via `Ticker.get_earnings_dates()` als `epsActual`/`epsEstimate`. Reihenfolge **älteste-zuerst** beibehalten (die SUE-Funktion nutzt das letzte = jüngste Quartal). Gehört zur Plan-E-Daten-Integration.
+- [x] **SUE in Produktion aktivieren: `get_earnings_history` um `actual`/`estimate` erweitern** (`adapters/data/finnhub.py`) — **erledigt 2026-06-26 (TDD).**
+  Der Adapter las `EPS Estimate`/`Reported EPS` bereits aus dem yfinance-`earnings_history`-DataFrame, **verwarf sie aber** und behielt nur `beat`/`revision` → die (korrekte, getestete) SUE-Logik `standardized_unexpected_earnings` bekam keine `actual`/`estimate` und gab produktiv immer `None` zurück (Magnitude-Komponente fehlte; nur Revisionen trugen das Signal). **Lösung:** pro Quartal `actual` (=Reported EPS) und `estimate` (=EPS Estimate) zusätzlich befüllen — minimaler Adapter-Change, `beat`/`revision` bleiben konsistent. Reihenfolge **älteste-zuerst** unverändert beibehalten (SUE nutzt Index −1 = jüngstes Quartal). 3 neue Adapter-Tests (yf.Ticker gemockt: actual/estimate gesetzt, SUE rechnet jetzt produktiv, unvollständige Zeilen werden übersprungen); die 7 EarningsTrend-Agent-Tests bleiben grün. **Hinweis (Datenrealität):** die Älteste-zuerst-Annahme hängt an yfinances Zeilenordnung — falls eine yfinance-Version das umdreht, müsste hier `sort_index()` ergänzt werden (bewusst minimal gehalten, da bestehende Konvention).
 
 ### Aus Plan E (Review 2026-06-17 — Ports/Logik gebaut, echte Datenquellen folgen)
 
