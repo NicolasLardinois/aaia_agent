@@ -27,6 +27,7 @@ from adapters.data.ecb_sdw import EcbSdwProvider
 from adapters.data.eurostat import EurostatEcbProvider
 from adapters.data.fred_snb import FredSnbProvider
 from adapters.data.cnn_fear_greed import CnnFearGreedProvider
+from adapters.data.slickcharts_holdings import SlickchartsHoldingsMarket
 from adapters.data.cftc_cot import CftcCotProvider
 from adapters.data.multpl_shiller import MultplShillerProvider
 from adapters.event_bus.redis_bus import InMemoryEventBus
@@ -184,7 +185,8 @@ async def run_bottom_up(
     orch = BottomUpOrchestrator(
         fundamentals_provider=FinnhubProvider(FINNHUB_API_KEY),
         macro_provider=FredDataProvider(FRED_API_KEY),
-        market_provider=YahooFinanceProvider(),
+        # slickcharts liefert echte Index-Gewichtungen für get_index_holdings (S&P500/Nasdaq100/Dow)
+        market_provider=SlickchartsHoldingsMarket(YahooFinanceProvider()),
         llm=llm,
         bus=bus,
         cot_provider=CftcCotProvider(),   # CFTC Commitments of Traders (Managed Money)
