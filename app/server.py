@@ -14,6 +14,7 @@ from adapters.data.ecb_sdw import EcbSdwProvider
 from adapters.data.eurostat import EurostatEcbProvider
 from adapters.data.fred_snb import FredSnbProvider
 from adapters.data.cnn_fear_greed import CnnFearGreedProvider
+from adapters.data.fmp_metal_spot import FmpMetalSpotProvider
 from adapters.persistence.json_dated_history import JsonDatedHistory
 from adapters.api.ws_broadcaster import WebSocketBroadcaster
 from adapters.api.run_manager import RunManager
@@ -37,6 +38,7 @@ def make_orchestrator(bus):
         bus=bus,
         sentiment=CnnFearGreedProvider(),
         history=JsonDatedHistory(_HISTORY_PATH),
+        metal_spot=FmpMetalSpotProvider(),
     )
 
 
