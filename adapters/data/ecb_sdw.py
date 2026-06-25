@@ -76,6 +76,11 @@ class EcbSdwProvider(EcbDataProvider):
         except Exception:
             return None
 
+    def get_aaa_10y_yield(self) -> Optional[float]:
+        """Euro-Area AAA 10J-Nominalrendite (Yield-Curve SR_10Y) für die Realzins-Berechnung."""
+        y = self._fetch_yield("SR_10Y")
+        return round(y, 3) if y is not None else None
+
     def get_interest_rate(self) -> Optional[float]:
         rows = self._fetch_keyrate_rows(self._KEYRATE_URL("&lastNObservations=1"))
         return rows[-1][1] if rows else None
