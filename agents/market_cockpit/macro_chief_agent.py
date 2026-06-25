@@ -11,6 +11,7 @@ from core.domain.events import MacroChiefReady
 from core.domain.models import MacroChiefResult, MarketRegime, SignalStatus
 from core.domain.regime import RegimeDetector
 from core.ports.data_provider import EcbDataProvider, MacroDataProvider, SnbDataProvider
+from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
 
 
@@ -21,6 +22,7 @@ class MacroChiefAgent:
         ecb: EcbDataProvider,
         snb: SnbDataProvider,
         bus: EventBus,
+        history: DatedHistoryPort | None = None,
     ):
         self._macro    = macro
         self._ecb      = ecb
@@ -29,7 +31,7 @@ class MacroChiefAgent:
         self.bus       = bus
 
         self.inflation_agent        = InflationAgent(macro, ecb, snb, bus)
-        self.money_supply_agent     = MoneySupplyAgent(macro, ecb, snb, bus)
+        self.money_supply_agent     = MoneySupplyAgent(macro, ecb, snb, bus, history=history)
         self.interest_rate_agent    = InterestRateAgent(macro, ecb, snb, bus)
         self.gdp_agent              = GDPAgent(macro, ecb, snb, bus)
         self.labor_income_agent     = LaborIncomeAgent(macro, bus)
