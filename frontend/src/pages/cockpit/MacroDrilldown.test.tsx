@@ -20,11 +20,13 @@ function renderPage() {
 }
 
 describe("MacroDrilldown", () => {
-  it("zeigt USA, DE und CH (keine EU-Zeile)", async () => {
+  it("zeigt USA, EUR und CH (Eurozone als EUR, kein DE/EU)", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("USA")).toBeInTheDocument());
-    expect(screen.getByText("DE")).toBeInTheDocument();
+    expect(screen.getByText("EUR")).toBeInTheDocument();
     expect(screen.getByText("CH")).toBeInTheDocument();
+    // Eurozone darf NICHT als Einzelland "DE" und NICHT als nacktes "EU" erscheinen.
+    expect(screen.queryByText("DE")).not.toBeInTheDocument();
     expect(screen.queryByText("EU")).not.toBeInTheDocument();
   });
 
@@ -36,7 +38,7 @@ describe("MacroDrilldown", () => {
     expect(bearishElements.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("zeigt DE Zielzone und BULLISH", async () => {
+  it("zeigt EUR (Eurozone) Zielzone und BULLISH", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText(/1–3 % \(Zielzone\)/)).toBeInTheDocument());
     const bullish = screen.getAllByText("BULLISH");

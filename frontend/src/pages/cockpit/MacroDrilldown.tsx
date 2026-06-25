@@ -67,8 +67,9 @@ export function MacroDrilldown({ loader = loadMacro }: { loader?: () => Promise<
             </tbody>
           </table>
           <p className="mt-3 text-xs text-muted">
-            Regionen: USA und DE nutzen EU-Schwellen (Zielzone 1–3 %); CH hat strukturell
-            niedrigere Inflation (Zielzone 0,5–2 %). Keine „EU"-Aggregation (länderspezifisch).
+            Regionen: USA und Eurozone (EUR) nutzen dasselbe Band (Zielzone 1–3 %); CH hat
+            strukturell niedrigere Inflation (Zielzone 0,5–2 %). EUR ist das Euroraum-Aggregat
+            (ECB-HICP) — nicht Deutschland.
           </p>
         </div>
       )}
