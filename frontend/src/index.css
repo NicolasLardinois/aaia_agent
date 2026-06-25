@@ -1,3 +1,92 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Designsprache "Instrument-Deck" — Token-Schicht (Light + Dark via .dark).
+   Werte sind RGB-Kanäle (Leerzeichen-getrennt), damit Tailwind-Opazitäten
+   (bg-brand/10, text-ink/70 …) funktionieren: rgb(var(--x) / <alpha>).
+   Ein Marken-Akzent (Kobalt-Indigo), klar getrennt von den Finanz-Signalen
+   (Grün/Rot). Kennzahlen als Mono-Ablesungen (font-mono + tabular-nums).
+   ────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    --bg: 245 244 239;        /* warmes Papier (Tag-Deck) */
+    --surface: 255 255 255;   /* Panel */
+    --surface-2: 250 249 244;
+    --ink: 22 27 36;          /* Text */
+    --muted: 92 102 117;      /* Sekundärtext */
+    --line: 230 228 220;      /* Haarlinien */
+    --brand: 79 91 213;       /* Kobalt-Indigo — interaktiv/aktiv/Marke */
+    --brand-strong: 63 73 184;
+    --brand-ink: 255 255 255; /* Text auf Marke */
+    --bull: 14 159 110;       /* Signal: bullish (Finanzsemantik) */
+    --bear: 229 72 77;        /* Signal: bearish */
+    --neutral: 138 147 163;   /* Signal: neutral */
+    --ring: 79 91 213;
+  }
+  .dark {
+    --bg: 12 18 32;           /* Ink-Navy (Nacht-Deck) */
+    --surface: 19 27 43;
+    --surface-2: 23 32 51;
+    --ink: 231 236 245;
+    --muted: 139 150 171;
+    --line: 36 48 73;
+    --brand: 124 134 255;
+    --brand-strong: 152 160 255;
+    --brand-ink: 12 18 32;
+    --bull: 47 190 142;
+    --bear: 242 109 109;
+    --neutral: 139 150 171;
+    --ring: 124 134 255;
+  }
+
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background-color: rgb(var(--bg));
+    color: rgb(var(--ink));
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { font-family: "Space Grotesk", "IBM Plex Sans", sans-serif; letter-spacing: -0.01em; }
+
+  /* Tabellarische Ziffern für ausgerichtete Kennzahlen-Spalten */
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  ::selection { background: rgb(var(--brand) / 0.26); }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--ring));
+    outline-offset: 2px;
+    border-radius: 5px;
+  }
+
+  /* dezente Scrollbars passend zum Deck */
+  * { scrollbar-width: thin; scrollbar-color: rgb(var(--line)) transparent; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb {
+    background: rgb(var(--line));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Signatur: Regime-„Horizont" — schmale Bandfarbe je Marktlage (Cockpit-Referenz). */
+@layer components {
+  .regime-horizon {
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgb(var(--bull)), rgb(var(--neutral)) 50%, rgb(var(--bear)));
+    opacity: 0.85;
+  }
+}
