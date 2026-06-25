@@ -31,6 +31,12 @@ class MacroDataProvider(ABC):
         """Datierte Leitzins-Historie [{"date","rate"}, ...]. Default: leer."""
         return []
 
+    def get_cpi_history(self, months: int = 6) -> list[float]:
+        """Jüngste YoY-CPI-Werte (%) der letzten `months` Monate, älteste zuerst.
+        Dient der Trend-/Momentum-Erkennung im inflation_agent. Default: leer
+        (Trend → 'stable'). Echte Daten liefert der FRED-Adapter."""
+        return []
+
 
 class EcbDataProvider(ABC):
     @abstractmethod

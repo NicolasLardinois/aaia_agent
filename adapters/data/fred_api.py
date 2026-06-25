@@ -127,6 +127,16 @@ class FredDataProvider(MacroDataProvider):
         except Exception:
             return []
 
+    def get_cpi_history(self, months: int = 6) -> list[float]:
+        """YoY-CPI (CPIAUCSL, %) der letzten `months` Monate, älteste zuerst.
+        Für die Trend-/Momentum-Erkennung im inflation_agent. Fehler/leer → []."""
+        try:
+            cpi = self.fred.get_series("CPIAUCSL", observation_start="2015-01-01")
+            yoy = (cpi.pct_change(12) * 100).dropna()
+            return [round(float(v), 3) for v in yoy.tail(months)]
+        except Exception:
+            return []
+
     def get_yield_spreads(self) -> dict:
         """10Y-2Y und 10Y-3M Treasury Spreads für den USA-Markt."""
         result = {"10y2y": None, "10y3m": None}

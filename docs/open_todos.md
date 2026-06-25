@@ -200,9 +200,8 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 
 ### agents/market_cockpit/macro/inflation_agent.py
 
-- [ ] **CPI Trend-Analyse** (`_signal()`, Parameter `trend` — reserviert, Zeile 20)
-  `trend="rising"` soll Signal verschärfen, `trend="falling"` mildern.
-  Benötigt: neue Provider-Methode `get_cpi_history(months=6)`.
+- [x] **CPI Trend-Analyse** (`_signal()`, Parameter `trend`) — verdrahtet (PR offen, 2026-06-25).
+  **Lösung:** `_signal` hatte nur den `falling`-Zweig (entschärft) und `run()` übergab nie einen Trend → Modifikator feuerte nie. Jetzt (a) **`rising`-Zweig** ergänzt — symmetrisch: ein nur durch den Core-Rabatt auf NEUTRAL gemildertes, erhöhtes Signal (cpi>high) wird bei BESCHLEUNIGUNG zurück auf BEARISH gesetzt (die „transitorisch"-Annahme ist untergraben); ein gesundes LEVEL (BULLISH in der Zielzone) wird vom Trend bewusst NICHT gekippt. (b) Neue **pure Funktion `_cpi_trend(history)`** klassifiziert die YoY-CPI-Historie über den Vergleich der Mittelwerte beider Fensterhälften mit ±0.3pp-Deadband (rauschrobust). (c) Statt der ursprünglich vorgeschlagenen `get_cpi_history` als *Pflicht*-Methode wurde sie als **nicht-abstrakte Port-Default** (`MacroDataProvider.get_cpi_history(months=6) → []`, Muster wie `get_real_rate_history`) ergänzt; der **FRED-Adapter** liefert echte YoY-CPI-Werte (CPIAUCSL). So bleibt der Backtester-Provider (`historical_fred`) unverändert (Trend dort „stable"). Hexagonal-konform: Adapter liefert nur Rohdaten, der Agent klassifiziert. USA-only verdrahtet (EU/CH-History noch nicht angebunden). 12 neue Tests, volle Suite 1305 grün.
 
 - [x] **USA Core CPI** — FRED `CPILFESL` via `extended_state` angebunden (PR #62 am 2026-06-25 gemergt).
   In `inflation_agent` zusätzlich ins USA-`_signal` eingespeist (transiente Inflation entschärft BEARISH → NEUTRAL, konsistent zur EU). Live verifiziert: 2.82 %.
