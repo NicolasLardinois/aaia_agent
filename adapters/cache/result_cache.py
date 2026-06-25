@@ -339,6 +339,10 @@ def _commodity_deep_out(cd) -> Optional[dict]:
         "seasonality":     _seasonality_out(cd.seasonality),
         "cot":             _cot_out(cd.cot),
         "valuation_range": _commodity_valuation_range_out(cd.valuation_range),
+        # Aggregiertes Gesamturteil (Bug #47): muss den Round-Trip überleben,
+        # sonst fällt es beim Laden still auf NEUTRAL/0.0 zurück (analog Bond, PR #19).
+        "overall_signal":  _sv(cd.overall_signal),
+        "confidence":      cd.confidence,
     }
 
 
@@ -590,6 +594,10 @@ def _load_commodity_deep(d):
             position=vr.get("position", "fair"),
             signal=_sig(vr.get("signal")),
         ),
+        # Bug #47: aggregiertes Gesamturteil aus dem Cache wiederherstellen.
+        # Ältere Dateien ohne diese Felder fallen defensiv auf NEUTRAL/0.0 zurück.
+        overall_signal=_sig(d.get("overall_signal")),
+        confidence=d.get("confidence", 0.0),
     )
 
 
