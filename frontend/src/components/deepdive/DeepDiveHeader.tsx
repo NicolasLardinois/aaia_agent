@@ -6,10 +6,10 @@ import { formatNumber } from "../../lib/format";
 // Header (Konzept §4.5): beide Etiketten (underlying x wrapper) + Kurs/Markt + "vergleichen mit"-Einstieg.
 export function DeepDiveHeader({ view, onCompare }: { view: DeepDiveView; onCompare?: () => void }) {
   return (
-    <header className="space-y-2 border-b border-slate-200 pb-3 dark:border-slate-700">
+    <header className="space-y-2 border-b border-line pb-3">
       <h1 className="text-xl font-bold">{view.ticker} · {view.name}</h1>
       <UnderlyingWrapperBadge underlying={view.underlying} wrapper={view.wrapper} />
-      <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
+      <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
         <span>
           Kurs:{" "}
           {view.price === null
@@ -18,7 +18,7 @@ export function DeepDiveHeader({ view, onCompare }: { view: DeepDiveView; onComp
         </span>
         <span>· Markt: {view.market || "—"}</span>
         {onCompare && (
-          <button type="button" onClick={onCompare} className="text-sky-600 underline">
+          <button type="button" onClick={onCompare} className="text-brand underline">
             ⤳ vergleichen mit
           </button>
         )}

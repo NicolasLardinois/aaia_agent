@@ -6,7 +6,7 @@ import { formatNumber, formatSigned } from "../../lib/format";
 
 // Roll-Yield-Zelle: Future -> Vorzeichen + %/Jahr; sonst "kein Roll" (physisch/Fund).
 function rollCell(v: DeepDiveView) {
-  if (!v.futures) return <span className="text-slate-500">— (kein Roll)</span>;
+  if (!v.futures) return <span className="text-muted">— (kein Roll)</span>;
   const r = rollYieldVisual(v.futures.rollYieldAnnualPct, v.futures.form);
   return (
     <span className={r.colorClass}>
@@ -41,7 +41,7 @@ export function CompareView({ left, right }: { left: DeepDiveView; right: DeepDi
   // ergeben keinen sinnvollen Huellen-Vergleich -> defensiver Hinweis statt irrefuehrender Tabelle.
   if (left.underlying !== right.underlying) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         Vergleich nur für denselben Basiswert sinnvoll (zwei Hüllen desselben underlyings).
       </p>
     );
@@ -56,7 +56,7 @@ export function CompareView({ left, right }: { left: DeepDiveView; right: DeepDi
     render: (v: DeepDiveView) => React.ReactNode;
   }) => (
     <tr>
-      <th className="py-1 pr-4 text-left font-medium text-slate-500">{label}</th>
+      <th className="py-1 pr-4 text-left font-medium text-muted">{label}</th>
       {cols.map((c) => (
         <td key={c.ticker} className="py-1 pr-4">
           {render(c)}
