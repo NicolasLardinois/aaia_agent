@@ -5,18 +5,20 @@ export interface Visual {
   colorClass: string;
 }
 
-// Signal -> Wort + Tailwind-Farbklasse. null (UNAVAILABLE) ist ein eigener
-// Zustand, NIE als neutrales Signal dargestellt (Spec §5.4).
+// Signal -> Wort + Tailwind-Farbklasse. Farben sind Design-Tokens (Instrument-Deck,
+// dark-mode-fähig über .dark). null (UNAVAILABLE) ist ein eigener Zustand, NIE als
+// neutrales Signal dargestellt (Spec §5.4): daher text-muted, bewusst getrennt vom
+// neutral-Signal-Token (text-neutral).
 export function signalToVisual(signal: Signal | null): Visual {
   switch (signal) {
     case "bullish":
-      return { label: "BULLISH", colorClass: "text-green-600" };
+      return { label: "BULLISH", colorClass: "text-bull" };
     case "bearish":
-      return { label: "BEARISH", colorClass: "text-red-600" };
+      return { label: "BEARISH", colorClass: "text-bear" };
     case "neutral":
-      return { label: "NEUTRAL", colorClass: "text-slate-500" };
+      return { label: "NEUTRAL", colorClass: "text-neutral" };
     default:
-      return { label: "nicht verfügbar", colorClass: "text-slate-400" };
+      return { label: "nicht verfügbar", colorClass: "text-muted" };
   }
 }
 

@@ -12,12 +12,12 @@ export function SourceHealth({ active, total, failed = [] }: { active: number; t
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`text-sm ${allUp ? "text-slate-500" : "text-amber-600"}`}
+        className={`text-sm ${allUp ? "text-muted" : "text-amber-600"}`}
       >
         <span>{sourcesLabel(active, total)}</span>{failed.length > 0 && <span> ⚠</span>}
       </button>
       {open && failed.length > 0 && (
-        <ul className="absolute z-10 mt-1 rounded border border-slate-200 bg-white p-2 text-xs shadow dark:border-slate-700 dark:bg-slate-800">
+        <ul className="absolute z-10 mt-1 rounded border border-line bg-surface p-2 text-xs shadow">
           {failed.map((f) => (
             <li key={f.key}>{f.key}: {f.reason}</li>
           ))}

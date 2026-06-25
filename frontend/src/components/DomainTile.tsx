@@ -25,9 +25,9 @@ export function DomainTile({ domain }: { domain: Domain }) {
   return (
     <Link
       to={`/cockpit/${SLUGS[domain.key]}`}
-      className="block rounded-lg border border-slate-200 p-3 transition-colors hover:border-slate-300 hover:bg-slate-50"
+      className="block rounded-lg border border-line p-3 transition-colors hover:border-brand/40 hover:bg-surface-2"
     >
-      <div className="text-xs uppercase tracking-wide text-slate-500">{LABELS[domain.key]}</div>
+      <div className="text-xs uppercase tracking-wide text-muted">{LABELS[domain.key]}</div>
       <div className="mt-1">
         {isUnavailable(domain) ? <UnavailableField reason="Quelle ausgefallen" /> : <SignalBadge signal={domain.signal} />}
       </div>

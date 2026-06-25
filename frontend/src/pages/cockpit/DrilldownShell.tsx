@@ -23,7 +23,7 @@ export function DrilldownShell({
     <section className="space-y-4">
       {/* Kopfzeile: Titel + Zurück-Link + Demo-Badge */}
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/cockpit" className="text-sm text-slate-500 hover:text-slate-700">
+        <Link to="/cockpit" className="text-sm text-muted hover:text-ink">
           ← zurück zur Übersicht
         </Link>
         <h2 className="text-lg font-semibold">{title}</h2>
@@ -40,8 +40,8 @@ export function DrilldownShell({
       )}
 
       {/* Inhalt: loading / error / children */}
-      {loading && <p className="text-slate-500">Lädt …</p>}
-      {!loading && error && <p className="text-red-600">{error}</p>}
+      {loading && <p className="text-muted">Lädt …</p>}
+      {!loading && error && <p className="text-bear">{error}</p>}
       {!loading && !error && children}
     </section>
   );

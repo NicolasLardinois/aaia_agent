@@ -11,10 +11,10 @@ export interface AnomalyContent {
 export function AnomalyReport({ anomaly }: { anomaly: AnomalyContent }) {
   const v = anomalySeverityToVisual(anomaly.severity);
   return (
-    <div className="rounded border border-slate-200 p-3 text-sm dark:border-slate-700">
+    <div className="rounded border border-line p-3 text-sm">
       <div>Anomalie-Schwere: <span className={`font-semibold ${v.colorClass}`}>{v.label}</span></div>
-      <div className="mt-1"><span className="text-xs uppercase text-slate-500">Statistische Ausreißer: </span>{anomaly.outliers.join("; ") || "—"}</div>
-      <div><span className="text-xs uppercase text-slate-500">Signalwidersprüche: </span>{anomaly.conflicts.join("; ") || "—"}</div>
+      <div className="mt-1"><span className="text-xs uppercase text-muted">Statistische Ausreißer: </span>{anomaly.outliers.join("; ") || "—"}</div>
+      <div><span className="text-xs uppercase text-muted">Signalwidersprüche: </span>{anomaly.conflicts.join("; ") || "—"}</div>
     </div>
   );
 }

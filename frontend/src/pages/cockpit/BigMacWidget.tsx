@@ -25,13 +25,13 @@ export function BigMacWidget({ loader = loadBigMac }: { loader?: () => Promise<B
       {data && (
         <div className="space-y-4">
           {/* Publikationsdatum: halbjährlich Jan/Jul — immer sichtbar (US7). */}
-          <div className="text-sm text-slate-500">
-            Stand: <span className="font-semibold text-slate-700">{data.publishedAt}</span>
-            <span className="ml-2 text-slate-400">(The Economist, halbjaehrlich Jan/Jul)</span>
+          <div className="text-sm text-muted">
+            Stand: <span className="font-semibold text-ink">{data.publishedAt}</span>
+            <span className="ml-2 text-muted">(The Economist, halbjaehrlich Jan/Jul)</span>
           </div>
 
           {/* Hinweis Bewertungsrichtung */}
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted">
             + = über USD-Referenz (ueberbewertet) · – = unter USD-Referenz (unterbewertet)
           </p>
 
@@ -47,11 +47,11 @@ export function BigMacWidget({ loader = loadBigMac }: { loader?: () => Promise<B
           />
 
           {/* Einschraenkungen: einklappbar, aber standardmaessig offen (immer im DOM — Spec §5.4). */}
-          <details open className="rounded-lg border border-slate-200 p-3 text-sm">
-            <summary className="cursor-pointer font-medium text-slate-700">
+          <details open className="rounded-lg border border-line p-3 text-sm">
+            <summary className="cursor-pointer font-medium text-ink">
               Einschraenkungen des Big-Mac-Index
             </summary>
-            <ul className="mt-2 list-disc pl-4 space-y-1 text-slate-600">
+            <ul className="mt-2 list-disc pl-4 space-y-1 text-muted">
               {EINSCHRAENKUNGEN.map((e) => (
                 <li key={e}>{e}</li>
               ))}

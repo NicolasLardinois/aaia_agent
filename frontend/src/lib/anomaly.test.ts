@@ -12,8 +12,9 @@ describe("zScoreFlag", () => {
 });
 
 describe("anomalySeverityToVisual", () => {
-  it("Schwere -> Label + Farbe", () => {
-    expect(anomalySeverityToVisual("high").colorClass).toContain("red");
-    expect(anomalySeverityToVisual("none").colorClass).toContain("slate");
+  it("Schwere -> Label + Design-Token-Farbe", () => {
+    // high = bear-Token (Finanzsemantik rot), none = text-muted (kein Signal).
+    expect(anomalySeverityToVisual("high").colorClass).toBe("text-bear");
+    expect(anomalySeverityToVisual("none").colorClass).toBe("text-muted");
   });
 });

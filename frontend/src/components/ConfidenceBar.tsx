@@ -10,9 +10,9 @@ export function ConfidenceBar({ value }: { value: number }) {
         aria-valuenow={pct}
         aria-valuemin={0}
         aria-valuemax={100}
-        className="h-2 w-32 rounded bg-slate-200"
+        className="h-2 w-32 rounded bg-line"
       >
-        <div className="h-2 rounded bg-slate-600" style={{ width: `${pct}%` }} />
+        <div className="h-2 rounded bg-brand" style={{ width: `${pct}%` }} />
       </div>
       <span className="text-sm tabular-nums">{formatConfidence(value)}</span>
     </div>

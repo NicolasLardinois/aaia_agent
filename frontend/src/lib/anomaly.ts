@@ -10,9 +10,11 @@ export function zScoreFlag(z: number): "none" | "watch" | "anomaly" {
 
 export function anomalySeverityToVisual(s: AnomalySeverity): { label: string; colorClass: string } {
   switch (s) {
-    case "high":   return { label: "hoch",   colorClass: "text-red-600" };
+    // high = bear-Token (Finanzsemantik rot), medium/low = Warn-Spektrum (amber/gelb,
+    // kein eigener Token), none = text-muted (kein Signal).
+    case "high":   return { label: "hoch",   colorClass: "text-bear" };
     case "medium": return { label: "mittel", colorClass: "text-amber-600" };
     case "low":    return { label: "gering", colorClass: "text-yellow-600" };
-    case "none":   return { label: "keine",  colorClass: "text-slate-400" };
+    case "none":   return { label: "keine",  colorClass: "text-muted" };
   }
 }
