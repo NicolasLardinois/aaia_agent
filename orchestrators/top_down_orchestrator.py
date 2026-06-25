@@ -29,7 +29,7 @@ class TopDownOrchestrator:
     ):
         self.macro_chief       = MacroChiefAgent(macro, ecb, snb, bus, history=history)
         self.commodity_chief   = CommodityChiefAgentMakro(market, bus)
-        self.sentiment_chief   = SentimentChiefAgent(market, bus, sentiment)
+        self.sentiment_chief   = SentimentChiefAgent(market, bus, sentiment, history=history)
         self.yield_curve_chief = YieldCurveChiefAgent(macro, ecb, snb, bus, history=history)
         self.sector_chief      = SectorChiefAgent(market, bus)
 
