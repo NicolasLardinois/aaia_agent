@@ -28,6 +28,7 @@ from adapters.data.eurostat import EurostatEcbProvider
 from adapters.data.fred_snb import FredSnbProvider
 from adapters.data.cnn_fear_greed import CnnFearGreedProvider
 from adapters.data.cftc_cot import CftcCotProvider
+from adapters.data.index_constituents import ConstituentMarketProvider
 from adapters.event_bus.redis_bus import InMemoryEventBus
 from adapters.llm.claude_adapter import ClaudeAdapter
 from adapters.memory.supabase_memory import SupabaseMemory
@@ -183,7 +184,8 @@ async def run_bottom_up(
     orch = BottomUpOrchestrator(
         fundamentals_provider=FinnhubProvider(FINNHUB_API_KEY),
         macro_provider=FredDataProvider(FRED_API_KEY),
-        market_provider=YahooFinanceProvider(),
+        # ConstituentMarketProvider ergänzt Konstituenten + Kurshistorien (Index-Breadth)
+        market_provider=ConstituentMarketProvider(YahooFinanceProvider()),
         llm=llm,
         bus=bus,
         cot_provider=CftcCotProvider(),   # CFTC Commitments of Traders (Managed Money)
