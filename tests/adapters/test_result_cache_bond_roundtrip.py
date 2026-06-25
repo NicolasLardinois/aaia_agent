@@ -7,8 +7,9 @@ from adapters.cache.result_cache import _bond_result_out, _load_bond_result
 
 def _bond(**over):
     m = BondMetricsSnapshot(bond_type="corporate", current_price=None, coupon=None,
-        maturity_years=None, ytm=None, ytc=None, current_yield=None, real_yield=None,
-        country=None, breakeven_inflation=None, issuer=None, sector=None, signal=Signal.BULLISH)
+        maturity_years=None, ytm=0.051, ytc=None, current_yield=None, real_yield=None,
+        country=None, breakeven_inflation=None, issuer=None, sector=None, signal=Signal.BULLISH,
+        ytw=0.048)
     d = BondDurationSnapshot(macaulay_duration=None, modified_duration=None, convexity=None, dv01=None, signal=Signal.NEUTRAL)
     c = BondCreditSnapshot(moodys=None, sp="BB", fitch=None, category="high_yield", trend="stable", default_probability=None, signal=Signal.NEUTRAL)
     s = BondSpreadSnapshot(spread_bps=None, oas=None, z_spread=None, spread_trend="stable", signal=Signal.NEUTRAL)
@@ -26,6 +27,12 @@ def test_roundtrip_preserves_overall_and_affinity():
     assert br.confidence == 0.25
     assert br.risk_affinity == RiskAffinity.RISIKOFREUDIG
     assert br.credit_band == CreditBand.MITTEL
+
+
+def test_roundtrip_preserves_ytw():
+    """Plan C: YTW im Metrics-Snapshot muss den Cache-Round-Trip überleben."""
+    br = _load_bond_result(_bond_result_out(_bond()))
+    assert br.metrics.ytw == 0.048
 
 
 def test_roundtrip_handles_none_affinity_and_band():

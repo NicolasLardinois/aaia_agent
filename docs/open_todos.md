@@ -421,9 +421,7 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 - [ ] **Echte OAS-basierte Effective Duration für optionsbehaftete Bonds** (`agents/stock_deep_dive/bond/bond_duration_agent.py`).
   Derzeit numerische Näherung via Vanilla-`bond_price`-Shifts → für callable/putable Bonds ≈ Modified Duration (keine Optionsbereinigung, Optionswert unterschätzt). Label ist im Code als Näherung dokumentiert.
   **Ansatz:** einfaches Zinsmodell/Lattice (z. B. Binomial-/Trinomial-Baum) für die Optionsausübung implementieren; Effective Duration aus OAS-konsistenten Auf-/Abwärts-Preisen statt Vanilla-Shifts.
-- [ ] **`BondMetricsSnapshot` um `ytw` (Yield-to-Worst) erweitern** *(Minor)*.
-  YTW wird berechnet, aber nur im `*Ready`-Event-Payload transportiert (bewusste Plan-Design-Entscheidung: Zusatzgrößen via Events, Dataclasses unverändert). Downstream-Snapshot-Konsumenten müssen YTW aus Events rekonstruieren.
-  **Ansatz:** falls Snapshot-Konsumenten YTW direkt brauchen, Feld `ytw: float | None = None` ergänzen und im Agenten befüllen.
+- [x] **`BondMetricsSnapshot` um `ytw` (Yield-to-Worst) erweitern** — **erledigt 2026-06-25 (TDD).** Feld `ytw: Optional[float] = None` (trailing-optional → bestehende Konstruktionen bleiben gültig) ergänzt; der `bond_metrics_agent` befüllt es mit dem bereits berechneten `yield_to_worst(ytm, ytc)` (zuvor nur im `*Ready`-Event). Cache-Round-Trip nachgezogen (`_bond_metrics_out` + Loader), damit YTW persistiert. 2 neue Tests (Snapshot trägt YTW == Event-Payload; Round-Trip erhält YTW). Suite 1267 grün.
 
 ### Aus Plan D1 (Review 2026-06-16/17 — Logik korrekt, Daten/Verdrahtung fehlt)
 
