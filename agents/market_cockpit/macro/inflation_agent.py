@@ -86,13 +86,14 @@ class InflationAgent:
 
         usa_cpi = state.get("inflation")
         usa_ppi = ext.get("ppi")
+        usa_core = ext.get("core_cpi")
         usa = InflationDataPoint(
             cpi=usa_cpi,
-            core_cpi=None,           # TODO: FRED CPILFESL via extended_state
-            pce=None,                # TODO: FRED PCEPI via extended_state
+            core_cpi=usa_core,       # FRED CPILFESL via extended_state
+            pce=ext.get("pce"),      # FRED PCEPI via extended_state (Fed-Ziel = PCE)
             ppi=usa_ppi,
             real_rate_10y=ext.get("real_rate_10y"),
-            signal=_signal(usa_cpi, ppi=usa_ppi, region="usa", real_rate_10y=ext.get("real_rate_10y")),
+            signal=_signal(usa_cpi, core_cpi=usa_core, ppi=usa_ppi, region="usa", real_rate_10y=ext.get("real_rate_10y")),
         )
         eu = InflationDataPoint(
             cpi=ecb_cpi, core_cpi=ecb_core, pce=None,

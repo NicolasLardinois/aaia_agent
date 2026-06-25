@@ -33,6 +33,12 @@ EXTENDED_SERIES = {
     "m2_growth":           ("M2SL",     lambda s: s.pct_change(12).dropna().iloc[-1] * 100),
     # PPI (Producer Price Index)
     "ppi":                 ("PPIACO",   lambda s: s.pct_change(12).dropna().iloc[-1] * 100),
+    # Core-CPI (ohne Lebensmittel & Energie) — strukturelle Inflation
+    "core_cpi":            ("CPILFESL", lambda s: s.pct_change(12).dropna().iloc[-1] * 100),
+    # PCE-Preisindex (YoY) — das Fed-Inflationsziel von 2% bezieht sich auf PCE, nicht CPI
+    "pce":                 ("PCEPI",    lambda s: s.pct_change(12).dropna().iloc[-1] * 100),
+    # Fed-Bilanzwachstum (WALCL, wöchentlich → YoY über 52 Wochen); QT = negativ
+    "balance_sheet_growth": ("WALCL",   lambda s: s.pct_change(52).dropna().iloc[-1] * 100),
 }
 
 

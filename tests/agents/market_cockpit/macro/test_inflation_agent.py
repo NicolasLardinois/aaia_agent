@@ -1,5 +1,36 @@
-from agents.market_cockpit.macro.inflation_agent import _signal
+import asyncio
+from unittest.mock import MagicMock
+
+from agents.market_cockpit.macro.inflation_agent import InflationAgent, _signal
 from core.domain.models import Signal
+
+
+def _make_agent(*, eco=None, ext=None):
+    macro = MagicMock()
+    macro.get_economic_state.return_value = eco or {}
+    macro.get_extended_state.return_value = ext or {}
+    ecb = MagicMock()
+    for m in ("get_cpi", "get_core_cpi", "get_ppi"):
+        getattr(ecb, m).return_value = None
+    snb = MagicMock()
+    for m in ("get_cpi", "get_core_cpi"):
+        getattr(snb, m).return_value = None
+    return InflationAgent(macro=macro, ecb=ecb, snb=snb, bus=MagicMock())
+
+
+def test_usa_core_cpi_und_pce_aus_extended_state():
+    """USA Core-CPI (CPILFESL) und PCE (PCEPI) werden aus extended_state befüllt."""
+    agent = _make_agent(eco={"inflation": 2.5}, ext={"core_cpi": 2.9, "pce": 2.6})
+    result = asyncio.run(agent.run())
+    assert result.usa.core_cpi == 2.9
+    assert result.usa.pce == 2.6
+
+
+def test_usa_hohe_cpi_niedriger_core_entschaerft_via_run():
+    """CPI 4.5% aber Core 2.2% → transiente Inflation → USA-Signal NEUTRAL (vorher BEARISH)."""
+    agent = _make_agent(eco={"inflation": 4.5}, ext={"core_cpi": 2.2})
+    result = asyncio.run(agent.run())
+    assert result.usa.signal == Signal.NEUTRAL
 
 
 # ── USA/EU Basis-Schwellen (unverändert) ─────────────────────────────────

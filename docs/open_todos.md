@@ -201,11 +201,11 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   `trend="rising"` soll Signal verschärfen, `trend="falling"` mildern.
   Benötigt: neue Provider-Methode `get_cpi_history(months=6)`.
 
-- [ ] **USA Core CPI** (`InflationDataPoint.core_cpi` für USA ist `None`, Zeile 81)
-  Quelle: FRED `CPILFESL` via `extended_state`.
+- [x] **USA Core CPI** — FRED `CPILFESL` via `extended_state` angebunden (PR offen, 2026-06-25).
+  In `inflation_agent` zusätzlich ins USA-`_signal` eingespeist (transiente Inflation entschärft BEARISH → NEUTRAL, konsistent zur EU). Live verifiziert: 2.82 %.
 
-- [ ] **USA PCE** (`InflationDataPoint.pce` für USA ist `None`, Zeile 82)
-  Quelle: FRED `PCEPI`. Wichtig: Fed-Ziel bezieht sich auf PCE, nicht CPI.
+- [x] **USA PCE** — FRED `PCEPI` via `extended_state` angebunden (PR offen, 2026-06-25).
+  Befüllt `InflationDataPoint.pce` (Fed-Ziel = PCE). Live verifiziert: 4.07 %. (Reines Anzeige-/Transparenzfeld, noch kein Signal-Input.)
 
 - [ ] **Eurozone Real Rate 10Y** (`InflationDataPoint.real_rate_10y` für EU ist `None`)
   Berechnung: EZB 10Y-Rendite minus EZB CPI.
@@ -214,11 +214,13 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
   Quelle: SNB / BFS Erzeugerpreisindex.
 
 ### agents/market_cockpit/macro/interest_rate_agent.py (Zeile 77)
-- [ ] **FRED WALCL** — Fed Balance Sheet Growth (`balance_sheet_growth=None`)
+- [x] **FRED WALCL** — Fed Balance Sheet Growth angebunden (PR offen, 2026-06-25).
+  `interest_rate_agent` holt jetzt zusätzlich `extended_state`; USA `balance_sheet_growth = ext.get("balance_sheet_growth")` (WALCL wöchentlich → YoY über 52 Wochen, QT negativ). Live verifiziert: +0.83 %.
 
 ### agents/market_cockpit/macro/gdp_agent.py (Zeilen 58, 70)
-- [ ] **ISM Manufacturing PMI** für USA (`pmi=None`) — Quelle: FRED / ISM
-- [ ] **procure.ch PMI** für Schweiz (`pmi=None`)
+- [ ] **ISM Manufacturing PMI** für USA (`pmi=None`) — **deferred (keine freie Quelle).**
+  FRED-Serie `NAPM` wurde eingestellt (existiert nicht mehr); ISM/S&P-Global-PMI sind proprietär (Lizenz). Wie EU-PMI deferred, bis eine lizenzierte/freie Quelle vorliegt.
+- [ ] **procure.ch PMI** für Schweiz (`pmi=None`) — proprietär (procure.ch), deferred.
 
 ### agents/market_cockpit/macro/credit_agent.py (Zeilen 38–39)
 - [ ] EU-Kreditwachstum via ECB API (aktuell immer NEUTRAL)
