@@ -208,8 +208,8 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 - [x] **USA PCE** — FRED `PCEPI` via `extended_state` angebunden (PR #62 am 2026-06-25 gemergt).
   Befüllt `InflationDataPoint.pce` (Fed-Ziel = PCE). Live verifiziert: 4.07 %. (Reines Anzeige-/Transparenzfeld, noch kein Signal-Input.)
 
-- [ ] **Eurozone Real Rate 10Y** (`InflationDataPoint.real_rate_10y` für EU ist `None`)
-  Berechnung: EZB 10Y-Rendite minus EZB CPI.
+- [x] **Eurozone Real Rate 10Y** — angebunden (PR offen, 2026-06-25).
+  Neue Port-Methode `EcbDataProvider.get_aaa_10y_yield()` (Default None), implementiert im `EcbSdwProvider` (Yield-Curve `SR_10Y`), durchgereicht vom `EurostatEcbProvider`. `inflation_agent` rechnet `eu_real_10y = ECB-AAA-10Y − EU-HICP` und speist es ins EU-`_signal` (Realzins-Gegenwind >2% → BEARISH, konsistent zur USA). Live verifiziert: 2.94 − 2.0 = 0.94 %.
 
 - [ ] **Schweiz PPI** (`InflationDataPoint.ppi` für CH ist `None`)
   Quelle: SNB / BFS Erzeugerpreisindex.
@@ -226,10 +226,12 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 ### agents/market_cockpit/macro/credit_agent.py (Zeilen 38–39)
 - [ ] EU-Kreditwachstum via ECB API (aktuell immer NEUTRAL)
 - [ ] CH-Kreditwachstum via SNB API (aktuell immer NEUTRAL)
+  > **Eigener PR nötig (Folge-Aufgabe, 2026-06-25):** `credit_agent` (wie `labor_income_agent`) bekommt **nur** den USA-`MacroDataProvider` injiziert und wird auch im Backtester (`agents/backtester/regime_replay.py`, point-in-time) konstruiert. EU/CH erfordern: (a) **optionale** `ecb=None`/`snb=None`-Konstruktorargumente (rückwärtskompatibel — Backtester bleibt unverändert, EU/CH dort weiter NEUTRAL), Wiring nur im `macro_chief_agent`; (b) neue ECB/SNB-Datenmethoden: EU-Kredit via ECB-BSI (Kredite an privaten Sektor, YoY), CH-Kredit via data.snb.ch. Erst Datenquelle verifizieren, dann TDD.
 
 ### agents/market_cockpit/macro/labor_income_agent.py (Zeilen 38–39)
 - [ ] EU-Löhne via Eurostat / ECB API (aktuell immer NEUTRAL)
 - [ ] CH-Löhne via SNB API (aktuell immer NEUTRAL)
+  > **Eigener PR nötig (Folge-Aufgabe, 2026-06-25):** wie credit_agent — optionale `ecb`/`snb`-Injektion (Backtester-kompatibel) + neue Datenmethoden: EU-Löhne via ECB „Negotiated wages"/Eurostat Arbeitskostenindex, CH-Löhne via BFS/SNB. Real-Lohn = nominal − CPI (Fisher), analog USA.
 
 ### agents/stock_deep_dive/precious_metals/precious_metal_price_agent.py (Zeilen 44–54)
 - [ ] RSI und MA50/MA200 aus Preishistorie berechnen

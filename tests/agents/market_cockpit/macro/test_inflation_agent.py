@@ -5,17 +5,41 @@ from agents.market_cockpit.macro.inflation_agent import InflationAgent, _signal
 from core.domain.models import Signal
 
 
-def _make_agent(*, eco=None, ext=None):
+def _make_agent(*, eco=None, ext=None, ecb_cpi=None, ecb_core=None, ecb_ppi=None,
+                ecb_10y=None):
     macro = MagicMock()
     macro.get_economic_state.return_value = eco or {}
     macro.get_extended_state.return_value = ext or {}
     ecb = MagicMock()
-    for m in ("get_cpi", "get_core_cpi", "get_ppi"):
-        getattr(ecb, m).return_value = None
+    ecb.get_cpi.return_value = ecb_cpi
+    ecb.get_core_cpi.return_value = ecb_core
+    ecb.get_ppi.return_value = ecb_ppi
+    ecb.get_aaa_10y_yield.return_value = ecb_10y
     snb = MagicMock()
-    for m in ("get_cpi", "get_core_cpi"):
-        getattr(snb, m).return_value = None
+    snb.get_cpi.return_value = None
+    snb.get_core_cpi.return_value = None
     return InflationAgent(macro=macro, ecb=ecb, snb=snb, bus=MagicMock())
+
+
+def test_eu_real_rate_10y_aus_yield_minus_cpi():
+    """EU Real Rate 10Y = ECB-AAA-10Y-Rendite − EU-HICP (2.94 − 2.0 = 0.94)."""
+    agent = _make_agent(ecb_cpi=2.0, ecb_10y=2.94)
+    result = asyncio.run(agent.run())
+    assert result.eurozone.real_rate_10y == 0.94
+
+
+def test_eu_hoher_realzins_drueckt_signal_bearish():
+    """EU CPI im Ziel (2.0 → sonst BULLISH), aber Realzins 2.5% → Bewertungs-Gegenwind → BEARISH."""
+    agent = _make_agent(ecb_cpi=2.0, ecb_10y=4.5)  # real = 2.5 > 2.0
+    result = asyncio.run(agent.run())
+    assert result.eurozone.real_rate_10y == 2.5
+    assert result.eurozone.signal == Signal.BEARISH
+
+
+def test_eu_real_rate_none_ohne_yield():
+    agent = _make_agent(ecb_cpi=2.0, ecb_10y=None)
+    result = asyncio.run(agent.run())
+    assert result.eurozone.real_rate_10y is None
 
 
 def test_usa_core_cpi_und_pce_aus_extended_state():
