@@ -620,6 +620,10 @@ class BondMetricsSnapshot:
     # Verfügbarkeit der Signal-treibenden Daten (§3.4): UNAVAILABLE → aus der
     # Bond-Aggregation ausgeschlossen statt als neutrale 0-Stimme mitgezählt.
     status: SignalStatus = SignalStatus.AVAILABLE
+    # Yield-to-Worst = min(YTM, YTC) — Plan C. Trailing-optional, damit bestehende
+    # Konstruktionen ohne ytw gültig bleiben; Snapshot-Konsumenten müssen YTW nicht
+    # mehr aus dem *Ready-Event rekonstruieren.
+    ytw: Optional[float] = None
 
 
 @dataclass

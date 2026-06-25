@@ -111,6 +111,7 @@ def _bond_metrics_out(bm) -> Optional[dict]:
         "issuer":               bm.issuer,
         "sector":               bm.sector,
         "signal":               _sv(bm.signal),
+        "ytw":                  bm.ytw,
     }
 
 
@@ -440,6 +441,7 @@ def _load_bond_result(d):
             issuer=m.get("issuer"),
             sector=m.get("sector"),
             signal=_sig(m.get("signal")),
+            ytw=m.get("ytw"),
         ),
         duration=BondDurationSnapshot(
             macaulay_duration=dur.get("macaulay_duration"),

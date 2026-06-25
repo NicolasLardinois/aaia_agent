@@ -23,6 +23,22 @@ def test_computes_ytm_from_raw_inputs_par_bond():
     assert math.isclose(res.ytm, 0.05, abs_tol=1e-3), res.ytm
 
 
+def test_snapshot_traegt_ytw():
+    """Plan C: Yield-to-Worst steht jetzt auch im Snapshot, nicht nur im *Ready-Event."""
+    agent, bus = _make(
+        {"current_price": 95.0, "coupon_rate": 0.05, "frequency": 2,
+         "maturity_years": 10, "face": 100.0},
+        {"inflation": 0.02},
+    )
+    res = asyncio.run(agent.run("X", "corporate"))
+    assert res.ytw is not None
+    # Ohne Call-Optionen ist YTW = YTM (yield_to_worst(ytm, None)).
+    assert math.isclose(res.ytw, res.ytm, abs_tol=1e-9)
+    # Snapshot-Wert == Event-Payload-Wert (kein Auseinanderdriften).
+    payload = bus.publish.call_args[0][0].payload
+    assert payload["ytw"] == res.ytw
+
+
 def test_current_yield_uses_clean_price_convention():
     agent, _ = _make(
         {"current_price": 95.0, "coupon_rate": 0.05, "frequency": 2,

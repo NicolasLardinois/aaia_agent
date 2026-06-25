@@ -100,7 +100,7 @@ class BondMetricsAgent:
             bond_type=bond_type,
             current_price=price, coupon=crate, maturity_years=maturity,
             ytm=ytm_val, ytc=ytc_val, current_yield=cur_yield,
-            real_yield=real_yield,
+            real_yield=real_yield, ytw=ytw,
             country=data.get("country") if bond_type == "government" else None,
             breakeven_inflation=infl,
             issuer=data.get("issuer") if bond_type == "corporate" else None,
