@@ -38,7 +38,7 @@ class BottomUpOrchestrator:
         self.bond_chief            = BondChiefAgent(fundamentals_provider, macro_provider, bus)
         self.index_chief           = IndexChiefAgent(market_provider, bus, cape_provider=cape_provider)
         self.commodity_chief       = CommodityChiefAgentMikro(market_provider, bus, cot_provider=cot_provider)
-        self.precious_metals_chief = PreciousMetalsChiefAgent(macro_provider, market_provider, bus)
+        self.precious_metals_chief = PreciousMetalsChiefAgent(macro_provider, market_provider, bus, cot_provider=cot_provider)
         self.fund_info_provider     = fund_info_provider
         self.futures_curve_provider = futures_curve_provider
         self.cost_floor_provider    = cost_floor_provider
