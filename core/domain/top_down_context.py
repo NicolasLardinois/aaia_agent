@@ -93,9 +93,18 @@ _BUFFETT_CORRIDORS: dict[str, tuple[float, float]] = {
 _BUFFETT_DEFAULT_CORRIDOR = (75.0, 135.0)
 
 
+def buffett_corridor(code: str) -> tuple[float, float]:
+    """Länderspezifischer Buffett-Korridor (bullish_unter, bearish_über) in %.
+    Unbekannte Länder fallen auf den globalen Default (75, 135) zurück.
+
+    Einzige Quelle der Wahrheit für die Korridore — genutzt vom Fallback-Hinweis
+    hier UND vom Absolut-Fallback im `buffett_indicator_agent` (statt global 75/135)."""
+    return _BUFFETT_CORRIDORS.get(code, _BUFFETT_DEFAULT_CORRIDOR)
+
+
 def _buffett_fallback_note(code: str, ratio: float) -> list[str]:
     """Länderspezifischer Fallback-Korridor statt globaler 75/135%-Schwelle."""
-    low, high = _BUFFETT_CORRIDORS.get(code, _BUFFETT_DEFAULT_CORRIDOR)
+    low, high = buffett_corridor(code)
     label = f"Buffett-Indikator {code}"
     if ratio > high:
         return [f"{label} {ratio:.0f}% — Markt teuer (>{high:.0f}% für {code})"]
