@@ -52,7 +52,7 @@ export function EquityTabs({ block, tab }: { block: EquityBlockDTO; tab: "valuat
 
         <table className="w-full text-left">
           <thead>
-            <tr className="text-xs uppercase text-slate-500">
+            <tr className="text-xs uppercase text-muted">
               <th>Methode</th>
               <th>tief</th>
               <th>hoch</th>
@@ -69,7 +69,7 @@ export function EquityTabs({ block, tab }: { block: EquityBlockDTO; tab: "valuat
           </tbody>
         </table>
         {range && (
-          <div className="rounded bg-slate-50 p-2 dark:bg-slate-800">
+          <div className="rounded bg-surface-2 p-2">
             Kombinierte Bandbreite: <span className="font-medium">{formatNumber(range.low)}–{formatNumber(range.high)}</span>
             {pos && (
               <>
@@ -100,8 +100,8 @@ export function EquityTabs({ block, tab }: { block: EquityBlockDTO; tab: "valuat
         </SectionCard>
 
         {/* Altman-Z mit Sektor-Einordnung (eigene Zeile, da Klassen-Label neben dem Wert) */}
-        <div className="flex items-center justify-between border-b border-slate-100 py-1.5 last:border-0 dark:border-slate-700/50">
-          <span className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
+        <div className="flex items-center justify-between border-b border-line py-1.5 last:border-0">
+          <span className="flex items-center gap-1 text-muted">
             <span>Altman-Z</span>
             <InfoTip term="Altman-Z" />
           </span>

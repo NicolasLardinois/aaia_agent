@@ -24,7 +24,7 @@ export function FuturesTab({ block }: { block: FuturesBlockDTO }) {
         <span className={`font-medium ${roll.colorClass}`}>
           {formatSigned(block.rollYieldAnnualPct)} %/Jahr {roll.arrow}
         </span>{" "}
-        <span className="text-slate-500">({roll.label})</span>
+        <span className="text-muted">({roll.label})</span>
       </div>
       <div>Verfall aktueller Kontrakt: <span className="font-medium">{block.expiryDate}</span></div>
       <div>Nächster Roll-Termin: <span className="font-medium">{block.nextRollDate}</span></div>

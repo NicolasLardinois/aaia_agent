@@ -26,7 +26,7 @@ export function IndexTab({ block }: { block: IndexBlockDTO }) {
       </div>
       <div>Momentum: <SignalBadge signal={block.momentumSignal} /></div>
       <div>
-        <div className="text-xs uppercase text-slate-500">Sektorkomposition</div>
+        <div className="text-xs uppercase text-muted">Sektorkomposition</div>
         <ul>
           {block.composition.map((c) => (
             <li key={c.sector}>{c.sector}: {formatNumber(c.weightPct)} %</li>
