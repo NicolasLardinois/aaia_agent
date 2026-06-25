@@ -237,9 +237,12 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 - [ ] Korrelation mit Realzins (`real_yield_correlation=None`)
 - [ ] Signal aus Momentum ableiten (aktuell immer `Signal.NEUTRAL`)
 
-### agents/stock_deep_dive/index/sector_composition_agent.py (Zeilen 40, 57)
-- [ ] ETF-Holdings via echte APIs (iShares, SPDR) — aktuell hard-coded (~2025, braucht manuelle Updates)
-- [ ] `top_10_concentration` berechnen (aktuell `None`)
+### agents/stock_deep_dive/index/sector_composition_agent.py
+- [x] **Index-Holdings via echte Quelle angebunden** (PR offen, 2026-06-25).
+  **Lösung:** neuer MarketDataProvider-Decorator `adapters/data/slickcharts_holdings.py` (`SlickchartsHoldingsMarket`) liefert `get_index_holdings` mit echten Index-Gewichtungen von slickcharts.com (S&P 500 `^GSPC`/SPY/IVV/VOO, Nasdaq-100 `^NDX`/QQQ, Dow `^DJI`/DIA); Rest an `YahooFinanceProvider` delegiert. In `app/main.py` umhüllt der Decorator den Yahoo-Provider. Ausfall/unbekannter Index → `[]` → UNAVAILABLE. Live verifiziert: S&P 500 506 Titel (NVDA 7.06 %), Nasdaq-100 104.
+  - **Quellen-Befund:** iShares-CSV/SPDR-XLSX blocken Bot-Requests; FMP-Holdings-Endpunkte sind Legacy/kostenpflichtig (Tarif gesperrt) → slickcharts ist die robuste freie Alternative.
+  - **`top_10_concentration`** wird bereits im Agenten berechnet (war nicht offen) — fließt jetzt mit echten Daten.
+  - [ ] **Folge-Aufgabe — Sektor-Zuordnung:** slickcharts liefert keine Sektoren → `top_sector` bleibt `None` (Agent meldet bewusst keinen irreführenden „Unknown"-Sektor; Konzentrations-/HHI-Signal ist vollständig). Sektor-Quelle (z. B. Yahoo-Profil je Titel oder ein Sektor-Gewichtungs-Endpoint) separat anbinden.
 
 ### agents/stock_deep_dive/index/index_valuation_agent.py (Zeile 59)
 - [x] Shiller CAPE — **implementiert** (2026-06-19 verifiziert): `earnings_yield`/`equity_risk_premium`/`shiller_cape` im Agenten, zinsabhängiges ERP-Signal.
