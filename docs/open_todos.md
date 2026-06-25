@@ -358,9 +358,9 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 ## 6. TEST-LÜCKEN
 
 - [ ] **RegimeDetector** — vollständig ungetestet (Scoring-Logik treibt jede Empfehlung an)
-- [ ] **MoatAgent** — `_overall()`-Schwellenwerte, Score-Clamping, JSON-Parsing ungetestet
-- [ ] **ValuationRangeAgent** — DCF, KGV-Multiple, EV/EBITDA-Formeln ungetestet
-- [ ] **FundamentalsAgent** — `_score()` mit 7 Indikatoren ungetestet
+- [x] **MoatAgent** — **abgedeckt** (verifiziert 2026-06-25, `tests/agents/stock_deep_dive/equity/test_moat_agent.py`, 8 Tests): `_overall()`-Schwellen (wide/narrow/none, dominante Quelle, Maximum- statt Summenlogik) + `_signal` (wide→BULLISH, none→NEUTRAL, narrow→NEUTRAL). *(Die §6-„ungetestet"-Aussage war durch Plan-A überholt. Einziger nicht direkt gepinnter Rest: das JSON-Parsing der LLM-Antwort — Minor, separat falls je relevant.)*
+- [x] **ValuationRangeAgent** — **abgedeckt** (verifiziert 2026-06-25, `test_valuation_range_agent.py`, 12 Tests): `two_stage_dcf` (Zwei-Stufen statt Gordon, WACC=g-Edgecase), sektorabhängiges Terminal-Growth, Median-Band-Aggregation (nicht Extrem), EV/EBITDA-Skip bei negativem EBITDA, KGV-Skip bei negativem EPS, DCF-Skip ohne FCF. *(§6-Aussage durch Plan-A überholt.)*
+- [x] **FundamentalsAgent** — **abgedeckt** (verifiziert 2026-06-25, `test_fundamentals_agent.py`): `_score()` sektor-relativ (P/E, EV/EBITDA), PEG nur mit Wachstumsbasis, P/FCF & P/B aktiviert, symmetrische Aggregationsschwellen (±3), negativer forward_pe ohne Bullish-Credit (Fix I2), Exception-Guard in `run()` (Fix M2). *(§6-Aussage durch Plan-A überholt.)*
 - [ ] **Chief-Agent-Tests** — prüfen nur `isinstance(result, XxxResult)`, keine Logik oder Aggregation
 - [ ] **BacktesterChiefAgent** — `backtester_context`-Einfluss auf Confidence nie getestet
 - [x] **ResultCache Bottom-Up Round-Trip** *(Folge aus Bug #1, Audit 2026-06-20)* — **erledigt 2026-06-25** (`tests/adapters/test_result_cache_bottom_up_roundtrip.py`). Disk-Round-Trip (`save_bottom_up` → JSON → `load_bottom_up`) mit **befülltem** `index`+`commodity_deep` (die Bug-#1-auslösenden Felder, die der bestehende `test_taxonomy_model_roundtrip` auf `None` liess) + Gegenprobe (None bleibt None).
