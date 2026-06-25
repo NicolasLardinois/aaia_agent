@@ -76,14 +76,14 @@ export function InboxPage({ loader = loadInbox }: { loader?: () => Promise<Inbox
       </div>
 
       {/* Lade-/Fehlerzustand */}
-      {loading && <p className="text-slate-500">Lädt …</p>}
-      {!loading && error && <p className="text-red-600">Fehler: {error}</p>}
+      {loading && <p className="text-muted">Lädt …</p>}
+      {!loading && error && <p className="text-bear">Fehler: {error}</p>}
 
       {/* Tabs + Inhalte (nur wenn Daten da) */}
       {data && !loading && !error && (
         <>
           {/* Tab-Leiste */}
-          <div role="tablist" className="flex gap-1 border-b border-slate-200 dark:border-slate-700">
+          <div role="tablist" className="flex gap-1 border-b border-line">
             <button
               role="tab"
               aria-selected={aktiveTab === "offen"}
@@ -91,8 +91,8 @@ export function InboxPage({ loader = loadInbox }: { loader?: () => Promise<Inbox
               className={[
                 "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
                 aktiveTab === "offen"
-                  ? "border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100"
-                  : "border-transparent text-slate-500 hover:text-slate-700",
+                  ? "border-brand text-ink"
+                  : "border-transparent text-muted hover:text-ink",
               ].join(" ")}
             >
               Offen ({offeneAnzahl})
@@ -104,8 +104,8 @@ export function InboxPage({ loader = loadInbox }: { loader?: () => Promise<Inbox
               className={[
                 "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
                 aktiveTab === "erledigt"
-                  ? "border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100"
-                  : "border-transparent text-slate-500 hover:text-slate-700",
+                  ? "border-brand text-ink"
+                  : "border-transparent text-muted hover:text-ink",
               ].join(" ")}
             >
               Erledigt ({erledigteItems.length})
@@ -116,7 +116,7 @@ export function InboxPage({ loader = loadInbox }: { loader?: () => Promise<Inbox
           {aktiveTab === "offen" && (
             <div role="tabpanel" className="space-y-4">
               {offeneItems.length === 0 ? (
-                <p className="text-slate-500">Keine offenen Konflikte.</p>
+                <p className="text-muted">Keine offenen Konflikte.</p>
               ) : (
                 offeneItems.map((item) => (
                   <ConflictCard
@@ -133,7 +133,7 @@ export function InboxPage({ loader = loadInbox }: { loader?: () => Promise<Inbox
           {aktiveTab === "erledigt" && (
             <div role="tabpanel" className="space-y-4">
               {erledigteItems.length === 0 ? (
-                <p className="text-slate-500">Noch keine Konflikte erledigt.</p>
+                <p className="text-muted">Noch keine Konflikte erledigt.</p>
               ) : (
                 erledigteItems.map((item) => (
                   <ConflictCard

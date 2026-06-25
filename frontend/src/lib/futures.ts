@@ -19,9 +19,9 @@ export function rollYieldVisual(
   form: CurveForm,
 ): { label: string; colorClass: string; arrow: string } {
   const formLabel = FORM_LABEL[form];
-  if (annualPct < 0) return { label: `Gegenwind (${formLabel})`, colorClass: "text-red-600", arrow: "▼" };
-  if (annualPct > 0) return { label: `Rückenwind (${formLabel})`, colorClass: "text-green-600", arrow: "▲" };
-  return { label: `neutral (${formLabel})`, colorClass: "text-slate-500", arrow: "→" };
+  if (annualPct < 0) return { label: `Gegenwind (${formLabel})`, colorClass: "text-bear", arrow: "▼" };
+  if (annualPct > 0) return { label: `Rückenwind (${formLabel})`, colorClass: "text-bull", arrow: "▲" };
+  return { label: `neutral (${formLabel})`, colorClass: "text-neutral", arrow: "→" };
 }
 
 // Hebel = Nominalwert / Margin (wahres Risiko, nicht Nominalwert). Margin<=0 => 0 (defensiv).

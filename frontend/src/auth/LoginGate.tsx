@@ -6,7 +6,7 @@ export function LoginGate({ error, onSubmit }: { error?: boolean; onSubmit: (tok
   return (
     <main className="mx-auto max-w-sm space-y-3 p-6">
       <h1 className="text-xl font-bold">AAIA — Cockpit</h1>
-      <p className="text-slate-500">Bitte Passwort eingeben.</p>
+      <p className="text-muted">Bitte Passwort eingeben.</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -20,10 +20,10 @@ export function LoginGate({ error, onSubmit }: { error?: boolean; onSubmit: (tok
           placeholder="Passwort"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          className="w-full rounded border border-slate-300 px-3 py-2"
+          className="w-full rounded border border-line bg-surface px-3 py-2"
         />
-        {error && <p className="text-sm text-red-600">Falsches Passwort</p>}
-        <button type="submit" className="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white">
+        {error && <p className="text-sm text-bear">Falsches Passwort</p>}
+        <button type="submit" className="rounded bg-brand px-3 py-1.5 text-sm font-medium text-brand-ink">
           Anmelden
         </button>
       </form>

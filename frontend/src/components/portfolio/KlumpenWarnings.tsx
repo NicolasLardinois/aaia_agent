@@ -11,7 +11,7 @@ export function KlumpenWarnings({ klumpen }: { klumpen: KlumpenWarningDTO[] }) {
     <div>
       <h3 className="text-sm font-semibold">⚠ Klumpen-Warnungen</h3>
       {klumpen.length === 0 ? (
-        <p className="mt-1 rounded bg-green-50 p-2 text-sm text-green-700">
+        <p className="mt-1 rounded bg-bull/10 p-2 text-sm text-bull">
           Keine Konzentration über den Limits.
         </p>
       ) : (

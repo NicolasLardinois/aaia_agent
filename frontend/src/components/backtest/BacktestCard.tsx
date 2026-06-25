@@ -27,12 +27,12 @@ export function BacktestCard({ area, results }: BacktestCardProps) {
   const curve = hitRateCurve(results);
 
   return (
-    <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+    <div className="rounded-lg border border-line p-4">
       {/* Bereichs-Titel (z. B. "Top-Down — Regime korrekt?") */}
       <h3 className="text-base font-semibold">{AREA_LABEL[area]}</h3>
 
       {/* Pflicht-Beschriftung US31: klar als rueckblickende Treffsicherheit markieren */}
-      <p className="mt-0.5 text-xs text-slate-500">
+      <p className="mt-0.5 text-xs text-muted">
         Hätten die alten Calls Geld gebracht?
       </p>
 
@@ -42,7 +42,7 @@ export function BacktestCard({ area, results }: BacktestCardProps) {
           {/* formatHitRate: null => "n.v.", Zahl => "75 %" — eigener Formatter (nicht formatConfidence) */}
           {formatHitRate(hr.rate)}
         </span>
-        <span className="text-sm text-slate-500">n = {hr.n}</span>
+        <span className="text-sm text-muted">n = {hr.n}</span>
       </div>
 
       {/* Equity-/Trefferkurve oder n.v.-Hinweis */}
@@ -56,7 +56,7 @@ export function BacktestCard({ area, results }: BacktestCardProps) {
           />
         ) : (
           // Leere Stichprobe nach Filter: dezenter Hinweis, keine Null-Linie (UNAVAILABLE != 0).
-          <p className="text-sm text-slate-400">Keine Daten fuer diese Auswahl.</p>
+          <p className="text-sm text-muted">Keine Daten fuer diese Auswahl.</p>
         )}
       </div>
     </div>

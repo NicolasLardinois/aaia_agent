@@ -4,10 +4,10 @@ import { UnavailableField } from "../UnavailableField";
 
 function Metric({ label, value, definition }: { label: string; value: ReactNode; definition: string }) {
   return (
-    <div className="flex-1 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+    <div className="flex-1 rounded-lg border border-line p-3">
+      <div className="text-xs uppercase tracking-wide text-muted">{label}</div>
       <div className="text-xl font-bold tabular-nums">{value}</div>
-      <div className="mt-1 text-xs text-slate-500">{definition}</div>
+      <div className="mt-1 text-xs text-muted">{definition}</div>
     </div>
   );
 }
@@ -32,7 +32,7 @@ export function ExposurePanel({ exposure }: { exposure: ExposureDTO }) {
           definition="beta-gewichtetes Aktien-Netto — Marktsensitivität (nur Aktien/Index)"
         />
       </div>
-      <div className="text-xs text-slate-500">
+      <div className="text-xs text-muted">
         Annualisierte Portfolio-Vola:{" "}
         {exposure.annualizedVolPct === null
           ? <UnavailableField reason="Vola nicht verfügbar" />

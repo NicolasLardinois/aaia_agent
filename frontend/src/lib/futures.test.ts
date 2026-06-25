@@ -5,13 +5,15 @@ describe("rollYieldVisual", () => {
   it("Contango => Gegenwind, negativ, Abwaerts-Pfeil (Roll-Yield<0)", () => {
     const v = rollYieldVisual(-3.1, "contango");
     expect(v.arrow).toBe("▼");
-    expect(v.colorClass).toContain("red");
+    // Gegenwind (negativer Carry) = bearish -> bear-Token (Finanzsemantik rot).
+    expect(v.colorClass).toBe("text-bear");
     expect(v.label).toMatch(/Gegenwind/i);
   });
   it("Backwardation => Rueckenwind, positiv, Aufwaerts-Pfeil", () => {
     const v = rollYieldVisual(2.4, "backwardation");
     expect(v.arrow).toBe("▲");
-    expect(v.colorClass).toContain("green");
+    // Rückenwind (positiver Carry) = bullish -> bull-Token (Finanzsemantik grün).
+    expect(v.colorClass).toBe("text-bull");
     expect(v.label).toMatch(/Rueckenwind|Rückenwind/i);
   });
   it("Kurvenform-Name kommt aus dem form-Argument, nicht aus dem Vorzeichen", () => {
@@ -25,6 +27,8 @@ describe("rollYieldVisual", () => {
   it("flache Kurve => neutral, Form als 'flach' benannt", () => {
     const v = rollYieldVisual(0, "flat");
     expect(v.arrow).toBe("→");
+    // flache Kurve = kein Carry-Edge -> neutral-Token.
+    expect(v.colorClass).toBe("text-neutral");
     expect(v.label).toMatch(/flach/i);
   });
 });

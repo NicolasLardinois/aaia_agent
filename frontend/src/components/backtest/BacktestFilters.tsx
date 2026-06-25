@@ -24,7 +24,7 @@ export function BacktestFilters({
     <div className="flex flex-wrap gap-4">
       {/* Filter 1: Ticker */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="bt-filter-ticker" className="text-xs font-medium text-slate-600 dark:text-slate-400">
+        <label htmlFor="bt-filter-ticker" className="text-xs font-medium text-muted">
           Ticker
         </label>
         <select
@@ -35,7 +35,7 @@ export function BacktestFilters({
             // Leerer Wert = "Alle" -> Filter auf dieser Achse zuruecksetzen (undefined = kein Filter)
             onChange({ ticker: v !== "" ? v : undefined });
           }}
-          className="rounded border border-slate-200 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800"
+          className="rounded border border-line bg-surface px-2 py-1 text-sm"
         >
           <option value="">Alle</option>
           {tickers.map((t) => (
@@ -46,7 +46,7 @@ export function BacktestFilters({
 
       {/* Filter 2: Asset-Klasse (underlying) */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="bt-filter-underlying" className="text-xs font-medium text-slate-600 dark:text-slate-400">
+        <label htmlFor="bt-filter-underlying" className="text-xs font-medium text-muted">
           Asset-Klasse
         </label>
         <select
@@ -57,7 +57,7 @@ export function BacktestFilters({
             // Leerer Wert = "Alle" -> undefined (kein Filter auf dieser Achse)
             onChange({ underlying: v !== "" ? (v as Underlying) : undefined });
           }}
-          className="rounded border border-slate-200 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800"
+          className="rounded border border-line bg-surface px-2 py-1 text-sm"
         >
           <option value="">Alle</option>
           {underlyings.map((u) => (
@@ -68,7 +68,7 @@ export function BacktestFilters({
 
       {/* Filter 3: Regime (Marktphase) */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="bt-filter-regime" className="text-xs font-medium text-slate-600 dark:text-slate-400">
+        <label htmlFor="bt-filter-regime" className="text-xs font-medium text-muted">
           Regime
         </label>
         <select
@@ -79,7 +79,7 @@ export function BacktestFilters({
             // Leerer Wert = "Alle" -> undefined; sonst auf die typisierte Union casten.
             onChange({ regime: v !== "" ? (v as BacktestRegime) : undefined });
           }}
-          className="rounded border border-slate-200 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800"
+          className="rounded border border-line bg-surface px-2 py-1 text-sm"
         >
           <option value="">Alle</option>
           {regimes.map((r) => (
@@ -90,7 +90,7 @@ export function BacktestFilters({
 
       {/* Filter 4: Zeitfenster (Horizont 30/60/90 T = Handelstage, US32) */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="bt-filter-horizon" className="text-xs font-medium text-slate-600 dark:text-slate-400">
+        <label htmlFor="bt-filter-horizon" className="text-xs font-medium text-muted">
           Zeitfenster
         </label>
         <select
@@ -101,7 +101,7 @@ export function BacktestFilters({
             // Horizont als number zurueckgeben (30/60/90), nicht als String (US32).
             onChange({ horizon: v !== "" ? (Number(v) as BacktestHorizon) : undefined });
           }}
-          className="rounded border border-slate-200 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800"
+          className="rounded border border-line bg-surface px-2 py-1 text-sm"
         >
           <option value="">Alle</option>
           {horizons.map((h) => (
