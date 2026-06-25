@@ -7,18 +7,18 @@ export function HedgeSuggestions({ hedges }: { hedges: HedgeSuggestionDTO[] }) {
     <div>
       <div className="flex items-baseline gap-2">
         <h3 className="text-sm font-semibold">Hedge-Vorschläge</h3>
-        <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+        <span className="rounded bg-surface-2 px-2 py-0.5 text-xs text-muted">
           beratend, keine Ausführung
         </span>
       </div>
       {hedges.length === 0 ? (
-        <p className="mt-1 text-sm text-slate-500">Aktuell kein Hedge nötig (Kennzahlen im Rahmen).</p>
+        <p className="mt-1 text-sm text-muted">Aktuell kein Hedge nötig (Kennzahlen im Rahmen).</p>
       ) : (
         <ul className="mt-1 space-y-1 text-sm">
           {hedges.map((h) => (
-            <li key={h.id} className="rounded border border-slate-200 px-2 py-1 dark:border-slate-700">
+            <li key={h.id} className="rounded border border-line px-2 py-1">
               <div>• {h.text}</div>
-              <div className="text-xs text-slate-500">{h.rationale}</div>
+              <div className="text-xs text-muted">{h.rationale}</div>
             </li>
           ))}
         </ul>

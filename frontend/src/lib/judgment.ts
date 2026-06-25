@@ -21,14 +21,15 @@ export function consistencyHint(long: LongVerdict, short: ShortVerdict): string 
   return null;
 }
 
-// Urteil-Wort -> Farbe. BUY/COVER gruen, SELL/SHORT rot, HOLD grau-blau, NONE grau.
+// Urteil-Wort -> Design-Token-Farbe. BUY/COVER bullish->bull, SELL/SHORT bearish->bear,
+// HOLD ohne Richtung->neutral, NONE = keine Position/nicht anwendbar->muted (kein Signal).
 export function verdictToVisual(v: LongVerdict | ShortVerdict): { label: string; colorClass: string } {
   switch (v) {
     case "BUY":
-    case "COVER": return { label: v, colorClass: "text-green-600" };
+    case "COVER": return { label: v, colorClass: "text-bull" };
     case "SELL":
-    case "SHORT": return { label: v, colorClass: "text-red-600" };
-    case "HOLD":  return { label: v, colorClass: "text-slate-500" };
-    case "NONE":  return { label: v, colorClass: "text-slate-400" };
+    case "SHORT": return { label: v, colorClass: "text-bear" };
+    case "HOLD":  return { label: v, colorClass: "text-neutral" };
+    case "NONE":  return { label: v, colorClass: "text-muted" };
   }
 }

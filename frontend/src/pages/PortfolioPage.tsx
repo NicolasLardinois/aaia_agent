@@ -21,12 +21,12 @@ export function PortfolioPage({ loader = loadPortfolio }: { loader?: () => Promi
         {data && <SourceHealth active={data.sourcesActive} total={data.sourcesTotal} failed={data.failed} />}
       </div>
 
-      {loading && <p className="text-slate-500">Lädt …</p>}
-      {!loading && error && <p className="text-red-600">{error}</p>}
+      {loading && <p className="text-muted">Lädt …</p>}
+      {!loading && error && <p className="text-bear">{error}</p>}
 
       {data && !loading && !error && (
         <>
-          <div className="space-y-4 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+          <div className="space-y-4 rounded-lg border border-line p-4">
             <ExposurePanel exposure={data.exposure} />
             <KlumpenWarnings klumpen={data.klumpen} />
             <HedgeSuggestions hedges={data.hedges} />

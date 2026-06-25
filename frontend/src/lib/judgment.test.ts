@@ -24,11 +24,14 @@ describe("consistencyHint", () => {
 });
 
 describe("verdictToVisual", () => {
-  it("BUY/COVER gruen, SELL/SHORT rot, HOLD grau-blau, NONE grau", () => {
-    expect(verdictToVisual("BUY").colorClass).toContain("green");
-    expect(verdictToVisual("COVER").colorClass).toContain("green");
-    expect(verdictToVisual("SELL").colorClass).toContain("red");
-    expect(verdictToVisual("SHORT").colorClass).toContain("red");
-    expect(verdictToVisual("HOLD").colorClass).toContain("slate");
+  it("BUY/COVER bull, SELL/SHORT bear, HOLD neutral, NONE muted (Design-Tokens)", () => {
+    // Finanzsemantik auf Tokens: bullish->bull, bearish->bear, HOLD ohne Richtung->neutral,
+    // NONE = keine Position/nicht anwendbar -> muted (kein Signal, wie UNAVAILABLE).
+    expect(verdictToVisual("BUY").colorClass).toBe("text-bull");
+    expect(verdictToVisual("COVER").colorClass).toBe("text-bull");
+    expect(verdictToVisual("SELL").colorClass).toBe("text-bear");
+    expect(verdictToVisual("SHORT").colorClass).toBe("text-bear");
+    expect(verdictToVisual("HOLD").colorClass).toBe("text-neutral");
+    expect(verdictToVisual("NONE").colorClass).toBe("text-muted");
   });
 });

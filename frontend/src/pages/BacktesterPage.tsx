@@ -46,8 +46,8 @@ export function BacktesterPage({ loader = loadBacktest }: { loader?: () => Promi
       </div>
 
       {/* Lade-/Fehlerzustand */}
-      {loading && <p className="text-slate-500">Lädt …</p>}
-      {!loading && error && <p className="text-red-600">Fehler: {error}</p>}
+      {loading && <p className="text-muted">Lädt …</p>}
+      {!loading && error && <p className="text-bear">Fehler: {error}</p>}
 
       {data && !loading && !error && (
         <>

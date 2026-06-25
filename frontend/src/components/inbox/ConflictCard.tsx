@@ -54,7 +54,7 @@ export function ConflictCard({ conflict, onResolve, loggedDecision }: ConflictCa
   const istErledigt = loggedDecision !== undefined;
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+    <article className="rounded-lg border border-line bg-surface p-4 shadow-panel">
       {/* Kopfzeile: Badge, Ticker, Name, Richtung, Kipp-Text */}
       <div className="mb-3 flex flex-wrap items-start gap-2">
         <UnderlyingWrapperBadge underlying={conflict.underlying} wrapper={conflict.wrapper} />
@@ -63,11 +63,11 @@ export function ConflictCard({ conflict, onResolve, loggedDecision }: ConflictCa
             {/* Ticker verlinkt auf Deep-Dive (Konzept §3 Querverlinkung) */}
             <Link
               to={`/deep-dive/${ticker}`}
-              className="text-base font-bold text-slate-900 hover:underline dark:text-slate-100"
+              className="text-base font-bold text-ink hover:underline"
             >
               {ticker}
             </Link>
-            <span className="text-sm text-slate-500">
+            <span className="text-sm text-muted">
               {richtungsKurzel === "L" ? "LONG" : "SHORT"} gehalten
             </span>
             <span className="text-sm">
@@ -75,10 +75,10 @@ export function ConflictCard({ conflict, onResolve, loggedDecision }: ConflictCa
               <span className={`font-semibold ${neuesUrteil.colorClass}`}>
                 {neuesUrteil.label}
               </span>{" "}
-              <span className="text-slate-400">({Math.round(confidence * 100)} %)</span>
+              <span className="text-muted">({Math.round(confidence * 100)} %)</span>
             </span>
           </div>
-          <p className="mt-0.5 text-sm text-slate-500">{name}</p>
+          <p className="mt-0.5 text-sm text-muted">{name}</p>
         </div>
       </div>
 
@@ -88,11 +88,11 @@ export function ConflictCard({ conflict, onResolve, loggedDecision }: ConflictCa
       </div>
 
       {/* Konflikt-Begruendung (warum dies ein Konflikt ist) */}
-      <p className="mb-3 text-sm text-slate-600 dark:text-slate-400">{conflictNote}</p>
+      <p className="mb-3 text-sm text-muted">{conflictNote}</p>
 
       {/* Verdikt-Reihe: EXIT / HOLD / REVERSE (US29: Default hervorgehoben) */}
       <div className="mb-3">
-        <p className="mb-1 text-xs font-medium text-slate-500 uppercase tracking-wide">
+        <p className="mb-1 text-xs font-medium text-muted uppercase tracking-wide">
           Beratendes Verdikt (Vorschlag):
         </p>
         {/* Reine Anzeige (kein Klick): role=group statt Buttons; Default via aria-current markiert. */}
@@ -107,8 +107,8 @@ export function ConflictCard({ conflict, onResolve, loggedDecision }: ConflictCa
                 className={[
                   "rounded px-3 py-1 text-sm font-medium cursor-default select-none",
                   istDefault
-                    ? "ring-2 ring-offset-1 ring-slate-900 bg-slate-900 text-white dark:ring-slate-200 dark:bg-slate-200 dark:text-slate-900 font-bold"
-                    : "border border-slate-300 text-slate-500 dark:border-slate-600",
+                    ? "ring-2 ring-offset-1 ring-ink bg-ink text-bg font-bold"
+                    : "border border-line text-muted",
                 ].join(" ")}
               >
                 {v}
@@ -118,15 +118,15 @@ export function ConflictCard({ conflict, onResolve, loggedDecision }: ConflictCa
           })}
         </div>
         {/* Fachliche Begruendung des Default-Vorschlags */}
-        <p className="mt-1.5 text-xs text-slate-500 italic">{suggestedRationale}</p>
+        <p className="mt-1.5 text-xs text-muted italic">{suggestedRationale}</p>
       </div>
 
       {/* Querlinks (Konzept §3) */}
       <div className="mb-3 flex gap-3 text-xs">
-        <Link to={`/deep-dive/${ticker}`} className="text-blue-600 hover:underline dark:text-blue-400">
+        <Link to={`/deep-dive/${ticker}`} className="text-brand hover:underline">
           ↗ Deep-Dive
         </Link>
-        <Link to="/portfolio" className="text-blue-600 hover:underline dark:text-blue-400">
+        <Link to="/portfolio" className="text-brand hover:underline">
           ↗ Portfolio
         </Link>
       </div>

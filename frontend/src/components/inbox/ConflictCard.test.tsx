@@ -78,7 +78,7 @@ describe("ConflictCard (US29/US30)", () => {
   it("rendert Ticker und Kipp-Text (neues Urteil SELL im Kopf sichtbar)", () => {
     renderCard();
     expect(screen.getByText("XLE")).toBeInTheDocument();
-    // Das hervorgehobene SELL-Urteil steht als <span> im Kopf (font-semibold text-red-600).
+    // Das hervorgehobene SELL-Urteil steht als <span> im Kopf (font-semibold text-bear).
     // getAllByText wegen mehrfach vorkommendem "SELL" im Kartentext.
     const sellElems = screen.getAllByText("SELL");
     expect(sellElems.length).toBeGreaterThanOrEqual(1);

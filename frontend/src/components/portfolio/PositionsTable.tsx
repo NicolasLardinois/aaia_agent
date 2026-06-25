@@ -23,12 +23,12 @@ function Row({ p }: { p: PositionDTO }) {
       title={note ?? undefined}
     >
       <td className="py-2 pr-4">
-        <Link to={`/deep-dive/${p.ticker}`} className="font-medium text-sky-600 underline">{p.ticker}</Link>
-        <div className="text-xs text-slate-500">{p.name}</div>
+        <Link to={`/deep-dive/${p.ticker}`} className="font-medium text-brand underline">{p.ticker}</Link>
+        <div className="text-xs text-muted">{p.name}</div>
       </td>
       {/* L/S als Kuerzel: "L" (long) / "S" (short) — damit das Verdikt-Label (SHORT/SELL)
           im DOM eindeutig und per getByText("SHORT") testbar bleibt. */}
-      <td className={`py-2 pr-4 font-medium ${p.direction === "short" ? "text-red-600" : "text-green-600"}`}>
+      <td className={`py-2 pr-4 font-medium ${p.direction === "short" ? "text-bear" : "text-bull"}`}>
         {p.direction === "long" ? "L" : "S"}
       </td>
       <td className="py-2 pr-4"><UnderlyingWrapperBadge underlying={p.underlying} wrapper={p.wrapper} /></td>
@@ -53,12 +53,12 @@ function Row({ p }: { p: PositionDTO }) {
 // Richtung, Groesse, Einstand, AAIA-Urteil + Konflikt-Markierung. Ticker -> Deep-Dive.
 export function PositionsTable({ positions }: { positions: PositionDTO[] }) {
   if (positions.length === 0) {
-    return <p className="text-slate-500">Keine Positionen erfasst.</p>;
+    return <p className="text-muted">Keine Positionen erfasst.</p>;
   }
   return (
     <table className="w-full text-left text-sm">
       <thead>
-        <tr className="text-xs uppercase text-slate-500">
+        <tr className="text-xs uppercase text-muted">
           <th className="py-1 pr-4">Titel</th>
           <th className="py-1 pr-4">L/S</th>
           <th className="py-1 pr-4">underlying×wrapper</th>
