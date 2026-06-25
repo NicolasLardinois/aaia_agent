@@ -143,17 +143,18 @@ ECB (`EcbStubProvider`) — alle geben `None` zurück:
 - [ ] `get_m2_growth()` — Quelle: ECB SDW
 - [ ] `get_sovereign_yields()` — Quelle: ECB SDW (DE, IT, FR, ES 10Y)
 
-SNB (`SnbStubProvider`) — alle geben `None` zurück:
-- [ ] `get_interest_rate()` — Quelle: data.snb.ch
-- [ ] `get_m3_growth()` — Quelle: data.snb.ch
-- [ ] `get_balance_sheet_growth()` — Quelle: data.snb.ch
-- [ ] `get_cpi()` — Quelle: BFS
-- [ ] `get_core_cpi()` — Quelle: BFS
-- [ ] `get_gdp_growth()` — Quelle: SECO
-- [ ] `get_unemployment()` — Quelle: SECO
-- [ ] `get_m2_growth()` — Quelle: data.snb.ch
-- [ ] `get_sovereign_yield_10y()` — Quelle: Yahoo Finance / SNB
-- [ ] `get_sovereign_yield_2y()` — Quelle: Yahoo Finance / SNB
+SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der `SnbStubProvider`.
+**CH-Makro Slice A (PR #59 am 2026-06-25 gemergt):** Geldmengen/Bilanz/CPI via data.snb.ch, BIP/Yield via FRED. *(Review Claude: Quellen/YoY-Mathe + Caps verifiziert, defensiv/hexagonal, CI grün, keine Befunde.)*
+- [x] `get_interest_rate()` — data.snb.ch (Cube `snboffzisa`, Reihe LZ) — bereits vorher angebunden
+- [x] `get_m3_growth()` — data.snb.ch (Cube `snbmonagg`, D0=VV/D1=GM3 → YoY %)
+- [x] `get_m2_growth()` — data.snb.ch (Cube `snbmonagg`, D0=VV/D1=GM2 → YoY %)
+- [x] `get_balance_sheet_growth()` — data.snb.ch (Cube `snbbipo`, D0=T0 Bilanzsumme → YoY berechnet)
+- [x] `get_cpi()` — data.snb.ch (Cube `plkopr`, D0=VVP → CPI YoY %; spiegelt BFS-LIK)
+- [x] `get_gdp_growth()` — FRED `CLVMNACSCAB1GQCH` (reales BIP-Niveau → YoY berechnet)
+- [x] `get_sovereign_yield_10y()` — FRED `IRLTLT01CHM156N`
+- [ ] **Slice B — `get_core_cpi()`** — BFS Kerninflation (FRED-OECD-Serie `CPGRLE01CHM659N` ist 2025 eingefroren → nicht nutzbar; BFS px-web/LINDAS anbinden)
+- [ ] **Slice B — `get_unemployment()`** — SECO/amstat (FRED-OECD `LMUNRRTTCHM156S` endet 2023 → unbrauchbar)
+- [ ] `get_sovereign_yield_2y()` — keine freie 2J-CH-Quelle (bleibt None; im Spread via 3M-SARON-Proxy abgedeckt)
 
 ### adapters/event_bus/redis_bus.py (Zeile 36)
 - [ ] Redis-Implementierung für Produktion
@@ -185,8 +186,8 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - [x] **`agents/market_cockpit/sentiment/fear_greed_agent.py`** — CNN Fear & Greed API **angebunden** (PR #34, 2026-06-23). **Lösung:** `adapters/data/cnn_fear_greed.py` (`CnnFearGreedProvider`), injiziert via `TopDownOrchestrator(sentiment=…)` in `app/main.py` + `app/server.py`; Ausfall/Strukturbruch → `WARNING`-Log → `None` → `UNAVAILABLE`. Redundanter `sentiment_stub.py` entfernt. (Siehe auch Plan-E-Eintrag unten.)
   > **PR-Protokoll (§5): PR #34 am 2026-06-23 gemergt** (Merge-Commit `0ad159a`). Mehrstufiges Review (pro Task + Opus-Whole-Branch) ohne blockierende Mängel; im Review nachgezogen: moderne Type-Hints, Test-Fake erbt vom Port, **WARNING-Log bei Ausfall** (Beobachtbarkeit). Erste Slice der „Stubs→echte Quellen"-Initiative. *(Dieser Vermerk direkt auf `master`: bewusste Logbuch-Ausnahme — er braucht den Merge-Commit-Hash.)*
 
-- [ ] **Folge-Task (Review PR #34, 2026-06-23) — `fear_greed_agent.py`: 75er-Grenze vereinheitlichen.**
-  Bei exakt `75.0` liefert `_label` „Greed" (`<= 75`), `_signal` aber BEARISH (`>= 75`). Offizielles CNN-Band ist 75–100 = Extreme Greed → `_label` sollte `< 75 → "Greed"` nutzen, damit `75.0` als „Extreme Greed" labelt (konsistent mit Signal + CNN-Definition). Praktisch selten (Rundung auf 1 Stelle), aber sauberer Fix, wenn ohnehin an der Schwellenlogik gearbeitet wird. *Eigener kleiner PR — Agentenlogik, bewusst nicht im Daten-PR #34.*
+- [x] **Folge-Task (Review PR #34, 2026-06-23) — `fear_greed_agent.py`: 75er-Grenze vereinheitlichen.** **Erledigt 2026-06-25 (TDD).**
+  Bei exakt `75.0` lieferte `_label` „Greed" (`<= 75`), `_signal` aber BEARISH (`>= 75`). **Lösung:** obere `_label`-Grenze auf `< 75` umgestellt → `75.0` labelt jetzt „Extreme Greed", konsistent mit dem Signal **und** dem offiziellen CNN-Band (75–100 = Extreme Greed). Schwellen-Begründung als Code-Kommentar ergänzt; 2 neue Grenz-Tests (75.0 = Extreme Greed + Label/Signal-Konsistenz; lückenloses Band 74.9/75.0/75.1). Suite 1168 grün. *(Eigener kleiner Agenten-PR — **PR #58 am 2026-06-25 gemergt**, Review Claude: lückenloses Band + Label/Signal-Konsistenz verifiziert, CI grün.)*
 
 - [ ] **`agents/stock_deep_dive/equity/valuation_range_agent.py` (Zeile 55)**
   Vollständige Implementierung wartet auf Finnhub/FMP Adapter.
@@ -358,8 +359,10 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - [ ] **FundamentalsAgent** — `_score()` mit 7 Indikatoren ungetestet
 - [ ] **Chief-Agent-Tests** — prüfen nur `isinstance(result, XxxResult)`, keine Logik oder Aggregation
 - [ ] **BacktesterChiefAgent** — `backtester_context`-Einfluss auf Confidence nie getestet
-- [ ] **ResultCache Bottom-Up Round-Trip** *(Folge aus Bug #1, Audit 2026-06-20)* — `save_bottom_up()` → `load_bottom_up()` ist nie als Round-Trip getestet; gerade die nachgereichten Felder `index`/`commodity_deep` waren der ursprüngliche Crash-Auslöser. **Ansatz:** `BottomUpResult` mit allen 13 Feldern befüllen, speichern, neu laden, Feld-für-Feld-Gleichheit asserten (Happy Path + leere Optionalfelder).
-- [ ] **JudgmentOrchestrator-Konstruktor-Smoke-Test** *(Folge aus Bug #2, Audit 2026-06-20)* — der `judge`-Modus ist nur durch einen echten Lauf abgesichert; kein Test fixiert die 3-Argument-Signatur `(llm, bus, memory)`. **Ansatz:** `JudgmentOrchestrator(llm, bus, memory)` mit Fakes instanzieren und asserten, dass die Konstruktion ohne `TypeError` durchläuft (verhindert die Regression des früher fehlenden `memory`-Arguments).
+- [x] **ResultCache Bottom-Up Round-Trip** *(Folge aus Bug #1, Audit 2026-06-20)* — **erledigt 2026-06-25** (`tests/adapters/test_result_cache_bottom_up_roundtrip.py`). Disk-Round-Trip (`save_bottom_up` → JSON → `load_bottom_up`) mit **befülltem** `index`+`commodity_deep` (die Bug-#1-auslösenden Felder, die der bestehende `test_taxonomy_model_roundtrip` auf `None` liess) + Gegenprobe (None bleibt None).
+  **⚠️ Dabei echten latenten Bug gefunden + gefixt:** `_commodity_deep_out`/`_load_commodity_deep` verloren `overall_signal`+`confidence` (das in Bug #47 ergänzte Commodity-Gesamturteil) → beim Laden fielen sie still auf `NEUTRAL`/`0.0` zurück (**exakt** die Persistenz-Lücken-Klasse wie der Bond-Fix in PR #19). Serializer + Loader ergänzt; ältere Cache-Dateien fallen defensiv auf Defaults zurück.
+- [x] **JudgmentOrchestrator-Konstruktor-Smoke-Test** *(Folge aus Bug #2, Audit 2026-06-20)* — **erledigt 2026-06-25** (`tests/test_judgment_orchestrator_construction.py`). Nagelt die 3-Argument-Signatur `(llm, bus, memory)`: Konstruktion mit den Pflicht-Argumenten läuft ohne `TypeError` und hält `memory` fest; ein `(llm, bus)`-Aufruf (der ursprüngliche Bug-#2-Crash) wirft jetzt nachweislich `TypeError`.
+  > **PR-Protokoll (§5): PR #57 am 2026-06-25 gemergt** (beide Regressionsnetze oben). Review Claude: dabei echter latenter Persistenz-Bug (`overall_signal`/`confidence` im commodity_deep-Round-Trip, Klasse wie Bond-Fix PR #19) mitgefixt; defensiver None-Pfad verifiziert, CI grün, keine offenen Befunde.
 - [ ] **Test-Hermetik: ambiente `.env`-Secrets session-weit neutralisieren** *(Folge aus PR #47, 2026-06-24)* — `config/settings.py` ruft beim **Import** `load_dotenv()` auf und kippt damit die echte lokale `.env` global in `os.environ` der gesamten Test-Session. Sobald irgendein Test `config` importiert, leckt z. B. `AAIA_ACCESS_TOKEN` (und potenziell `RENDER`) in alle folgenden Tests — genau der Cockpit-Isolations-Bug aus PR #47, dort modul-lokal via autouse-Fixture (`test_routes_cockpit.py`) geheilt. Jedes weitere Modul, das einen sauberen Env voraussetzt, kann von derselben Bug-Klasse getroffen werden. **Ansatz:** eine `autouse`-Fixture in der Wurzel-`conftest.py`, die sicherheitsrelevante Ambient-Variablen (`AAIA_ACCESS_TOKEN`, `RENDER`, ggf. weitere) im Testlauf leert, sodass die Einzelfixtures in `test_routes_cockpit.py`/`test_routes_auth.py` überflüssig werden. Verwandt mit der Import-Zeit-Nebenwirkung von `config/settings.py` aus §7 (Key-Prüfung beim Import herauslösen).
 
 ---
@@ -373,8 +376,8 @@ SNB (`SnbStubProvider`) — alle geben `None` zurück:
 - [x] **DB-Schema ins Repo (`db/schema.sql`).** Am 2026-06-20 angelegt und noch am selben Tag **autoritativ** ersetzt (echte Typen/PKs/Defaults aus `information_schema`/`pg_indexes` der laufenden Supabase-DB; *direkt auf `master`, bewusste Workflow-Ausnahme*). Lösung: 3 Tabellen (`analysis_memory`/`backtester_reports`/`portfolio_snapshots`), `id uuid DEFAULT gen_random_uuid()`, `timestamp timestamptz`, JSONB-Felder mit Defaults; `short_action` enthalten.
 - [ ] **Fehlende Lese-Indizes (Performance).** In der DB existieren nur die PK-Indizes (auf `id`). Die Lese-Filter haben **keine** Indizes: `analysis_memory (ticker, timestamp)` (`load_history`) und `backtester_reports (backtester_type, timestamp)` (`load_latest_backtester_report`). **Ansatz:** je einen Index anlegen, z. B. `CREATE INDEX idx_analysis_memory_ticker_ts ON analysis_memory (ticker, timestamp DESC);` — und in `db/schema.sql` nachziehen. Niedrige Prio, solange die Tabellen klein sind.
 - [ ] **Echtes Migrations-Tool/-Ordner** statt der manuell gepflegten Migrationshistorie am Dateiende von `db/schema.sql` (z. B. nummerierte `db/migrations/*.sql`). Niedrige Prio.
-- [ ] `core/utils/statistics.py` (Zeile 4) — `Z_THRESHOLD = 2.5` wird nirgends verwendet; entfernen oder einbinden
-- [ ] `tests/test_recommendation.py` (Zeile 6) — `_short_report()` definiert aber nie aufgerufen; entfernen
+- [x] `core/utils/statistics.py` — `Z_THRESHOLD = 2.5` wird nirgends verwendet; **entfernt** (2026-06-25). Beleg: kein Produktions-Import (`grep` über core/agents/adapters/orchestrators/app/tests = leer); die einzige echte Nutzung steht in `archive/anomaly.py`, das eine **eigene** lokale `Z_THRESHOLD`-Konstante hält (kein Import aus `statistics`). `ROBUST_Z_THRESHOLD` (der heute genutzte Iglewicz-Hoaglin-Schwellwert) bleibt. Statistik-Tests grün. *(eigener Cleanup-PR — **PR #56 am 2026-06-25 gemergt**, Review Claude: toter Code unabhängig bestätigt, CI grün, keine Befunde.)*
+- [x] `tests/test_recommendation.py` — `_short_report()` toter Test-Helfer; **bereits entfernt** (2026-06-25 verifiziert: kein Treffer mehr in der Datei). Nur Logbuch-Nachzug.
 - [ ] `docs/code_review_2026-06-05.md` — Bug-Fixes Tasks 1–18 als ✅ markieren (alle abgeschlossen, Datei spiegelt das nicht wider)
 
 ### Robustheit & Beobachtbarkeit: Provider-Fehler zentral kapseln + loggen (Review PR #13, 2026-06-20)

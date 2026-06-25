@@ -2,9 +2,6 @@ import math
 from statistics import median, NormalDist
 
 
-Z_THRESHOLD = 2.5
-
-
 def z_score(current: float, history: list[float]) -> float:
     if len(history) < 3:
         return 0.0
