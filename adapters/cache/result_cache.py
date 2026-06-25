@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 CACHE_DIR     = os.path.join(os.path.dirname(__file__), "..", "..", ".cache")
@@ -17,7 +17,12 @@ def _is_fresh(path: str) -> bool:
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     saved_at = datetime.fromisoformat(data.get("_saved_at", "2000-01-01"))
-    return datetime.utcnow() - saved_at < MAX_AGE
+    # Rueckwaertskompatibel: alte Cache-Dateien tragen einen naiven _saved_at
+    # (ohne Zeitzone). Als UTC interpretieren, damit der Vergleich gegen das
+    # tz-aware now() nicht am "naiv - aware"-TypeError scheitert.
+    if saved_at.tzinfo is None:
+        saved_at = saved_at.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - saved_at < MAX_AGE
 
 
 # ─── Serialize helpers ────────────────────────────────────────────────────────
@@ -609,7 +614,7 @@ class ResultCache:
     def save_cockpit(self, result) -> None:
         ys_usa = result.yield_curve.yield_spreads.usa
         data = {
-            "_saved_at":         datetime.utcnow().isoformat(),
+            "_saved_at":         datetime.now(timezone.utc).isoformat(),
             "regime":            result.macro.regime.value,
             "regime_confidence": result.macro.regime_confidence,
             "yield_usa_10y2y":   ys_usa.spread_10y2y,
@@ -740,7 +745,7 @@ class ResultCache:
         mo  = result.moat
 
         data = {
-            "_saved_at":  datetime.utcnow().isoformat(),
+            "_saved_at":  datetime.now(timezone.utc).isoformat(),
             "ticker":     result.ticker,
             # Task 2: underlying/wrapper statt asset_class persistieren (Round-Trip-Bug #1).
             "underlying": result.underlying.value,
