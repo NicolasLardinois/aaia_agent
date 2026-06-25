@@ -235,10 +235,7 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
   > **Eigener PR nötig (Folge-Aufgabe, 2026-06-25):** wie credit_agent — optionale `ecb`/`snb`-Injektion (Backtester-kompatibel) + neue Datenmethoden: EU-Löhne via ECB „Negotiated wages"/Eurostat Arbeitskostenindex, CH-Löhne via BFS/SNB. Real-Lohn = nominal − CPI (Fisher), analog USA.
 
 ### agents/stock_deep_dive/precious_metals/precious_metal_price_agent.py (Zeilen 44–54)
-- [ ] RSI und MA50/MA200 aus Preishistorie berechnen
-- [ ] Performance 1W/1M/3M/1Y/5Y aus Preishistorie
-- [ ] Korrelation mit Realzins (`real_yield_correlation=None`)
-- [ ] Signal aus Momentum ableiten (aktuell immer `Signal.NEUTRAL`)
+- [x] **RSI/MA50/MA200, Performance, Realzins-Korrelation und Momentum-Signal — alle bereits implementiert + getestet + verdrahtet** (verifiziert 2026-06-25; das Logbuch war veraltet). Konkret im `precious_metal_price_agent`: RSI via `_wilder_rsi` (Wilder-Glättung, `ewm(alpha=1/period)`), MA50/MA200 via `close.rolling(50/200).mean()`, Performance 1W/1M/3M/1Y/5Y via `_performance` (`_PERF_WINDOWS`), Realzins-Korrelation via `_real_yield_correlation` (return-basiert: tägliche `pct_change` vs. Realzins-`diff`, invers → negativ), Momentum-Signal via `_price_signal` (Preis vs. MA200 + RSI-Überkauft-Deckel < 70). Die Realzins-Korrelation ist **aktiv verdrahtet**: `PreciousMetalsChiefAgent` reicht `macro=macro` an den Price-Agent durch. Testabdeckung: 11 Tests in `test_precious_metal_price_agent.py` (RSI-Grenzfälle, Performance, Signal inkl. Überkauft→NEUTRAL, run()-Befüllung, Korrelation None/negativ/return-vs-level, leere Close-Reihe). *(Kein Code-Change nötig — nur Logbuch-Korrektur.)*
 
 ### agents/stock_deep_dive/index/sector_composition_agent.py
 - [x] **Index-Holdings via echte Quelle angebunden** (PR #71 am 2026-06-25 gemergt; Review Claude: Decorator-Pattern + alle abstrakten Methoden lokal verifiziert (kein CI auf Branch → 15 Tests grün), Sektor=None statt „Unknown", Import-Konflikt mit #67/#73 gelöst, CI nach Push grün).
