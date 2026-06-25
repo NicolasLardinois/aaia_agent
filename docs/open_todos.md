@@ -414,8 +414,7 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 
 ### Aus Plan B (Review 2026-06-16 — bewusst zurückgestellt, niedrige Prio)
 
-- [ ] `core/utils/valuation_math.py` `real_rate_anchor` — bei extremem Realzins (z. B. Gold bei real_rate ~10 %) wird `fair = max(0, intercept + slope*rate) = 0` → Band degeneriert still zu `(0, 0)`, ohne dem Nutzer die „kein sinnvoller Anker"-Situation zu kommunizieren.
-  **Ansatz:** entweder `None` (statt `(0,0)`) zurückgeben, wenn `fair <= 0`, und im Agenten die Methode dann überspringen (analog zu den `>0`-Guards bei EPS/EBITDA/FCF), oder ein explizites „nicht aussagekräftig"-Flag setzen. Niedrige Prio (nur bei sehr hohen Realzinsen relevant).
+- [x] `core/utils/valuation_math.py` `real_rate_anchor` — **erledigt 2026-06-25 (TDD).** Statt eines stillen `(0, 0)`-Degenerats bei extremem Realzins gibt die Funktion jetzt `None` zurück, wenn `fair <= 0` (Modell verliert die Aussagekraft); Rückgabetyp `tuple[float, float] | None`. Der `precious_metals_valuation_agent` überspringt die „Realzins-Modell"-Methode dann (analog den `>0`-Guards bei EPS/EBITDA/FCF) → Gold fällt z. B. auf den AISC-Boden zurück statt das kombinierte Band zu verzerren. 3 Funktions-Tests (None bei fair<0 und fair==0, gültiges Band bei fair>0) + 1 Agent-Test (extremer Realzins droppt die Methode, AISC-Boden bleibt). Bestehende Tests (alle fair>0) unberührt. Suite 1269 grün.
 
 ### Aus Plan C (Review 2026-06-16 — bewusst zurückgestellt)
 

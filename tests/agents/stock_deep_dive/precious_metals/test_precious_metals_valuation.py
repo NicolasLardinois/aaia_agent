@@ -69,6 +69,18 @@ def test_combined_band_is_not_minmax_union():
         assert not (result.combined_low == min(method_lows) and result.combined_high == max(method_highs))
 
 
+def test_extremer_realzins_droppt_realzins_methode():
+    """Bei extrem hohem Realzins (fair < 0) liefert real_rate_anchor None → die
+    Realzins-Methode entfällt; Gold fällt auf den AISC-Boden zurück statt auf ein
+    stilles (0,0)-Band, das den kombinierten Wert verzerrt hätte."""
+    agent, _ = _make_agent(real_rate=12.0)   # gold: 2400 - 250*12 = -600 < 0
+    result = asyncio.run(agent.run("gold"))
+    names = [m.name for m in result.methods]
+    assert "Realzins-Modell" not in names                                   # Methode übersprungen
+    assert any("AISC" in n or "Produktionskosten" in n for n in names)      # Boden bleibt
+    assert result.combined_low < result.combined_high                       # kein (0,0)-Degenerat
+
+
 def test_current_aisc_floor_updated():
     agent, _ = _make_agent(real_rate=0.5)
     result = asyncio.run(agent.run("gold"))

@@ -129,6 +129,25 @@ def test_real_rate_anchor_band_never_inverted():
     assert low < high
 
 
+def test_real_rate_anchor_none_bei_negativem_fair():
+    """Extrem hoher Realzins (Prozentform) drückt fair < 0 → kein sinnvoller Anker → None
+    (statt eines stillen (0,0)-Degenerats). Beispiel: Gold-artiges Modell bei real_rate=11%."""
+    assert real_rate_anchor(real_rate=11.0, intercept=2000.0, slope=-200.0, band_pct=0.10) is None
+
+
+def test_real_rate_anchor_none_bei_fair_genau_null():
+    """fair == 0 ist ebenfalls nicht aussagekräftig → None (Schwelle fair <= 0)."""
+    assert real_rate_anchor(real_rate=10.0, intercept=2000.0, slope=-200.0, band_pct=0.10) is None
+
+
+def test_real_rate_anchor_band_bei_positivem_fair():
+    """Normalfall (fair > 0) liefert weiterhin ein gültiges Band (kein None)."""
+    res = real_rate_anchor(real_rate=2.0, intercept=2000.0, slope=-200.0, band_pct=0.10)
+    assert res is not None
+    low, high = res
+    assert low < high and low > 0
+
+
 def test_weighted_median_range_converges_not_union():
     # min/max-Union wäre (85, 130); gewichteter Median konvergiert in die Mitte.
     methods = [
