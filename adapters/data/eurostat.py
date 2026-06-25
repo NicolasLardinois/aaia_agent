@@ -19,6 +19,11 @@ _log = logging.getLogger(__name__)
 
 _BASE = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data"
 
+# Arbeitslosigkeit (une_rt_m): einzige Quelle der Wahrheit für die Filter-Codes,
+# genutzt von get_unemployment (jüngster Wert) UND get_unemployment_history (Reihe).
+# Stolperstein: une_rt_m nutzt geo=EA21 (EA20 existiert dort nicht).
+_UNE_PARAMS = {"sex": "T", "age": "TOTAL", "unit": "PC_ACT", "s_adj": "SA", "geo": "EA21"}
+
 
 def _parse_jsonstat_latest(data: dict) -> float | None:
     """Rein: juengster befuellter Wert aus dem JSON-stat-value-Objekt.
@@ -40,6 +45,29 @@ def _parse_jsonstat_latest(data: dict) -> float | None:
         return float(value[latest_key])
     except (ValueError, TypeError):
         return None
+
+
+def _parse_jsonstat_series(data: dict) -> list[float]:
+    """Rein: ALLE befüllten Werte aus dem JSON-stat-value-Objekt, ÄLTESTE ZUERST.
+
+    `value` bildet Positions-Index (String) → Beobachtung ab; bei single-value-
+    Dimensionen entspricht die Position dem Zeit-Index (älteste=0 … jüngste=N).
+    Sortiert daher nach Integer-Key. Nicht-numerische Werte werden übersprungen,
+    leeres/fehlendes/nicht-dict `value` → []."""
+    value = data.get("value")
+    if not isinstance(value, dict) or not value:
+        return []
+    try:
+        keys = sorted(value, key=int)
+    except (ValueError, TypeError):
+        return []
+    out: list[float] = []
+    for k in keys:
+        try:
+            out.append(float(value[k]))
+        except (ValueError, TypeError):
+            continue
+    return out
 
 
 def _fetch_latest(dataset: str, params: dict, lo: float, hi: float) -> float | None:
@@ -89,10 +117,23 @@ class EurostatEcbProvider(EcbDataProvider):
                               "geo": "EA20"}, -50.0, 50.0)
 
     def get_unemployment(self) -> float | None:
-        # Stolperstein: une_rt_m nutzt geo=EA21 (EA20 existiert dort nicht).
-        return _fetch_latest("une_rt_m",
-                             {"sex": "T", "age": "TOTAL", "unit": "PC_ACT", "s_adj": "SA",
-                              "geo": "EA21"}, 0.0, 100.0)
+        return _fetch_latest("une_rt_m", dict(_UNE_PARAMS), 0.0, 100.0)
+
+    def get_unemployment_history(self, months: int = 14) -> list[float]:
+        """Monatliche EU-Arbeitslosenquote (%, EA21) der jüngsten `months` Monate,
+        ÄLTESTE ZUERST — Datenbasis für die Sahm-Regel im gdp_agent (3M-Schnitt vs.
+        12M-Tief). Default 14: deckt das 12M-Tief-Fenster plus den unveröffentlichten
+        jüngsten Monat ab. Implausible Werte außerhalb [0,100] werden verworfen;
+        jeder Fehler/Strukturbruch → [] (verhaltens-erhaltend → Sahm bleibt None)."""
+        full = {"format": "JSON", "lang": "EN", "lastTimePeriod": months, **_UNE_PARAMS}
+        try:
+            resp = requests.get(f"{_BASE}/une_rt_m", params=full, timeout=10)
+            resp.raise_for_status()
+            series = _parse_jsonstat_series(resp.json())
+        except Exception as exc:
+            _log.warning("Eurostat une_rt_m Historie nicht abrufbar (%s) — leer", exc)
+            return []
+        return [round(v, 1) for v in series if 0.0 <= v <= 100.0]
 
     # ── Delegation an base (Renditen/Zinsen/Geldmenge/PMI) ──────────────────
     def get_interest_rate(self) -> float | None:

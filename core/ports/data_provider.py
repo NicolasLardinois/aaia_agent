@@ -82,6 +82,12 @@ class EcbDataProvider(ABC):
         real = nominal − HICP). Default: None (nur der ECB-SDW-Adapter liefert echte Daten)."""
         return None
 
+    def get_unemployment_history(self, months: int = 14) -> list[float]:
+        """Monatliche EU-Arbeitslosenquote (%) der jüngsten `months` Monate, älteste
+        zuerst — Datenbasis für die Sahm-Regel im gdp_agent. Default: leer (Sahm bleibt
+        dann None). Echte Daten liefert der Eurostat-Adapter."""
+        return []
+
 
 class SnbDataProvider(ABC):
     @abstractmethod
