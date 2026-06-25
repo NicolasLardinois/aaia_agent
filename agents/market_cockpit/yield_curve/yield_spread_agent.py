@@ -1,7 +1,9 @@
 import asyncio
+from datetime import date, timedelta
 from core.domain.events import YieldSpreadDataReady
 from core.domain.models import YieldSpreadSnapshot, YieldSpreadDataPoint, Signal
 from core.ports.data_provider import MacroDataProvider, EcbDataProvider, SnbDataProvider
+from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
 
 _NEUTRAL_PT = YieldSpreadDataPoint(
@@ -46,11 +48,26 @@ def _point(
 
 
 class YieldSpreadAgent:
-    def __init__(self, macro: MacroDataProvider, ecb: EcbDataProvider, snb: SnbDataProvider, bus: EventBus):
+    def __init__(self, macro: MacroDataProvider, ecb: EcbDataProvider, snb: SnbDataProvider,
+                 bus: EventBus, history: DatedHistoryPort | None = None):
         self.macro = macro
         self.ecb   = ecb
         self.snb   = snb
         self.bus   = bus
+        # Datierte 10Y-3M-Historie je Region: aktiviert das Bull-Steepening-Timing-Signal
+        # (Vergleich aktueller Spread vs. Vorperiode). None = unverändertes Verhalten.
+        self.history = history
+
+    async def _prev_and_record(self, series: str, current: float | None, today: date) -> float | None:
+        """Liest den 10Y-3M-Wert der Vorperiode (jüngster Eintrag VOR heute) und
+        protokolliert den heutigen Wert für den nächsten Lauf. Datei-I/O in to_thread."""
+        if self.history is None or current is None:
+            return None
+        def _io():
+            prev = self.history.value_on_or_before(series, today - timedelta(days=1))
+            self.history.append(series, today, current)
+            return prev
+        return await asyncio.to_thread(_io)
 
     async def run(self) -> YieldSpreadSnapshot:
         state, ext, ecb_spreads, snb_spreads = await asyncio.gather(
@@ -69,13 +86,25 @@ class YieldSpreadAgent:
         # USA — T10Y2Y from economic_state, T10Y3M from extended_state
         usa_10y2y = state.get("yield_curve")
         usa_10y3m = ext.get("yield_curve_3m10y")
-        usa = _point(usa_10y2y, usa_10y3m, None)
+        eu_10y3m  = ecb_spreads.get("10y3m")
+        ch_10y3m  = snb_spreads.get("10y3m")
+
+        # Vorperiode je Region aus der Historie lesen (+ heutigen Wert protokollieren),
+        # damit das Bull-Steepening-Timing-Signal feuern kann. Ohne Historie: prev=None.
+        _today = date.today()
+        prev_usa, prev_eu, prev_ch = await asyncio.gather(
+            self._prev_and_record("usa_10y3m", usa_10y3m, _today),
+            self._prev_and_record("eu_10y3m",  eu_10y3m,  _today),
+            self._prev_and_record("ch_10y3m",  ch_10y3m,  _today),
+        )
+
+        usa = _point(usa_10y2y, usa_10y3m, None, prev_10y3m=prev_usa)
 
         # EU — ECB SDW: SR_10Y minus SR_2Y und SR_10Y minus SR_3M
-        eu = _point(ecb_spreads.get("10y2y"), ecb_spreads.get("10y3m"), None)
+        eu = _point(ecb_spreads.get("10y2y"), eu_10y3m, None, prev_10y3m=prev_eu)
 
         # CH — FRED OECD: 10y minus 3M SARON (kein 2J CH-Bond frei verfügbar)
-        ch = _point(None, snb_spreads.get("10y3m"), None)
+        ch = _point(None, ch_10y3m, None, prev_10y3m=prev_ch)
 
         result = YieldSpreadSnapshot(usa=usa, eurozone=eu, switzerland=ch)
         self.bus.publish(YieldSpreadDataReady(source="yield_spread_agent", payload={
