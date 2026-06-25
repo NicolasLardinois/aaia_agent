@@ -875,7 +875,7 @@ Jede Analyse gibt pro Linse genau eine Aktion. **HOLD vs NONE:** HOLD = Position
 - [ ] **NL-Resolver für Eingaben** („gold future" → `(precious_metal, future, GC)`) — erweitert die Ticker-Auflösung (§8) um Hüllen-/Basiswert-Erkennung; Such-API, kein LLM-Raten. Frontend-/Eingangsschicht, Folge-Aufgabe.
 - [ ] **Borrow-Rate manuell** — optionales Eingabefeld als Ergänzung zum Hard-to-borrow-Proxy-Flag.
 - [ ] **Index-Momentum-RS region/mutter-bewusst** (heute fix `URTH`): Sektor→Mutterindex, Land→Welt. Folge aus dem Equity-Momentum-Block (2026-06-22).
-- [ ] **`_detect_crossover`/`_signal` des Index-Agenten auf `core/utils/momentum.py` dedupen** (Equity nutzt bereits die geteilten Helfer).
+- [x] **`_detect_crossover`/`_signal` des Index-Agenten auf `core/utils/momentum.py` dedupen** — **erledigt 2026-06-26.** Die lokalen `_detect_crossover`/`_signal` im `index_momentum_agent` waren byte-für-byte identisch zu den geteilten `detect_crossover`/`momentum_signal` (gleiche 5-Tage-Cross-Fenster- und 70/30-RSI-Grenzen). Der Agent ruft jetzt die geteilten Helfer (window/overbought/oversold explizit übergeben); die Duplikate sind entfernt. `_compute_rsi` (Wilder, index-spezifisch) bleibt. Die redundanten Unit-Tests im Index-Test (durch `tests/utils/test_momentum.py` inkl. None/NaN abgedeckt) entfernt; Wilder-RSI- und End-to-End-`run()`-Tests (NaN-MA-Pfad, Fix I1) bleiben. Suite grün.
 
 ---
 
