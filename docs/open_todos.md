@@ -242,8 +242,9 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 - [ ] `top_10_concentration` berechnen (aktuell `None`)
 
 ### agents/stock_deep_dive/index/index_valuation_agent.py (Zeile 59)
-- [x] Shiller CAPE — **implementiert** (2026-06-19 verifiziert): `earnings_yield`/`equity_risk_premium`/`shiller_cape` im Agenten, zinsabhängiges ERP-Signal.
-  Offen ist nur noch die **Datenquelle 10J-Real-EPS** (FMP) anzubinden, damit `cape` real befüllt wird statt `None` → siehe §2 (Datenadapter).
+- [x] Shiller CAPE — **implementiert** (2026-06-19) **+ Datenquelle angebunden** (PR offen, 2026-06-25).
+  **Lösung:** statt eine 10J-Real-EPS-Reihe selbst zu rekonstruieren (methodisch fehleranfällig), wird die autoritative S&P-500-CAPE direkt von **multpl.com** geholt: neuer Port `ShillerCapeProvider` + Adapter `adapters/data/multpl_shiller.py` (`MultplShillerProvider`, keyless, S&P-500-spezifisch). Verdrahtung über optionales `cape_provider`: `BottomUpOrchestrator` → `IndexChiefAgent` → `IndexValuationAgent`; in `app/main.py` mit `MultplShillerProvider()` gesetzt. Der Agent bevorzugt den Provider-Wert, fällt sonst auf die eps-Berechnung zurück. `cape` ist ein Anzeigefeld (Signal nutzt ERP/PE, nicht CAPE). Live verifiziert: ^GSPC = 40.94; Nicht-S&P-Indizes → None.
+  - **Hinweis:** Der FMP-Weg (10J-Real-EPS) entfällt — FMP-Holdings/Earnings-Endpunkte sind auf unserem Tarif Legacy/gesperrt; multpl ist die robuste freie Quelle für die fertige CAPE.
 
 ### agents/stock_deep_dive/index/index_price_agent.py (Zeile 78–79) — YTD-Basis-Konvention
 - [ ] **YTD-Anker prüfen: erster Handelstag des Jahres vs. Vorjahres-Schlusskurs** *(Folge aus Bug #42, Review 2026-06-21)*
