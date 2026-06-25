@@ -10,7 +10,7 @@ export function MetricRow({
   return (
     <div className="flex items-center justify-between border-b border-slate-100 py-1.5 text-sm last:border-0 dark:border-slate-700/50">
       <span className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
-        {label}
+        <span>{label}</span>
         {term && <InfoTip term={term} />}
       </span>
       <span className={missing ? "text-slate-400" : "font-medium"}>{display}</span>
