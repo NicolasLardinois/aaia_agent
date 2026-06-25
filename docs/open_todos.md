@@ -162,10 +162,11 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 
 ### Bond-Datenquelle (`get_bond_data()` → `{}`) — Eingaben für die Fixed-Income-Engine *(aus Plan C)*
 
-- [ ] **Echte Anleihe-Rohdaten anbinden.**
+- [ ] **Echte Anleihe-Rohdaten anbinden.** — **BLOCKIERT (kostenpflichtige Quelle nötig), Befund 2026-06-25.**
   Die Bond-Rechenmaschine (`core/utils/bond_math.py`, `core/utils/credit.py`) ist fertig und getestet, aber `MarketDataProvider.get_bond_data()` liefert real `{}` → die Bond-Agenten haben keine Eingaben und geben korrekt `None`/NEUTRAL aus (statt falscher Zahlen).
   Benötigte Roh-Bausteine: Clean-Preis (%-Kurs), `coupon_rate`, `frequency`, `maturity_years`, optional `accrued_interest`, `call_price`/`years_to_call`, `is_callable`/`is_putable`, Ratings (S&P/Moody's/Fitch), `recovery_rate`, ggf. Spread-/Kurvendaten, `breakeven_inflation`.
-  **Ansatz:** Bond-Datenadapter implementieren (z. B. Finnhub/FMP-Bond-Endpunkte oder andere Anleihe-API) und `get_bond_data(ticker)` befüllen; Einheiten-/Clean-Konvention wie in der Engine dokumentiert. Erst dann produzieren die Bond-Agenten echte Kennzahlen.
+  **Blocker-Befund (verifiziert):** Pro-Bond-Stammdaten gibt es nicht gratis. Finnhub `/bond/profile` + `/bond/price` → `"You don't have access to this resource"` (Premium); FMP-Bond-Endpunkte sind Legacy/kostenpflichtig (Tarif gesperrt, vgl. ETF-Holdings-Befund). FRED liefert nur aggregierte Renditen/Indizes, **keine** Pro-Bond-Stammdaten (Kupon/Laufzeit/Rating/Clean-Preis).
+  **Entscheidung User 2026-06-25: als blockiert dokumentieren** — kein Code, bis ein **kostenpflichtiges Bond-Daten-Abo** (z. B. Finnhub-Premium/FMP-Premium/anderer Anbieter) bereitsteht und der Key in `.env` liegt. **Freischalt-Weg:** Key in `.env` → Bond-Datenadapter (Port `FundamentalsProvider.get_bond_data`) gegen die Abo-API implementieren; Einheiten-/Clean-Konvention wie in der Engine dokumentiert; dann produzieren die Bond-Agenten echte Kennzahlen. Engine wartet fertig.
 
 ---
 
@@ -178,8 +179,10 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 - [x] **`agents/stock_deep_dive/commodity/cot_agent.py`** — CFTC COT **angebunden** (PR #67 am 2026-06-25 gemergt; Review Claude: Dataset/Netto-Berechnung/Ticker-Mapping verifiziert, defensiv/hexagonal, kontrarische Signallogik bleibt im COTAgent, CI grün).
   **Lösung:** neuer Adapter `adapters/data/cftc_cot.py` (`CftcCotProvider`, COTProvider-Port) liest die Disaggregated-Futures-Only-Managed-Money-Positionen über die CFTC-Socrata-API (Dataset `72hh-3qpy`); Managed-Money-Netto = long − short, plus Open Interest. Mapping Yahoo-Futures-Ticker → exakter CFTC-Hauptkontrakt (16 Rohstoffe, live verifiziert; bewusst der Yahoo-passende Kontrakt, z. B. NG=F = `NAT GAS NYME` Henry-Hub-NYMEX statt der größeren ICE-LD1-Reihe). Verdrahtung über optionales `cot_provider`-Argument: `BottomUpOrchestrator` → `CommodityChiefAgentMikro(cot_provider=…)` → `COTAgent`; in `app/main.py` mit `CftcCotProvider()` gesetzt. Ausfall/unbekannter Ticker → `[]` → `SignalStatus.UNAVAILABLE` (nicht-brechend). Live verifiziert: Gold 180 Wochen, Netto +113 721 / OI 339 330.
 
-- [ ] **`agents/stock_deep_dive/commodity/supply_demand_agent.py` (Zeile 61)**
-  EIA API (Öl/Gas), USDA (Agrar), LME (Metalle) nicht angebunden.
+- [ ] **`agents/stock_deep_dive/commodity/supply_demand_agent.py` (Zeile 61)** — **wartet auf gratis EIA-Key (Energie baubar), Befund 2026-06-25.**
+  EIA API (Öl/Gas), USDA (Agrar), LME (Metalle) nicht angebunden. Der Agent + Port `CommoditySupplyProvider` (`get_inventory_history`/`get_production_cost_curve`) sind fertig; es fehlt nur die Datenquelle.
+  **Blocker-Befund (verifiziert):** EIA-v2 (`api.eia.gov/v2`) braucht einen **kostenlosen** API-Key; ohne Key leere Antwort. USDA-NASS braucht ebenfalls einen Key; LME ist proprietär. **FRED spiegelt die aktuellen EIA-Wochen-Lagerbestände NICHT** (Suche liefert nur alte NBER-Monatsreihen bis ~1960) — also kein keyless-Workaround.
+  **Entscheidung User 2026-06-25: EIA-Key besorgen → ich baue (Energie).** **Freischalt-Weg:** gratis Key bei eia.gov/opendata registrieren → als `EIA_API_KEY` in `.env` → dann Energie-Supply/Demand-Adapter (Öl/Gas-Lagerbestände → `get_inventory_history` für CL=F/BZ=F/NG=F) mit TDD + Live-Verifikation als eigener Feature-PR. Agrar (USDA) / Metalle (LME) bleiben separate Folge-Slices (eigene Keys).
 
 - [x] **`agents/market_cockpit/sentiment/fear_greed_agent.py`** — CNN Fear & Greed API **angebunden** (PR #34, 2026-06-23). **Lösung:** `adapters/data/cnn_fear_greed.py` (`CnnFearGreedProvider`), injiziert via `TopDownOrchestrator(sentiment=…)` in `app/main.py` + `app/server.py`; Ausfall/Strukturbruch → `WARNING`-Log → `None` → `UNAVAILABLE`. Redundanter `sentiment_stub.py` entfernt. (Siehe auch Plan-E-Eintrag unten.)
   > **PR-Protokoll (§5): PR #34 am 2026-06-23 gemergt** (Merge-Commit `0ad159a`). Mehrstufiges Review (pro Task + Opus-Whole-Branch) ohne blockierende Mängel; im Review nachgezogen: moderne Type-Hints, Test-Fake erbt vom Port, **WARNING-Log bei Ausfall** (Beobachtbarkeit). Erste Slice der „Stubs→echte Quellen"-Initiative. *(Dieser Vermerk direkt auf `master`: bewusste Logbuch-Ausnahme — er braucht den Merge-Commit-Hash.)*
