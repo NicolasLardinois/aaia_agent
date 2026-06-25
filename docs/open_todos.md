@@ -128,20 +128,28 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
 
 ## 2. STUB-APIS — DATENQUELLEN NICHT ANGEBUNDEN
 
-### adapters/data/ecb_snb_stub.py
+### adapters/data — EU-Daten (ECB SDW + Eurostat)
 
-ECB (`EcbStubProvider`) — alle geben `None` zurück:
-- [ ] `get_interest_rate()` — Quelle: ECB SDW
-- [ ] `get_m3_growth()` — Quelle: ECB SDW
-- [ ] `get_balance_sheet_growth()` — Quelle: ECB SDW
-- [ ] `get_cpi()` — Quelle: Eurostat
-- [ ] `get_core_cpi()` — Quelle: Eurostat
-- [ ] `get_ppi()` — Quelle: Eurostat
-- [ ] `get_gdp_growth()` — Quelle: Eurostat
-- [ ] `get_unemployment()` — Quelle: Eurostat
-- [ ] `get_pmi()` — Quelle: S&P Global
-- [ ] `get_m2_growth()` — Quelle: ECB SDW
-- [ ] `get_sovereign_yields()` — Quelle: ECB SDW (DE, IT, FR, ES 10Y)
+> **Audit 2026-06-25 (gegen den Code auf `master`):** Der ursprüngliche Block listete den reinen
+> `EcbStubProvider` (alle `None`) als komplett offen. **Produktiv ist seit PR #38/#50 aber nicht der
+> Stub, sondern `EurostatEcbProvider(EcbSdwProvider())`** (`app/main.py:147`, `app/server.py:30`) —
+> ein Decorator: Eurostat liefert die Realwirtschaft (CPI/Core/PPI/BIP/Arbeitslosigkeit), die
+> ECB-SDW-Basis Geldmenge/Zinsen/Renditen. Der Stub läuft **nur noch** in den Backtester-Skripten
+> (`calibrate_regime.py`/`replay_regime.py`, bewusst point-in-time). **9 der 11 Methoden sind real
+> angebunden** (hier abgehakt, mit Code-Beleg); echt offen bleiben nur `get_balance_sheet_growth` (EU)
+> und `get_pmi` (EU).
+
+- [x] `get_interest_rate()` — ECB SDW (`ecb_sdw.py:84`)
+- [x] `get_m3_growth()` — ECB SDW (`ecb_sdw.py:134`)
+- [ ] `get_balance_sheet_growth()` — ECB SDW — **echt offen** (`ecb_sdw.py:141` gibt `None`; Eurosystem-Bilanz noch nicht angebunden)
+- [x] `get_cpi()` — Eurostat HICP (`eurostat.py:101`)
+- [x] `get_core_cpi()` — Eurostat (`eurostat.py:105`)
+- [x] `get_ppi()` — Eurostat (`eurostat.py:109`)
+- [x] `get_gdp_growth()` — Eurostat (`eurostat.py:114`)
+- [x] `get_unemployment()` — Eurostat (`eurostat.py:119`, EA21; inkl. `get_unemployment_history` für die Sahm-Regel, PR #84)
+- [ ] `get_pmi()` — S&P Global — **echt offen/deferred** (proprietär, keine freie Quelle; vgl. ISM/procure.ch in §4)
+- [x] `get_m2_growth()` — ECB SDW (`ecb_sdw.py:137`)
+- [x] `get_sovereign_yields()` — ECB SDW (`ecb_sdw.py:149`, DE/IT/FR/ES 10Y) + `get_aaa_10y_yield()` (`ecb_sdw.py:79`)
 
 SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der `SnbStubProvider`.
 **CH-Makro Slice A (PR #59 am 2026-06-25 gemergt):** Geldmengen/Bilanz/CPI via data.snb.ch, BIP/Yield via FRED. *(Review Claude: Quellen/YoY-Mathe + Caps verifiziert, defensiv/hexagonal, CI grün, keine Befunde.)*
@@ -191,8 +199,8 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 - [x] **Folge-Task (Review PR #34, 2026-06-23) — `fear_greed_agent.py`: 75er-Grenze vereinheitlichen.** **Erledigt 2026-06-25 (TDD).**
   Bei exakt `75.0` lieferte `_label` „Greed" (`<= 75`), `_signal` aber BEARISH (`>= 75`). **Lösung:** obere `_label`-Grenze auf `< 75` umgestellt → `75.0` labelt jetzt „Extreme Greed", konsistent mit dem Signal **und** dem offiziellen CNN-Band (75–100 = Extreme Greed). Schwellen-Begründung als Code-Kommentar ergänzt; 2 neue Grenz-Tests (75.0 = Extreme Greed + Label/Signal-Konsistenz; lückenloses Band 74.9/75.0/75.1). Suite 1168 grün. *(Eigener kleiner Agenten-PR — **PR #58 am 2026-06-25 gemergt**, Review Claude: lückenloses Band + Label/Signal-Konsistenz verifiziert, CI grün.)*
 
-- [ ] **`agents/stock_deep_dive/equity/valuation_range_agent.py` (Zeile 55)**
-  Vollständige Implementierung wartet auf Finnhub/FMP Adapter.
+- [x] **`agents/stock_deep_dive/equity/valuation_range_agent.py`** — vollständig implementiert + verdrahtet (verifiziert 2026-06-25; das Logbuch war veraltet).
+  Der Agent rechnet PE-/EV-EBITDA-/FCF-basierte Bewertungsspannen über den injizierten `FundamentalsProvider`. Der echte Adapter ist **bereits angebunden**: `FinnhubProvider` ist in `app/main.py:192` als `fundamentals_provider` verdrahtet; der Agent wird im `EquityChiefAgent` instanziiert (`equity_chief_agent.py:72`) und parallel ausgeführt (`results[6]`), sein Ergebnis befüllt `EquityBottomUpResult.valuation_range` (von `judgment_agent` + `bottom_up_anomaly_agent` konsumiert). 12 Tests in `tests/agents/stock_deep_dive/equity/test_valuation_range_agent.py`. *(Kein Code-Change nötig — nur Logbuch-Korrektur.)*
 
 ---
 
