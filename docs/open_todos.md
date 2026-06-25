@@ -356,7 +356,7 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 
 ## 6. TEST-LÜCKEN
 
-- [ ] **RegimeDetector** — vollständig ungetestet (Scoring-Logik treibt jede Empfehlung an)
+- [x] **RegimeDetector** — **getestet 2026-06-25.** (Die ursprüngliche „völlig ungetestet"-Aussage war durch die Regime-Kalibrierungs-Arbeit bereits überholt: `test_regime.py`/`test_regime_inputs.py` decken `detect`-Verdrahtung, Trend-Invarianz, Inflations-Scores ab.) Neu geschlossen: die **Kern-Klassifizierung** in `tests/domain/test_regime_classification.py` (25 Tests) — `_regime_from` gewinnt an jedem Phasen-Zentrum die richtige Phase (DEPRESSION/RECESSION/SLOWDOWN/EXPANSION/BOOM), RECOVERY feuert nur mit bestätigtem Aufwärtstrend, ein kräftiger Abwärtstrend kippt einen leicht positiven Composite von EXPANSION nach SLOWDOWN; plus lückenlose `_score_indicator`-Bänder (gdp_growth, unemployment, yield_curve, Inflations-Schultern, unbekannter Key → 0.0). Verhaltens-Tests (keine Gauß-Mathematik nachgerechnet).
 - [ ] **MoatAgent** — `_overall()`-Schwellenwerte, Score-Clamping, JSON-Parsing ungetestet
 - [ ] **ValuationRangeAgent** — DCF, KGV-Multiple, EV/EBITDA-Formeln ungetestet
 - [ ] **FundamentalsAgent** — `_score()` mit 7 Indikatoren ungetestet
