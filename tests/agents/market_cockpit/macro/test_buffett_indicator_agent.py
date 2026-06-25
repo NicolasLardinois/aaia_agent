@@ -1,5 +1,5 @@
 import asyncio
-from agents.market_cockpit.macro.buffett_indicator_agent import _signal_from_z, BuffettIndicatorAgent
+from agents.market_cockpit.macro.buffett_indicator_agent import _signal, _signal_from_z, BuffettIndicatorAgent
 from core.domain.models import Signal
 
 
@@ -23,6 +23,45 @@ def test_mid_z_is_neutral():
 def test_swiss_high_ratio_with_normal_z_is_neutral():
     # CH bei 230% aber z≈0 (für CH normal) → NICHT BEARISH (kein 135%-Fix mehr)
     assert _signal_from_z(0.1) == Signal.NEUTRAL
+
+
+# ── _signal-Fallback (länderspezifische Korridore statt global 75/135) ────────
+
+def test_signal_fallback_none_ist_neutral():
+    assert _signal(None, "USA") == Signal.NEUTRAL
+
+
+def test_signal_fallback_usa_korridor():
+    # USA-Korridor (75, 135): unter 75 günstig, über 135 teuer.
+    assert _signal(70.0, "USA") == Signal.BULLISH
+    assert _signal(140.0, "USA") == Signal.BEARISH
+    assert _signal(100.0, "USA") == Signal.NEUTRAL
+
+
+def test_signal_fallback_schweiz_korridor_statt_global():
+    """Kern des Fixes: CH ist strukturell hoch (Korridor 150–260). Ein CH-Ratio von
+    200 % ist NEUTRAL — unter der alten globalen 135%-Schwelle wäre es fälschlich BEARISH."""
+    assert _signal(200.0, "CHE") == Signal.NEUTRAL
+    assert _signal(140.0, "CHE") == Signal.BULLISH    # unter dem CH-Korridor → günstig
+    assert _signal(270.0, "CHE") == Signal.BEARISH    # über dem CH-Korridor → teuer
+
+
+def test_signal_fallback_unbekanntes_land_nutzt_default():
+    # Unbekannter Code → Default-Korridor (75, 135).
+    assert _signal(200.0, "XXX") == Signal.BEARISH
+    assert _signal(50.0, "XXX") == Signal.BULLISH
+
+
+def test_agent_fallback_nutzt_landeskorridor_bei_kurzer_historie():
+    """Agent-Pfad: CH mit zu kurzer Historie (<8 → z=None) fällt auf _signal zurück.
+    Mit dem CH-Korridor bleibt 200 % NEUTRAL statt (alt) BEARISH."""
+    short_series = [(2019, 195.0), (2020, 198.0), (2021, 202.0), (2022, 200.0)]  # nur 4 → z=None
+    def _wb():
+        return {"CHE": (200.0, 2022, short_series, "Switzerland")}
+    agent = BuffettIndicatorAgent(_FakeMacro(), _FakeBus(), wb_fetch=_wb)
+    result = asyncio.run(agent.run())
+    assert result.countries["CHE"].z_score is None         # Fallback-Pfad aktiv
+    assert result.countries["CHE"].signal == Signal.NEUTRAL
 
 
 class _FakeBus:
