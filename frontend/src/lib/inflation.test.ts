@@ -77,6 +77,22 @@ describe("inflationBand — CH", () => {
   });
 });
 
+describe("inflationBand — EUR (Eurozone, ECB-HICP-Aggregat ≠ Deutschland)", () => {
+  // Die Eurozone nutzt dasselbe Band wie die USA (Ziel 1–3 %). Wichtig: Datenquelle ist
+  // das ECB-HICP-Aggregat des Euroraums — KEIN einzelnes Land (insbesondere nicht Deutschland).
+  it("2.4 -> target / bullish (EU-Band 1–3 %)", () => {
+    const r = inflationBand(2.4, "EUR");
+    expect(r.band).toBe("target");
+    expect(r.signal).toBe("bullish");
+  });
+
+  it("4.0 -> high / bearish (EU-Band, >=4 %)", () => {
+    const r = inflationBand(4.0, "EUR");
+    expect(r.band).toBe("high");
+    expect(r.signal).toBe("bearish");
+  });
+});
+
 describe("inflationBand — null / UNAVAILABLE", () => {
   it("null -> unavailable, signal null, activeThreshold '—'", () => {
     const r = inflationBand(null, "USA");

@@ -54,12 +54,14 @@ describe("loadSectors — UNAVAILABLE-Pfad", () => {
 });
 
 describe("loadMacro — Regionen", () => {
-  it("hat 3 Regionen USA/DE/CH — KEIN EU-Eintrag", async () => {
+  it("hat 3 Regionen USA/EUR/CH — Eurozone als EUR, kein DE/EU", async () => {
     const v = await loadMacro();
     const regions = v.inflation.map((r) => r.region);
     expect(regions).toContain("USA");
-    expect(regions).toContain("DE");
+    expect(regions).toContain("EUR");
     expect(regions).toContain("CH");
+    // ECB-HICP ist das Euroraum-Aggregat — KEIN Einzelland "DE" und kein nacktes "EU".
+    expect(regions).not.toContain("DE");
     expect(regions).not.toContain("EU");
     expect(v.inflation).toHaveLength(3);
   });

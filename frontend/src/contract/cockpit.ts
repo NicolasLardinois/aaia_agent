@@ -12,7 +12,7 @@ export interface SourceHealthMeta {
 }
 
 // --- Makro (US3) ---
-export type InflationRegion = "USA" | "DE" | "CH"; // einzelne Laender, KEINE "EU"-Aggregation
+export type InflationRegion = "USA" | "EUR" | "CH"; // EUR = Euroraum-Aggregat (ECB-HICP), NICHT Deutschland
 export interface InflationRow {
   region: InflationRegion;
   cpiPct: number | null;        // YoY-CPI in Prozent (3.0 = 3 %); null => UNAVAILABLE

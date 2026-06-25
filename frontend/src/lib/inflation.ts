@@ -1,14 +1,15 @@
 import type { Signal } from "./contract";
 
-export type InflationRegion = "USA" | "DE" | "CH";
+export type InflationRegion = "USA" | "EUR" | "CH";
 
 // Region-Schwellen (in % YoY-CPI). Begruendung (inflation_agent._signal):
-// - USA + Eurozone-Laender (DE): Zielzone 1–3 %, "erhoet" 3–4 %, "hoch" >=4 %.
+// - USA + Eurozone (EUR): Zielzone 1–3 %, "erhoet" 3–4 %, "hoch" >=4 %.
 // - CH: strukturell niedrigere Inflation -> engeres Band: Zielzone 0.5–2 %, "erhoht" 2–3 %, "hoch" >=3 %.
-// DE nutzt das USA/EU-Band (Eurozone), CH das eigene. Keine "EU"-Aggregation (frontend_notes.md).
+// EUR = Euroraum-Aggregat (ECB-HICP), NICHT Deutschland: Backend liefert `eurozone` aus ECB-Daten
+// (HICP ist der harmonisierte Euroraum-Index). EUR nutzt das USA/EU-Band, CH das eigene.
 const THRESHOLDS: Record<InflationRegion, { low: number; high: number; bearish: number }> = {
   USA: { low: 1.0, high: 3.0, bearish: 4.0 },
-  DE:  { low: 1.0, high: 3.0, bearish: 4.0 },
+  EUR: { low: 1.0, high: 3.0, bearish: 4.0 },
   CH:  { low: 0.5, high: 2.0, bearish: 3.0 },
 };
 
