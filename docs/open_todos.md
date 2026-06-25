@@ -443,7 +443,7 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 - [ ] **Buffett-Agent-Fallback länderspezifisch** (`agents/market_cockpit/macro/buffett_indicator_agent.py`) *(Minor)*.
   Ohne Landeshistorie fällt der Agent auf globale 75/135 % zurück; `core/domain/top_down_context.py` nutzt bereits länderspezifische Korridore (`_BUFFETT_CORRIDORS`).
   **Ansatz:** dieselben länderspezifischen Korridore auch im Agenten-Fallback verwenden (statt global 75/135).
-- [ ] **Doppelte Testdatei** `tests/domain/test_top_down_context.py` vs. `tests/test_top_down_context.py` *(Minor, Aufräumen)* — auf einen Pfad konsolidieren.
+- [x] **Doppelte Testdatei** `tests/domain/test_top_down_context.py` vs. `tests/test_top_down_context.py` — **konsolidiert 2026-06-25.** Beide testeten verschiedene Funktionen desselben Moduls (`_buffett_fallback_note` bzw. `derive_top_down_context`, keine Namens-Kollision). Alle 9 Tests im paketspiegelnden Pfad `tests/domain/test_top_down_context.py` vereint; die Root-Datei entfernt. Suite unverändert grün (kein Test verloren).
 
 ### Aus Plan D2 (Review 2026-06-17 — Logik korrekt, Daten fehlt)
 
