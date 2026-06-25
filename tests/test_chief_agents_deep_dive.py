@@ -301,6 +301,7 @@ def test_precious_metals_chief_returns_result():
     chief.pm_price_agent.run     = AsyncMock(return_value=_neutral_pm_price())
     chief.pm_cross_agent.run     = AsyncMock(return_value=_neutral_cross_metal())
     chief.pm_valuation_agent.run = AsyncMock(return_value=_neutral_valuation_range())
+    chief.cot_agent.run          = AsyncMock(return_value=_neutral_cot())  # COT-Sub-Agent isolieren
 
     result = asyncio.run(chief.run("GOLD"))
     assert isinstance(result, PreciousMetalsResult)

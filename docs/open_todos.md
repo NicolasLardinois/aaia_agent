@@ -905,7 +905,7 @@ Die CFA-Review `docs/finanz_konzept_review_2026-06-16.md` (~50 Befunde: ❌ fals
 - **Total Return vs. Price Return (4.6)** → §7/Plan E: für CH bewusst Price Return als Default (nicht umgesetzt).
 
 ### ⏳ Neu erfasst (war noch nirgends notiert)
-- [ ] **`agents/stock_deep_dive/precious_metals_chief_agent.py` (Z. 45/56): `cot_signal=Signal.NEUTRAL` hart verdrahtet** trotz vorhandenem `cot_agent`.
-  **Ansatz:** sobald COT-Daten angebunden sind (§3), `cot_agent`-Signal einspeisen statt fix NEUTRAL.
+- [x] **`agents/stock_deep_dive/precious_metals_chief_agent.py`: `cot_signal=Signal.NEUTRAL` hart verdrahtet** trotz vorhandenem `cot_agent` — **erledigt 2026-06-25 (TDD).**
+  Der Chief erhält jetzt `cot_provider: COTProvider | None` und betreibt einen echten `COTAgent` als 4. Sub-Agent. `cot_signal` kommt aus `cot_snap.signal` (konträr: extreme Managed-Money-Longs → BEARISH) statt fix NEUTRAL. Edelmetalle sind CFTC-berichtspflichtig — der CFTC-Adapter mappt GC/SI/PL/PA (`GC=F`…), und der durchgereichte Ticker `metal` passt direkt auf diese Keys. `BottomUpOrchestrator` reicht `cot_provider` an den PM-Chief durch; `app/main.py` injiziert bereits `CftcCotProvider()`. Ohne Provider (None) → `COTAgent` UNAVAILABLE → cot_signal NEUTRAL (rückwärtskompatibel). 2 neue Wiring-Tests (echtes BEARISH-Signal / None bleibt NEUTRAL) + 1 bestehender Deep-Dive-Test angepasst (COT-Sub-Agent stubben). Suite grün.
 - [ ] **`commodity_chief`/`precious_metals_chief`: gewichtete Signal-Synthese + `currency_impact` (USD-Effekt) prüfen/ergänzen** (Review Domäne 7: nur Einsammeln ohne Zuverlässigkeits-Gewichtung; Saisonalität mit n<10 nicht heruntergewichtet).
   **Ansatz:** `weighted_signal` analog den übrigen Chiefs; Saisonalität klein gewichten; USD-Effekt erfassen.
