@@ -403,8 +403,7 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 
 - [ ] `core/utils/relative.py` `_winsorize` — kein Guard bei `fraction >= 0.5`: dann gilt `lo_idx >= hi_idx` und alle Werte kollabieren still auf einen einzigen Wert.
   **Ansatz:** entweder `if fraction >= 0.5: raise ValueError(...)` oder Docstring-Constraint „nur `fraction < 0.5` sinnvoll" + früher Return. Aufrufer nutzen 0.05–0.1 → derzeit kein realer Schaden.
-- [ ] `adapters/persistence/json_dated_history.py` (`JsonDatedHistory`, JSON-Adapter von `DatedHistoryPort`) — JSON-Leaf-Werte werden nicht typvalidiert: ein manuell korrumpiertes `{"series": {"2026-01-01": "text"}}` liefert `(date, str)` statt `(date, float)`; der Fehler explodiert erst beim Aufrufer.
-  **Ansatz:** in `values()` `float(v)` casten (und unparsebare Einträge überspringen) oder beim `_load()` validieren; alternativ Docstring-Hinweis „Werte müssen float sein".
+- [x] `adapters/persistence/json_dated_history.py` (`JsonDatedHistory`) — JSON-Leaf-Werte typvalidiert (2026-06-25, TDD). `values()` castet jetzt jeden Wert zu `float` **und** überspringt korrupte Einträge (unparsebares Datum **oder** nicht-numerischer Wert) mit `logger.warning(...)`, statt mit einer Exception beim Aufrufer zu explodieren. Ein einzelner kaputter Leaf vergiftet nicht mehr die ganze Serie (Datenrealität, AGENTS.md §3); `value_on_or_before`/`latest` profitieren automatisch (laufen über `values()`). 3 neue Tests (int→float, korrupter Wert übersprungen, korruptes Datum übersprungen).
 - [ ] `core/utils/statistics.py` — Datei trägt zwei Verantwortlichkeiten (klassisch `z_score`/`compute_severity` vs. robust `robust_z_score`/`bonferroni_z_threshold`).
   **Ansatz:** *nur bei weiterem Wachstum* Split in z. B. `statistics_robust.py` erwägen. Aktuell (≈60 Zeilen) keine Aktion nötig.
 
