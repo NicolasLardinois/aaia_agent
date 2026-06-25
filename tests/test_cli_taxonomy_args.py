@@ -13,7 +13,7 @@ Abgedeckte Fälle:
 """
 import pytest
 
-from app.main import _is_legacy_call, _resolve_taxonomy, _usage
+from app.main import _is_legacy_call, _resolve_taxonomy, _usage, _parse_positions
 from core.domain.taxonomy import (
     Underlying, Wrapper, underlying_choices, wrapper_choices,
 )
@@ -181,3 +181,72 @@ def test_usage_text_lists_every_underlying_and_wrapper_value():
     text = _usage()
     for e in list(Underlying) + list(Wrapper):
         assert e.value in text
+
+
+# --- _parse_positions: Positions-Offset end-to-end (Review PR #41, Folge-Aufgabe) ---
+# Getestet war bisher nur _is_legacy_call/_resolve_taxonomy isoliert; die Verdrahtung in
+# main() (Offset pos[3] vs. pos[4] → landet der Sektor im richtigen Feld?) hatte KEINEN
+# Test — genau das war aber das reale Symptom ("Sektor rutscht in die falsche Spalte").
+# pos = ["bottomup", TICKER, [underlying], [wrapper|sektor], ...] (--risk-affinity bereits raus).
+
+def test_parse_positions_defaults_without_taxonomy():
+    """Nur Ticker → Default-Taxonomie + Default-Felder."""
+    assert _parse_positions(["bottomup", "AAPL"]) == (
+        Underlying.EQUITY, Wrapper.SINGLE, "default", "government", "stable")
+
+
+def test_parse_positions_legacy_sector_lands_in_sector_column():
+    """Kernfall: 'commodity Energy' (Legacy, da 'Energy' kein Wrapper ist) → der Sektor
+    landet in der Sektor-Spalte (pos[3]) und geht NICHT verloren."""
+    underlying, wrapper, sector, bond_type, rate_direction = _parse_positions(
+        ["bottomup", "XLE", "commodity", "Energy"])
+    assert (underlying, wrapper) == (Underlying.COMMODITY, Wrapper.FUTURE)
+    assert sector == "Energy"
+    assert (bond_type, rate_direction) == ("government", "stable")
+
+
+def test_parse_positions_new_style_sector_at_pos4():
+    """Neuer Stil 'equity_index fund Technology' → Sektor an pos[4]."""
+    underlying, wrapper, sector, _bt, _rd = _parse_positions(
+        ["bottomup", "SPY", "equity_index", "fund", "Technology"])
+    assert (underlying, wrapper, sector) == (
+        Underlying.EQUITY_INDEX, Wrapper.FUND, "Technology")
+
+
+def test_parse_positions_new_style_without_sector_defaults():
+    """Neuer Stil ohne Sektor → sector='default'."""
+    _u, _w, sector, _bt, _rd = _parse_positions(["bottomup", "SPY", "equity_index", "fund"])
+    assert sector == "default"
+
+
+def test_parse_positions_legacy_etf_only_token():
+    """'etf' (Legacy-only) → equity_index/fund; folgendes Token ist der Sektor."""
+    underlying, wrapper, sector, _bt, _rd = _parse_positions(
+        ["bottomup", "SPY", "etf", "Technology"])
+    assert (underlying, wrapper, sector) == (
+        Underlying.EQUITY_INDEX, Wrapper.FUND, "Technology")
+
+
+def test_parse_positions_new_style_bond_fields_offset():
+    """Neuer Stil 'bond single Treasuries corporate falling' → bond_type/rate_direction
+    an pos[5]/pos[6] (nicht in die Sektor-Spalte verrutscht)."""
+    underlying, wrapper, sector, bond_type, rate_direction = _parse_positions(
+        ["bottomup", "TLT", "bond", "single", "Treasuries", "corporate", "falling"])
+    assert (underlying, wrapper) == (Underlying.BOND, Wrapper.SINGLE)
+    assert sector == "Treasuries"
+    assert (bond_type, rate_direction) == ("corporate", "falling")
+
+
+def test_parse_positions_legacy_bond_fields_offset():
+    """Legacy 'bond default government rising' (kein gültiger Wrapper folgt) → Felder eins
+    nach links (Sektor pos[3], bond_type pos[4], rate_direction pos[5])."""
+    underlying, wrapper, sector, bond_type, rate_direction = _parse_positions(
+        ["bottomup", "TLT", "bond", "default", "government", "rising"])
+    assert (underlying, wrapper) == (Underlying.BOND, Wrapper.SINGLE)
+    assert (sector, bond_type, rate_direction) == ("default", "government", "rising")
+
+
+def test_parse_positions_invalid_underlying_raises():
+    """Ungültiges underlying mit gültigem Wrapper → ValueError (main() fängt es ab)."""
+    with pytest.raises(ValueError, match="underlying"):
+        _parse_positions(["bottomup", "X", "bogus", "single"])
