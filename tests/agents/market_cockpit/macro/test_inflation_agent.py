@@ -42,6 +42,21 @@ def test_eu_real_rate_none_ohne_yield():
     assert result.eurozone.real_rate_10y is None
 
 
+def test_usa_core_cpi_und_pce_aus_extended_state():
+    """USA Core-CPI (CPILFESL) und PCE (PCEPI) werden aus extended_state befüllt."""
+    agent = _make_agent(eco={"inflation": 2.5}, ext={"core_cpi": 2.9, "pce": 2.6})
+    result = asyncio.run(agent.run())
+    assert result.usa.core_cpi == 2.9
+    assert result.usa.pce == 2.6
+
+
+def test_usa_hohe_cpi_niedriger_core_entschaerft_via_run():
+    """CPI 4.5% aber Core 2.2% → transiente Inflation → USA-Signal NEUTRAL (vorher BEARISH)."""
+    agent = _make_agent(eco={"inflation": 4.5}, ext={"core_cpi": 2.2})
+    result = asyncio.run(agent.run())
+    assert result.usa.signal == Signal.NEUTRAL
+
+
 # ── USA/EU Basis-Schwellen (unverändert) ─────────────────────────────────
 
 def test_cpi_none_is_neutral():

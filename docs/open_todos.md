@@ -202,11 +202,11 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
   `trend="rising"` soll Signal verschärfen, `trend="falling"` mildern.
   Benötigt: neue Provider-Methode `get_cpi_history(months=6)`.
 
-- [ ] **USA Core CPI** (`InflationDataPoint.core_cpi` für USA ist `None`, Zeile 81)
-  Quelle: FRED `CPILFESL` via `extended_state`.
+- [x] **USA Core CPI** — FRED `CPILFESL` via `extended_state` angebunden (PR #62 am 2026-06-25 gemergt).
+  In `inflation_agent` zusätzlich ins USA-`_signal` eingespeist (transiente Inflation entschärft BEARISH → NEUTRAL, konsistent zur EU). Live verifiziert: 2.82 %.
 
-- [ ] **USA PCE** (`InflationDataPoint.pce` für USA ist `None`, Zeile 82)
-  Quelle: FRED `PCEPI`. Wichtig: Fed-Ziel bezieht sich auf PCE, nicht CPI.
+- [x] **USA PCE** — FRED `PCEPI` via `extended_state` angebunden (PR #62 am 2026-06-25 gemergt).
+  Befüllt `InflationDataPoint.pce` (Fed-Ziel = PCE). Live verifiziert: 4.07 %. (Reines Anzeige-/Transparenzfeld, noch kein Signal-Input.)
 
 - [x] **Eurozone Real Rate 10Y** — angebunden (PR offen, 2026-06-25).
   Neue Port-Methode `EcbDataProvider.get_aaa_10y_yield()` (Default None), implementiert im `EcbSdwProvider` (Yield-Curve `SR_10Y`), durchgereicht vom `EurostatEcbProvider`. `inflation_agent` rechnet `eu_real_10y = ECB-AAA-10Y − EU-HICP` und speist es ins EU-`_signal` (Realzins-Gegenwind >2% → BEARISH, konsistent zur USA). Live verifiziert: 2.94 − 2.0 = 0.94 %.
@@ -215,11 +215,13 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
   Quelle: SNB / BFS Erzeugerpreisindex.
 
 ### agents/market_cockpit/macro/interest_rate_agent.py (Zeile 77)
-- [ ] **FRED WALCL** — Fed Balance Sheet Growth (`balance_sheet_growth=None`)
+- [x] **FRED WALCL** — Fed Balance Sheet Growth angebunden (PR #62 am 2026-06-25 gemergt).
+  `interest_rate_agent` holt jetzt zusätzlich `extended_state`; USA `balance_sheet_growth = ext.get("balance_sheet_growth")` (WALCL wöchentlich → YoY über 52 Wochen, QT negativ). Live verifiziert: +0.83 %.
 
 ### agents/market_cockpit/macro/gdp_agent.py (Zeilen 58, 70)
-- [ ] **ISM Manufacturing PMI** für USA (`pmi=None`) — **deferred:** FRED `NAPM` eingestellt, ISM/S&P proprietär.
-- [ ] **procure.ch PMI** für Schweiz (`pmi=None`) — **deferred:** procure.ch proprietär.
+- [ ] **ISM Manufacturing PMI** für USA (`pmi=None`) — **deferred (keine freie Quelle).**
+  FRED-Serie `NAPM` wurde eingestellt (existiert nicht mehr); ISM/S&P-Global-PMI sind proprietär (Lizenz). Wie EU-PMI deferred, bis eine lizenzierte/freie Quelle vorliegt.
+- [ ] **procure.ch PMI** für Schweiz (`pmi=None`) — proprietär (procure.ch), deferred.
 
 ### agents/market_cockpit/macro/credit_agent.py (Zeilen 38–39)
 - [ ] EU-Kreditwachstum via ECB API (aktuell immer NEUTRAL)
@@ -403,8 +405,7 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 
 ### Aus Plan 0 (Review 2026-06-16 — bewusst zurückgestellte Minor-Robustheit, niedrige Prio)
 
-- [ ] `core/utils/relative.py` `_winsorize` — kein Guard bei `fraction >= 0.5`: dann gilt `lo_idx >= hi_idx` und alle Werte kollabieren still auf einen einzigen Wert.
-  **Ansatz:** entweder `if fraction >= 0.5: raise ValueError(...)` oder Docstring-Constraint „nur `fraction < 0.5` sinnvoll" + früher Return. Aufrufer nutzen 0.05–0.1 → derzeit kein realer Schaden.
+- [x] `core/utils/relative.py` `_winsorize` — Guard bei `fraction >= 0.5` **ergänzt** (2026-06-25, TDD). Ab 0.5 überlappen die gekappten Tails (`lo_idx >= hi_idx`) → alle Werte kollabierten still auf einen Punkt. **Lösung:** `if fraction >= 0.5: raise ValueError(...)` (fail-loud, weil `fraction` ein Code-Parameter/Programmierfehler ist, kein Datenwert) + Docstring-Constraint. Verifiziert: kein Aufrufer übergibt ≥ 0.5 (alle nutzen 0.0/0.05). 3 neue Tests (≥0.5 wirft, knapp-unter-0.5 kappt sauber, `percentile_rank` reicht den ValueError durch). Suite 1169 grün. **PR #63 am 2026-06-25 gemergt** (Review Claude: Grenzfall verifiziert, CI grün).
 - [ ] `adapters/persistence/json_dated_history.py` (`JsonDatedHistory`, JSON-Adapter von `DatedHistoryPort`) — JSON-Leaf-Werte werden nicht typvalidiert: ein manuell korrumpiertes `{"series": {"2026-01-01": "text"}}` liefert `(date, str)` statt `(date, float)`; der Fehler explodiert erst beim Aufrufer.
   **Ansatz:** in `values()` `float(v)` casten (und unparsebare Einträge überspringen) oder beim `_load()` validieren; alternativ Docstring-Hinweis „Werte müssen float sein".
 - [ ] `core/utils/statistics.py` — Datei trägt zwei Verantwortlichkeiten (klassisch `z_score`/`compute_severity` vs. robust `robust_z_score`/`bonferroni_z_threshold`).
@@ -469,7 +470,7 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
   **Ansatz:** je Quelle einen Adapter implementieren, der die jeweilige Port-Methode befüllt; die Agenten schalten dann automatisch von `UNAVAILABLE` auf echte Signale (keine Agenten-Änderung nötig).
   *(`get_real_rate_history` (FRED DFII10) ist erledigt — siehe gemergte Realzins-/Zins-Adapter.)*
 - **Total-Return-Historie: bewusst NICHT umgesetzt** (2026-06-18). Für die Schweizer Sicht ist Price Return (steuerfreier Kapitalgewinn) der passende Default; TR unterstellt steuerfreie Dividenden-Reinvestition (idealisierte Brutto-Benchmark, ignoriert Steuern). Der tote Haken (`get_total_return_history` im Port + TR-Vorzugslogik im `index_price_agent`) wurde entfernt.
-- [ ] `core/domain/events.py` (+ `adapters/cache/result_cache.py`, `adapters/data/fred_api.py`): `datetime.utcnow()` → `datetime.now(timezone.utc)` (DeprecationWarning unter Python 3.12). *(Minor, Aufräumen.)*
+- [~] `datetime.utcnow()` → `datetime.now(timezone.utc)` (DeprecationWarning unter Python 3.12). **Teilweise erledigt 2026-06-25:** `core/domain/events.py` (tz-bewusster Default-Zeitstempel → löst zugleich den WS-Vertrags-Punkt unten) + `adapters/data/fred_api.py` (3× `utcnow().year`) umgestellt; Suite-Warnings von 256 → 1 gefallen. **Offen:** `adapters/cache/result_cache.py` (3 Stellen: `_is_fresh`-Vergleich + 2× `_saved_at`) — bewusst **separat** gelassen, weil (a) die Datei in PR #57 offen ist (kein doppelter PR auf derselben Datei) und (b) `_is_fresh` alte **naive** Cache-Dateien gegen neue **tz-aware** Stempel vergleichen muss (TypeError-Falle) → eigener kleiner PR mit naive/aware-Normalisierung + Test, **nach** Merge von PR #57. **PR #60 am 2026-06-25 gemergt** (events.py + fred_api.py; Review Claude: `.year` verhaltensgleich, WS-Stempel jetzt tz-aware, CI grün). PR #57 ist inzwischen gemergt → der `result_cache.py`-Rest kann jetzt als eigener PR folgen.
 - [ ] I3-Test trennscharf machen (`tests/agents/stock_deep_dive/precious_metals/test_precious_metal_price_agent.py::test_negative_real_yield_correlation_when_inverse`): monoton gegenläufige Daten nutzen, sodass Level-Korr ≈ −1, Return-Korr ≈ 0 — damit eine Regression auf Level-Korrelation den Test bricht. *(Minor, Testqualität.)*
 
 ### Frontend / API-Brücke (Cockpit-Flow) — v1 (2026-06-22)
@@ -505,7 +506,7 @@ v1 der Web-API-Schicht für den Cockpit-Flow:
 - [ ] **WS-Verbindungsreihenfolge — frühe Events können verloren gehen (Review PR #24, #3):** `POST /run` startet sofort; gestreamt wird nur an *bereits* verbundene WS-Clients (kein Replay/Buffer). Verbindet der Client erst nach dem POST, verpasst er frühe `*Ready`-Events (im Extremfall das terminale). Recoverbar über `GET /api/cockpit`.
   *Ansatz:* den Client-Vertrag „erst WS öffnen, dann POST" in Spec + Routen-Docstring festhalten; bei Bedarf einen kleinen Pro-Lauf-Replay-Puffer (letzte N Events je `run_id`) nachrüsten.
 
-- [ ] **Zeitstempel im WS-Vertrag ohne Zeitzone (Review PR #24, #4):** `event_to_dict` liefert `timestamp` aus dem naiven `datetime.utcnow()` → ISO-String ohne `Z` (z. B. `2026-06-22T10:15:03`). Ein Frontend interpretiert das oft als *lokale* Zeit. Teil der projektweiten `utcnow`→`now(timezone.utc)`-Aufgabe (oben), aber hier vertragsrelevant: sobald der Stempel tz-aware ist, trägt das JSON automatisch `…+00:00`/`Z`.
+- [x] **Zeitstempel im WS-Vertrag ohne Zeitzone (Review PR #24, #4):** **Erledigt 2026-06-25** — der Default-Zeitstempel von `AgentEvent` ist jetzt `datetime.now(timezone.utc)` (tz-aware), daher trägt `event_to_dict(...)["timestamp"]` automatisch `+00:00`. Test `test_default_timestamp_isoformat_traegt_offset` nagelt das fest. *(Teil des `utcnow`→`now(timezone.utc)`-Cleanups, eigener PR — siehe §5 oben.)*
 
 - [ ] **`_broadcast_tasks` pro Lauf scopen (Review PR #24, #5):** das Task-Set im `RunManager` ist instanzweit; bei überlappenden Läufen (kein Lock) wartet Lauf A im `gather` auch auf B's Broadcast-Tasks. Kein Bug (Reihenfolge *innerhalb* eines Laufs bleibt korrekt), aber beim Nachrüsten des `409`-Locks bzw. Pro-Lauf-Trackings sollte das Set **pro `run_id`** geführt werden.
 
@@ -654,6 +655,14 @@ Alle Cockpit-Drilldowns (US3–US9) über Demo-Naht (Tausch-Naht `useView`/`load
   - [ ] **Folge: Rohstoffe / Sentiment / Zinskurve / Sektoren echt** — je eigener PR nach gleichem Muster. Teils **Backend-Anreicherung** nötig: Zinskurve hat nur 2J/10J-Spread (Tenöre 3M/30J + Yield-*Levels* für `CurvePoint[]` fehlen); Rohstoffe haben nur ein **Gruppen**-Signal (Energie/Metalle), der Vertrag will pro-Rohstoff-Signal. Diese Lücken sauberer als UNAVAILABLE/„n.v." zeigen, nicht erfinden.
   - [ ] **Folge: Kursquelle FMP-als-Fallback** (eigener PR) — `yfinance` (inoffizielle Bibliothek) wird auf Render (Rechenzentrums-IP) von Yahoo gedrosselt → leere Cockpit-Ampeln möglich. Robuster: Kurse über die schon integrierte **FMP-API** als Fallback (yfinance None/Fehler → FMP). **Vorher** FMP-Tageslimit vs. Ticker-Zahl pro Lauf prüfen (sonst „yfinance gedrosselt" gegen „FMP-Limit" getauscht) — ggf. Caching.
   - [ ] **Big-Mac:** bewusst weiter **Demo** (mit Nutzer entschieden 2026-06-25) — im Backend existiert kein Big-Mac-Agent (nur Plan `docs/superpowers/plans/2026-06-08-big-mac-index.md`). Später eigener PR.
+
+### Frontend-Detailausbau (intuitiver + Kennzahlen sichtbar) — Initiative ab 2026-06-25
+
+> Nutzer-Auftrag: Frontend **viel detaillierter + intuitiver**, ein neuer Nutzer muss sofort verstehen, wie das Tool funktioniert; die **Kennzahlen/Metriken** der Agenten sichtbar machen (fehlende Daten bleiben Demo); Inspiration Trading-Plattformen (Swissquote). Zerlegt in **drei Teil-Projekte** (mit Nutzer am 2026-06-25 bestätigt: eigene Welcome-Seite, ausgewogenes Karten-Design, Deep-Dive zuerst). Spec: `docs/superpowers/specs/2026-06-25-frontend-onboarding-fundament-design.md`.
+
+- [x] **Teil-Projekt A — Onboarding + Erklär-/Metrik-Fundament** (Branch `feat/frontend-onboarding`, Plan `docs/superpowers/plans/2026-06-25-frontend-onboarding-fundament.md`). Lösung: neue **Willkommen-Seite** (`/willkommen`) erklärt AAIA + jeden der 5 Bereiche („wo finde ich was?") + den Analyse-Ablauf (Top-Down→Bottom-Up→Urteil) + den Demo-Daten-Hinweis; **Erst-Besuch-Routing** (onboarding-bewusster Index-Redirect via `useOnboarding`-Flag in `localStorage`), dauerhaft über **„?" in der Topbar** + **Sidebar-Eintrag**. Dazu der wiederverwendbare **Baukasten** für B/C: `InfoTip` (barrierearmer Fachbegriff-Tooltip), `lib/glossary` (pure Begriff→Erklärung), `SectionCard`, `MetricRow`/`MetricCard` (n.v.-fest, UNAVAILABLE ≠ 0), `welcomeContent` (eine Quelle). TDD durchgängig; volle Frontend-Suite **469 grün** (88 Dateien), `npm run build` grün. **PR #61 am 2026-06-25 gemergt** (Review Claude: Frontend-Suite **lokal nachgefahren** — 469 grün/88 Dateien + `npm run build` grün, da CI nur Backend deckt; Routing/Onboarding + UNAVAILABLE≠0 verifiziert, keine Befunde).
+  - [ ] **Teil-Projekt B — Kennzahlen sichtbar machen** (eigene Spec/Plan, **Deep-Dive zuerst**): alle Fundamental-/Bewertungs-/Qualitäts-Metriken pro Titel (KGV/Forward-PE/Shiller-CAPE/PEG/EV-EBITDA/EV-Rev/P-B/P-S/P-FCF/Div-Rendite/WACC/Umsatz-CAGR/Margen/D-E/Altman-Z …) über `MetricRow`/`MetricCard` + `InfoTip`-Erklärungen; danach Cockpit-Drilldowns (Inflation Core/PPI/Realzins, Geldmenge, Zinsen, GDP, Arbeitsmarkt, Kredit, Sektoren). Demo, wo Backend/Serializer noch nicht liefert (Tausch-Naht). Optional eigene **Glossar-Seite** (nutzt `lib/glossary`).
+  - [ ] **Teil-Projekt C — UX-Politur (Trading-Plattform-Feel)** (eigene Spec/Plan, querschnitt): Sparklines, dichtere Tabellen-Interaktionen, ggf. globale Suche/Watchlist-Gefühl — aufbauend auf dem Baukasten aus A.
 
 ---
 

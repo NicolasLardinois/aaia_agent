@@ -61,8 +61,9 @@ class InterestRateAgent:
         self.bus   = bus
 
     async def run(self) -> InterestRateSnapshot:
-        state, ecb_rate, ecb_bs, snb_rate, snb_bs = await asyncio.gather(
+        state, ext, ecb_rate, ecb_bs, snb_rate, snb_bs = await asyncio.gather(
             asyncio.to_thread(self.macro.get_economic_state),
+            asyncio.to_thread(self.macro.get_extended_state),
             asyncio.to_thread(self.ecb.get_interest_rate),
             asyncio.to_thread(self.ecb.get_balance_sheet_growth),
             asyncio.to_thread(self.snb.get_interest_rate),
@@ -72,6 +73,7 @@ class InterestRateAgent:
         def _safe(v): return None if isinstance(v, Exception) else v
 
         state    = _safe(state)    or {}
+        ext      = _safe(ext)      or {}
         ecb_rate = _safe(ecb_rate)
         ecb_bs   = _safe(ecb_bs)
         snb_rate = _safe(snb_rate)
@@ -123,7 +125,7 @@ class InterestRateAgent:
 
         usa = InterestRateDataPoint(
             policy_rate=fed_rate, rate_direction=usa_dir,
-            balance_sheet_growth=None,   # TODO: FRED WALCL
+            balance_sheet_growth=ext.get("balance_sheet_growth"),   # FRED WALCL (YoY %)
             real_rate=usa_real, signal=_signal(fed_rate, usa_dir, usa_real),
         )
         eu = InterestRateDataPoint(

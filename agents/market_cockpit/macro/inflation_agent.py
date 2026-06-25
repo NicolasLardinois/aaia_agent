@@ -88,13 +88,14 @@ class InflationAgent:
 
         usa_cpi = state.get("inflation")
         usa_ppi = ext.get("ppi")
+        usa_core = ext.get("core_cpi")
         usa = InflationDataPoint(
             cpi=usa_cpi,
-            core_cpi=None,           # TODO: FRED CPILFESL via extended_state
-            pce=None,                # TODO: FRED PCEPI via extended_state
+            core_cpi=usa_core,       # FRED CPILFESL via extended_state
+            pce=ext.get("pce"),      # FRED PCEPI via extended_state (Fed-Ziel = PCE)
             ppi=usa_ppi,
             real_rate_10y=ext.get("real_rate_10y"),
-            signal=_signal(usa_cpi, ppi=usa_ppi, region="usa", real_rate_10y=ext.get("real_rate_10y")),
+            signal=_signal(usa_cpi, core_cpi=usa_core, ppi=usa_ppi, region="usa", real_rate_10y=ext.get("real_rate_10y")),
         )
         # EU Real Rate 10Y = ECB-AAA-10J-Nominalrendite − EU-HICP (Fisher-Näherung)
         eu_real_10y = round(ecb_10y - ecb_cpi, 3) if (ecb_10y is not None and ecb_cpi is not None) else None
