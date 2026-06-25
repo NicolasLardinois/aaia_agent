@@ -3,13 +3,13 @@ import { signalToVisual, isUnavailable, sourcesLabel } from "./display";
 import type { Domain } from "./contract";
 
 describe("signalToVisual", () => {
-  it("mappt Signale auf Wort + Farbe", () => {
-    expect(signalToVisual("bullish")).toEqual({ label: "BULLISH", colorClass: "text-green-600" });
-    expect(signalToVisual("bearish")).toEqual({ label: "BEARISH", colorClass: "text-red-600" });
-    expect(signalToVisual("neutral")).toEqual({ label: "NEUTRAL", colorClass: "text-slate-500" });
+  it("mappt Signale auf Wort + Design-Token-Farbe", () => {
+    expect(signalToVisual("bullish")).toEqual({ label: "BULLISH", colorClass: "text-bull" });
+    expect(signalToVisual("bearish")).toEqual({ label: "BEARISH", colorClass: "text-bear" });
+    expect(signalToVisual("neutral")).toEqual({ label: "NEUTRAL", colorClass: "text-neutral" });
   });
-  it("zeigt null als 'nicht verfuegbar' (kein neutrales Signal)", () => {
-    expect(signalToVisual(null)).toEqual({ label: "nicht verfügbar", colorClass: "text-slate-400" });
+  it("zeigt null als 'nicht verfuegbar' (kein neutrales Signal -> text-muted, nicht neutral-Token)", () => {
+    expect(signalToVisual(null)).toEqual({ label: "nicht verfügbar", colorClass: "text-muted" });
   });
 });
 

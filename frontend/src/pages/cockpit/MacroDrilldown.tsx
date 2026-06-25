@@ -21,9 +21,9 @@ function bandDescription(band: string): string {
 function InflationRow({ row }: { row: InflationRow }) {
   const band = inflationBand(row.cpiPct, row.region);
   return (
-    <tr className="border-t border-slate-100">
+    <tr className="border-t border-line">
       <td className="py-2 pr-4 font-medium">{row.region}</td>
-      <td className="py-2 pr-4">
+      <td className="py-2 pr-4 font-mono tnum">
         {row.cpiPct !== null ? `${row.cpiPct} %` : "—"}
       </td>
       <td className="py-2 pr-4">
@@ -31,13 +31,13 @@ function InflationRow({ row }: { row: InflationRow }) {
           ? <SignalBadge signal={row.signal} />
           : <UnavailableField reason="CPI-Daten nicht verfügbar" />}
       </td>
-      <td className="py-2 pr-4 text-xs text-slate-600">
+      <td className="py-2 pr-4 text-xs text-muted">
         {band.activeThreshold}
         {band.band !== "unavailable" && (
-          <span className="ml-1 text-slate-400">— {bandDescription(band.band)}</span>
+          <span className="ml-1 text-muted">— {bandDescription(band.band)}</span>
         )}
       </td>
-      <td className="py-2 text-xs text-slate-400">{row.dataDate}</td>
+      <td className="py-2 text-xs text-muted">{row.dataDate}</td>
     </tr>
   );
 }
@@ -52,7 +52,7 @@ export function MacroDrilldown({ loader = loadMacro }: { loader?: () => Promise<
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
+              <tr className="text-left text-xs uppercase tracking-wide text-muted">
                 <th className="pb-2 pr-4">Region</th>
                 <th className="pb-2 pr-4">CPI YoY</th>
                 <th className="pb-2 pr-4">Signal</th>
@@ -66,7 +66,7 @@ export function MacroDrilldown({ loader = loadMacro }: { loader?: () => Promise<
               ))}
             </tbody>
           </table>
-          <p className="mt-3 text-xs text-slate-400">
+          <p className="mt-3 text-xs text-muted">
             Regionen: USA und DE nutzen EU-Schwellen (Zielzone 1–3 %); CH hat strukturell
             niedrigere Inflation (Zielzone 0,5–2 %). Keine „EU"-Aggregation (länderspezifisch).
           </p>

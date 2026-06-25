@@ -8,11 +8,11 @@ export function RunControl({ phase, onStart }: { phase: Phase; onStart: () => vo
         type="button"
         onClick={onStart}
         disabled={running}
-        className="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+        className="rounded bg-brand px-3 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-strong disabled:opacity-50"
       >
         Analyse starten
       </button>
-      {running && <span className="text-sm text-slate-500">läuft …</span>}
+      {running && <span className="text-sm text-muted">läuft …</span>}
     </div>
   );
 }

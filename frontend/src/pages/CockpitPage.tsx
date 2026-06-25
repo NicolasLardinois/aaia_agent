@@ -18,10 +18,10 @@ export function CockpitPage({ deps }: { deps?: UseCockpitDeps }) {
         </div>
       </div>
 
-      {phase === "loading" && <p className="text-slate-500">Lädt …</p>}
-      {phase === "error" && <p className="text-red-600">{error ?? "Backend nicht erreichbar"}</p>}
+      {phase === "loading" && <p className="text-muted">Lädt …</p>}
+      {phase === "error" && <p className="text-bear">{error ?? "Backend nicht erreichbar"}</p>}
       {phase !== "loading" && phase !== "error" && phase !== "running" && !overview && (
-        <p className="text-slate-500">Noch keine Analyse — starte eine über „Analyse starten".</p>
+        <p className="text-muted">Noch keine Analyse — starte eine über „Analyse starten".</p>
       )}
 
       {overview && (
@@ -42,15 +42,15 @@ export function CockpitPage({ deps }: { deps?: UseCockpitDeps }) {
           <div className="flex gap-3">
             <Link
               to="/cockpit/buffett"
-              className="flex-1 rounded-lg border border-slate-200 p-3 text-center text-sm font-medium
-                         text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
+              className="flex-1 rounded-lg border border-line p-3 text-center text-sm font-medium
+                         text-ink transition-colors hover:border-brand/40 hover:bg-surface-2"
             >
               Buffett-Indikator →
             </Link>
             <Link
               to="/cockpit/big-mac"
-              className="flex-1 rounded-lg border border-slate-200 p-3 text-center text-sm font-medium
-                         text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
+              className="flex-1 rounded-lg border border-line p-3 text-center text-sm font-medium
+                         text-ink transition-colors hover:border-brand/40 hover:bg-surface-2"
             >
               Big-Mac-Index →
             </Link>

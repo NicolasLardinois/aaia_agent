@@ -13,14 +13,14 @@ const ROTATION_LABEL: Record<SectorRow["rotation"], string> = {
 };
 
 const ROTATION_COLOR: Record<SectorRow["rotation"], string> = {
-  favored: "text-green-600",
-  neutral: "text-slate-500",
-  avoid:   "text-red-600",
+  favored: "text-bull",
+  neutral: "text-neutral",
+  avoid:   "text-bear",
 };
 
 function SectorRowItem({ row }: { row: SectorRow }) {
   return (
-    <li className="flex items-center justify-between rounded-lg border border-slate-200 p-3">
+    <li className="flex items-center justify-between rounded-lg border border-line p-3">
       <span className="font-medium">{row.sector}</span>
       <span className={`text-sm font-medium ${ROTATION_COLOR[row.rotation]}`}>
         {ROTATION_LABEL[row.rotation]}
@@ -42,7 +42,7 @@ export function SectorsDrilldown({ loader = loadSectors }: { loader?: () => Prom
       {data && (
         <div className="space-y-4">
           {/* Regime-Kontext: Sektor-Empfehlung hängt direkt vom Markt-Regime ab (US8). */}
-          <div className="rounded-lg bg-slate-50 p-3 text-sm">
+          <div className="rounded-lg bg-surface-2 p-3 text-sm">
             Aktuelles Regime: <span className="font-semibold">{data.regime}</span>
           </div>
           <ul className="space-y-2">
