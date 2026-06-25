@@ -119,3 +119,25 @@ def test_ytd_computed_when_history_spans_year_begin():
     result = asyncio.run(_agent_with_history(idx).run("^IDX"))
     assert result.status == SignalStatus.AVAILABLE
     assert result.perf_ytd is not None, "YTD muss bei vorhandenem Jahresanfangs-Kurs gesetzt sein"
+
+
+def test_ytd_basis_ist_vorjahresschluss_nicht_erster_handelstag():
+    """Konvention festgeschrieben (exakt gepinnt): YTD-Basis = Schlusskurs des LETZTEN
+    Handelstags des Vorjahres (31.12.), NICHT der erste Handelstag des laufenden Jahres.
+    Standard-YTD (Bloomberg/Reuters/Index-Anbieter) und konsistent mit _ago (idx-1)."""
+    year = datetime.now(timezone.utc).year
+    # Explizite Kurse um den Jahreswechsel — Vorjahres-Schluss (31.12.) = 200,
+    # erster Handelstag (2.1.) = 210, jetzt = 220. Die beiden Konventionen liefern
+    # bewusst verschiedene Ergebnisse, damit der Test die Konvention eindeutig pinnt.
+    dates = pd.to_datetime([
+        f"{year - 1}-12-30", f"{year - 1}-12-31",            # Vorjahr
+        f"{year}-01-02", f"{year}-01-03", f"{year}-01-06",   # laufendes Jahr
+    ])
+    closes = [190.0, 200.0, 210.0, 215.0, 220.0]
+    provider = MagicMock()
+    provider.get_price_history.return_value = pd.DataFrame({"Close": pd.Series(closes, index=dates)})
+    provider.get_info.return_value = {}
+    result = asyncio.run(IndexPriceAgent(provider, MagicMock()).run("^IDX"))
+    # now=220 vs. Vorjahres-Schluss 200 → (220−200)/200·100 = 10.0
+    # (alte Konvention erster Handelstag 210 → 4.76 — wäre falsch)
+    assert result.perf_ytd == 10.0
