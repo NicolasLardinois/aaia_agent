@@ -9,10 +9,13 @@ _DEFAULT = FearGreedSnapshot(value=None, label="Unknown", signal=Signal.NEUTRAL,
 
 
 def _label(value: float) -> str:
+    # CNN-Bänder: 0–25 Extreme Fear · 25–45 Fear · 45–55 Neutral · 55–75 Greed · 75–100 Extreme Greed.
+    # Obere Grenze bewusst `< 75` (nicht `<= 75`), damit exakt 75.0 als "Extreme Greed" labelt —
+    # konsistent zu _signal (BEARISH ab `>= 75`) und zur CNN-Definition (75–100 = Extreme Greed).
     if value <= 25:  return "Extreme Fear"
     if value <= 45:  return "Fear"
     if value <= 55:  return "Neutral"
-    if value <= 75:  return "Greed"
+    if value < 75:   return "Greed"
     return "Extreme Greed"
 
 
