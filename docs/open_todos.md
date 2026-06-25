@@ -202,10 +202,10 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
   `trend="rising"` soll Signal verschärfen, `trend="falling"` mildern.
   Benötigt: neue Provider-Methode `get_cpi_history(months=6)`.
 
-- [x] **USA Core CPI** — FRED `CPILFESL` via `extended_state` angebunden (PR offen, 2026-06-25).
+- [x] **USA Core CPI** — FRED `CPILFESL` via `extended_state` angebunden (PR #62 am 2026-06-25 gemergt).
   In `inflation_agent` zusätzlich ins USA-`_signal` eingespeist (transiente Inflation entschärft BEARISH → NEUTRAL, konsistent zur EU). Live verifiziert: 2.82 %.
 
-- [x] **USA PCE** — FRED `PCEPI` via `extended_state` angebunden (PR offen, 2026-06-25).
+- [x] **USA PCE** — FRED `PCEPI` via `extended_state` angebunden (PR #62 am 2026-06-25 gemergt).
   Befüllt `InflationDataPoint.pce` (Fed-Ziel = PCE). Live verifiziert: 4.07 %. (Reines Anzeige-/Transparenzfeld, noch kein Signal-Input.)
 
 - [ ] **Eurozone Real Rate 10Y** (`InflationDataPoint.real_rate_10y` für EU ist `None`)
@@ -215,7 +215,7 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
   Quelle: SNB / BFS Erzeugerpreisindex.
 
 ### agents/market_cockpit/macro/interest_rate_agent.py (Zeile 77)
-- [x] **FRED WALCL** — Fed Balance Sheet Growth angebunden (PR offen, 2026-06-25).
+- [x] **FRED WALCL** — Fed Balance Sheet Growth angebunden (PR #62 am 2026-06-25 gemergt).
   `interest_rate_agent` holt jetzt zusätzlich `extended_state`; USA `balance_sheet_growth = ext.get("balance_sheet_growth")` (WALCL wöchentlich → YoY über 52 Wochen, QT negativ). Live verifiziert: +0.83 %.
 
 ### agents/market_cockpit/macro/gdp_agent.py (Zeilen 58, 70)
@@ -403,7 +403,7 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 
 ### Aus Plan 0 (Review 2026-06-16 — bewusst zurückgestellte Minor-Robustheit, niedrige Prio)
 
-- [x] `core/utils/relative.py` `_winsorize` — Guard bei `fraction >= 0.5` **ergänzt** (2026-06-25, TDD). Ab 0.5 überlappen die gekappten Tails (`lo_idx >= hi_idx`) → alle Werte kollabierten still auf einen Punkt. **Lösung:** `if fraction >= 0.5: raise ValueError(...)` (fail-loud, weil `fraction` ein Code-Parameter/Programmierfehler ist, kein Datenwert) + Docstring-Constraint. Verifiziert: kein Aufrufer übergibt ≥ 0.5 (alle nutzen 0.0/0.05). 3 neue Tests (≥0.5 wirft, knapp-unter-0.5 kappt sauber, `percentile_rank` reicht den ValueError durch). Suite 1169 grün.
+- [x] `core/utils/relative.py` `_winsorize` — Guard bei `fraction >= 0.5` **ergänzt** (2026-06-25, TDD). Ab 0.5 überlappen die gekappten Tails (`lo_idx >= hi_idx`) → alle Werte kollabierten still auf einen Punkt. **Lösung:** `if fraction >= 0.5: raise ValueError(...)` (fail-loud, weil `fraction` ein Code-Parameter/Programmierfehler ist, kein Datenwert) + Docstring-Constraint. Verifiziert: kein Aufrufer übergibt ≥ 0.5 (alle nutzen 0.0/0.05). 3 neue Tests (≥0.5 wirft, knapp-unter-0.5 kappt sauber, `percentile_rank` reicht den ValueError durch). Suite 1169 grün. **PR #63 am 2026-06-25 gemergt** (Review Claude: Grenzfall verifiziert, CI grün).
 - [ ] `adapters/persistence/json_dated_history.py` (`JsonDatedHistory`, JSON-Adapter von `DatedHistoryPort`) — JSON-Leaf-Werte werden nicht typvalidiert: ein manuell korrumpiertes `{"series": {"2026-01-01": "text"}}` liefert `(date, str)` statt `(date, float)`; der Fehler explodiert erst beim Aufrufer.
   **Ansatz:** in `values()` `float(v)` casten (und unparsebare Einträge überspringen) oder beim `_load()` validieren; alternativ Docstring-Hinweis „Werte müssen float sein".
 - [ ] `core/utils/statistics.py` — Datei trägt zwei Verantwortlichkeiten (klassisch `z_score`/`compute_severity` vs. robust `robust_z_score`/`bonferroni_z_threshold`).
