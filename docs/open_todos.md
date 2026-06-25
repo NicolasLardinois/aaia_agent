@@ -493,8 +493,8 @@ v1 der Web-API-Schicht für den Cockpit-Flow:
 
 **Offene Folge-Aufgaben:**
 
-- [ ] **Kein Lock auf parallele Läufe (bewusste v1-Grenze):** ein zweiter `POST /api/cockpit/run` startet sofort einen weiteren Analysedurchlauf parallel.
-  *Ansatz:* bei Bedarf `409 Conflict` zurückgeben, solange ein Lauf aktiv ist — Lauf-Status und `run_id` im `RunManager` halten, sodass `POST` prüfen kann ob bereits ein Lauf läuft.
+- [x] **Lauf-Lock gegen parallele Läufe — erledigt** (Audit 2026-06-25; das Logbuch war veraltet).
+  `RunManager.start_run()` setzt `self._running = True` und gibt `None` zurück, solange ein Lauf aktiv ist; die Route `POST /api/cockpit/run` antwortet dann mit `409 Conflict` (`routes_cockpit.py:34-35`). Der Lock wird in `_execute(...)` immer im `finally` freigegeben (auch bei Fehler → kein Stuck-State). Abgesichert durch `tests/adapters/api/test_run_lock.py`.
 
 - [ ] **Keine Persistenz des letzten Ergebnisses:** `GET /api/cockpit` gibt nach Server-Neustart `204` zurück (Ergebnis-Cache liegt nur im Arbeitsspeicher).
   *Ansatz:* reiches API-Snapshot-JSON nach jedem Lauf auf Disk ablegen und beim Start laden (analog zu `JsonDatedHistory`); optional Supabase-Persistenz.
