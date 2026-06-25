@@ -13,8 +13,10 @@ Abgedeckte Fälle:
 """
 import pytest
 
-from app.main import _is_legacy_call, _resolve_taxonomy
-from core.domain.taxonomy import Underlying, Wrapper
+from app.main import _is_legacy_call, _resolve_taxonomy, _usage
+from core.domain.taxonomy import (
+    Underlying, Wrapper, underlying_choices, wrapper_choices,
+)
 
 
 def test_legacy_equity():
@@ -129,3 +131,53 @@ def test_is_legacy_call_new_only_and_none():
     """'equity_index' = neuer Stil; None = kein Argument → kein Legacy."""
     assert _is_legacy_call("equity_index", "fund") is False
     assert _is_legacy_call(None, None) is False
+
+
+# --- DRY: erlaubte Werte aus den Enums ableiten (Review PR #41, Single Source) ---
+# Bisher standen die erlaubten underlying-/wrapper-Werte als hartkodierter Text in den
+# ValueErrors UND im Usage-Block — driften still, wenn ein Enum-Wert ergänzt wird.
+# Die folgenden Tests verankern: jeder Enum-Wert MUSS in den abgeleiteten Listen, in
+# den Fehlertexten und im Usage-Text auftauchen (sonst bräche bei einem neuen Enum-Wert
+# genau ein Test → der hartkodierte Text fällt auf).
+
+def test_underlying_choices_pipe_separated_in_enum_order():
+    assert underlying_choices() == " | ".join(u.value for u in Underlying)
+
+
+def test_wrapper_choices_pipe_separated_in_enum_order():
+    assert wrapper_choices() == " | ".join(w.value for w in Wrapper)
+
+
+def test_choices_contain_every_enum_value():
+    for u in Underlying:
+        assert u.value in underlying_choices()
+    for w in Wrapper:
+        assert w.value in wrapper_choices()
+
+
+def test_unknown_underlying_error_lists_every_underlying_value():
+    """Der underlying-Fehlertext nennt jeden gültigen Wert (aus dem Enum abgeleitet)."""
+    with pytest.raises(ValueError) as exc:
+        _resolve_taxonomy("bogus", "single")
+    msg = str(exc.value)
+    for u in Underlying:
+        assert u.value in msg
+
+
+def test_unknown_wrapper_error_lists_every_wrapper_value():
+    """Der wrapper-Fehlertext nennt jeden gültigen Wert (aus dem Enum abgeleitet).
+
+    'equity_index' ist KEIN Überlappungs-Token → mit ungültigem Wrapper läuft es in
+    den Wrapper-Validierungszweig (nicht in den Legacy-Pfad)."""
+    with pytest.raises(ValueError) as exc:
+        _resolve_taxonomy("equity_index", "bogus")
+    msg = str(exc.value)
+    for w in Wrapper:
+        assert w.value in msg
+
+
+def test_usage_text_lists_every_underlying_and_wrapper_value():
+    """Der CLI-Usage-Text (gedruckt bei Fehlbedienung) listet alle Enum-Werte."""
+    text = _usage()
+    for e in list(Underlying) + list(Wrapper):
+        assert e.value in text

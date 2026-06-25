@@ -24,6 +24,21 @@ class Wrapper(str, Enum):
     PHYSICAL_ETC = "physical_etc"  # physisch hinterlegtes Rohstoff-ETC (reiner Spot)
 
 
+def underlying_choices() -> str:
+    """Pipe-getrennte Liste aller gültigen `underlying`-Werte — abgeleitet aus dem Enum.
+
+    Single Source: CLI-Hilfetext und Fehlermeldungen sollen NICHT mehr hartkodieren,
+    welche Werte erlaubt sind (das driftet still, sobald ein Enum-Wert ergänzt wird).
+    Reihenfolge = Deklarations-Reihenfolge des Enums."""
+    return " | ".join(u.value for u in Underlying)
+
+
+def wrapper_choices() -> str:
+    """Pipe-getrennte Liste aller gültigen `wrapper`-Werte — abgeleitet aus dem Enum.
+    Siehe `underlying_choices()` (gleiches Single-Source-Prinzip)."""
+    return " | ".join(w.value for w in Wrapper)
+
+
 # Alt-String → (underlying, wrapper). Mapping gemäß Spec §5. Behebt den `etf`-Durchfall:
 # "etf" wird zu equity_index/fund (Index-Engine), nicht mehr stillschweigend Equity.
 _LEGACY_MAP: dict[str, tuple[Underlying, Wrapper]] = {

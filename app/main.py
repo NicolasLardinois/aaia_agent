@@ -1,15 +1,9 @@
-"""
-Verwendung:
-  python -m app.main dashboard                                      → Modus 1: Market Dashboard
-  python -m app.main bottomup AAPL [underlying] [wrapper] [sector]  → Modus 2: Bottom-Up Analyse
-  python -m app.main judge AAPL [market]                            → Modus 3: Kombinations-Urteil
-  python -m app.main conflicts                                      → Modus 4: Offene Konflikte auflisten
-  python -m app.main resolve <id> <held|closed>                     → Modus 5: Konflikt-Entscheidung protokollieren (kein Trade)
+"""CLI-Einstiegspunkt von AAIA (Dashboard / Bottom-Up / Judge / Konflikte).
 
-underlying:  equity | equity_index | bond | commodity | precious_metal  (default: equity)
-wrapper:     single | fund | future | physical_etc                      (default: single)
-  Legacy-Werte werden automatisch gemappt (z. B. 'etf' → equity_index/fund, 'index' → equity_index/single).
-market:      USA | CH | ISO-2 (DE/FR/IT/ES/NL/AT/BE/PT/FI/IE/GR/...)  (default: USA)
+Der vollständige Hilfetext wird von `_usage()` erzeugt und bei Fehlbedienung gedruckt.
+Die erlaubten `underlying`-/`wrapper`-Werte werden dort aus den Enums abgeleitet
+(`underlying_choices()`/`wrapper_choices()`), damit sie nirgends doppelt hartkodiert
+sind und bei einer Enum-Änderung nicht driften.
 """
 
 import asyncio
@@ -19,7 +13,9 @@ import sys
 from config.settings import FRED_API_KEY, ANTHROPIC_API_KEY, FINNHUB_API_KEY
 from core.domain.models import PositionState, RiskAffinity
 from core.domain.portfolio import PortfolioError
-from core.domain.taxonomy import Underlying, Wrapper, legacy_to_taxonomy
+from core.domain.taxonomy import (
+    Underlying, Wrapper, legacy_to_taxonomy, underlying_choices, wrapper_choices,
+)
 from adapters.persistence.json_portfolio import JsonPortfolioProvider
 from adapters.persistence.json_dated_history import JsonDatedHistory
 from adapters.data.fred_api import FredDataProvider
@@ -51,6 +47,24 @@ _LEGACY_OVERLAP: frozenset[str] = frozenset({"equity", "bond", "commodity", "pre
 # Gültige Wrapper-Strings (für die Legacy↔neu-Unterscheidung).
 _WRAPPER_VALUES: frozenset[str] = frozenset(w.value for w in Wrapper)
 _UNDERLYING_VALUES: frozenset[str] = frozenset(u.value for u in Underlying)
+
+
+def _usage() -> str:
+    """Vollständiger CLI-Hilfetext (Single Source). Die erlaubten underlying-/wrapper-
+    Werte stammen aus den Enums — nicht hartkodiert, damit sie nicht driften."""
+    return (
+        "Verwendung:\n"
+        "  python -m app.main dashboard                                      → Modus 1: Market Dashboard\n"
+        "  python -m app.main bottomup AAPL [underlying] [wrapper] [sector]  → Modus 2: Bottom-Up Analyse\n"
+        "  python -m app.main judge AAPL [market]                            → Modus 3: Kombinations-Urteil\n"
+        "  python -m app.main conflicts                                      → Modus 4: Offene Konflikte auflisten\n"
+        "  python -m app.main resolve <id> <held|closed>                     → Modus 5: Konflikt-Entscheidung protokollieren (kein Trade)\n"
+        "\n"
+        f"underlying:  {underlying_choices()}  (default: equity)\n"
+        f"wrapper:     {wrapper_choices()}  (default: single)\n"
+        "  Legacy-Werte werden automatisch gemappt (z. B. 'etf' → equity_index/fund, 'index' → equity_index/single).\n"
+        "market:      USA | CH | ISO-2 (DE/FR/IT/ES/NL/AT/BE/PT/FI/IE/GR/...)  (default: USA)"
+    )
 
 
 def _is_legacy_call(raw_underlying: str | None, raw_wrapper: str | None) -> bool:
@@ -101,13 +115,13 @@ def _resolve_taxonomy(
     if raw_underlying not in _UNDERLYING_VALUES:
         raise ValueError(
             f"unbekannter underlying-Wert {raw_underlying!r}. "
-            "Erlaubt: equity | equity_index | bond | commodity | precious_metal"
+            f"Erlaubt: {underlying_choices()}"
         )
     raw_wrapper = raw_wrapper or "single"
     if raw_wrapper not in _WRAPPER_VALUES:
         raise ValueError(
             f"unbekannter wrapper-Wert {raw_wrapper!r}. "
-            "Erlaubt: single | fund | future | physical_etc"
+            f"Erlaubt: {wrapper_choices()}"
         )
     return (Underlying(raw_underlying), Wrapper(raw_wrapper))
 
@@ -358,7 +372,7 @@ def main() -> None:
     elif args[0] == "resolve" and len(args) >= 3:
         run_resolve(SupabaseConflictStore(), args[1], args[2])
     else:
-        print(__doc__)
+        print(_usage())
         sys.exit(1)
 
 
