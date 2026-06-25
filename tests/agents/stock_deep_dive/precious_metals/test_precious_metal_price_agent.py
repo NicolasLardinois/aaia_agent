@@ -84,12 +84,13 @@ def test_empty_close_returns_unavailable_no_crash():
     assert result.status == SignalStatus.UNAVAILABLE
 
 
-def test_negative_real_yield_correlation_when_inverse():
-    """Return-basierte Korrelation: auf-Tagen beim Preis fällt der Zins und umgekehrt → negativ."""
+def test_inverse_returns_give_negative_correlation():
+    """Fachliche Erwartung: an Tagen, an denen der Preis steigt, fällt der Zins (und umgekehrt)
+    → die return-basierte Korrelation ist deutlich negativ (stützt das Edelmetall-Argument)."""
     import numpy as np
     rng = np.random.default_rng(42)
     n = 300
-    # Gemeinsamer Faktor: an +Tagen steigt Preis, fällt Zins
+    # Gemeinsamer Faktor: an +Tagen steigt Preis, fällt Zins → Tages-Returns echt invers
     factor = rng.standard_normal(n)
     prices = 1500.0 + (factor.cumsum() * 10)
     rates = 2.0 + (-factor).cumsum() * 0.05  # gegenläufig
@@ -102,23 +103,47 @@ def test_negative_real_yield_correlation_when_inverse():
     assert result.real_yield_correlation < -0.5
 
 
-def test_correlation_is_return_based_not_level_based():
-    """Stellt sicher, dass Korrelation auf pct_change/diff berechnet wird, nicht auf Preis-Level.
-    Beide Serien steigen monoton → Level-Korrelation wäre nahe +1 (spurious trend).
-    Return-basierte Korrelation: Preis-Returns ≈ konstant positiv, Zins-Diffs ≈ konstant positiv
-    → Korrelation nahe +1 oder instabil — hier testen wir nur, dass ein Wert geliefert wird.
-    Das inverse Szenario wird in test_negative_real_yield_correlation_when_inverse geprüft."""
+def test_monotone_inverse_levels_but_uncorrelated_returns_is_near_zero():
+    """I3-Trennschärfe: gegenläufige LEVEL-Trends (Preis steigt monoton, Zins fällt monoton)
+    → Level-Korrelation ≈ −1, ABER unabhängiges Tagesrauschen → Return-Korrelation ≈ 0.
+
+    Da die Implementierung return-basiert rechnet (pct_change/diff), muss das Ergebnis nahe 0
+    liegen. Würde jemand versehentlich auf die Level-Korrelation zurückfallen, käme ≈ −1 heraus
+    und dieser Test bräche — genau das macht ihn trennscharf (vorher liefen Level- und
+    Return-Korrelation beide auf −1, sodass eine Level-Regression unbemerkt durchging)."""
+    import numpy as np
+    rng = np.random.default_rng(7)
+    n = 300
+    i = np.arange(n)
+    # Trends dominieren die Level-Varianz (→ Level-Korr ≈ −1); das Tagesrauschen ist
+    # zwischen Preis und Zins unabhängig (→ Return-Korr ≈ 0).
+    prices = 1500.0 + i * 1.0 + rng.normal(0, 3.0, n)    # stark steigend
+    rates = 2.0 - i * 0.01 + rng.normal(0, 0.05, n)      # stark fallend, eigenes Rauschen
+    dates = pd.date_range("2019-06-01", periods=n, freq="B")
+    rr = [{"date": d.strftime("%Y-%m-%d"), "real_rate_10y": float(rates[k])}
+          for k, d in enumerate(dates)]
+    agent = _make_agent(list(prices), real_rate_hist=rr)
+    result = asyncio.run(agent.run("gold"))
+    assert result.real_yield_correlation is not None
+    # Return-basiert ≈ 0; eine Level-Regression (≈ −1) würde diese Schranke verletzen.
+    assert abs(result.real_yield_correlation) < 0.3
+
+
+def test_common_uptrend_levels_but_uncorrelated_returns_is_near_zero():
+    """Gegenstück von oben mit GLEICH gerichtetem Trend: beide Serien steigen monoton
+    → Level-Korr ≈ +1, Tagesrauschen unabhängig → Return-Korr ≈ 0. Return-basiert ⇒ Ergebnis
+    nahe 0; eine Level-Regression käme bei ≈ +1 heraus und bräche den Test (Trennschärfe von
+    der +1-Seite)."""
     import numpy as np
     rng = np.random.default_rng(0)
     n = 300
-    # Preis steigt, Zins steigt ebenfalls (gemeinsamer Trend)
-    prices = [float(1500 + i + rng.uniform(-0.5, 0.5)) for i in range(n)]
+    i = np.arange(n)
+    prices = 1500.0 + i * 1.0 + rng.normal(0, 3.0, n)    # steigt
+    rates = 1.0 + i * 0.01 + rng.normal(0, 0.05, n)      # steigt ebenfalls
     dates = pd.date_range("2019-06-01", periods=n, freq="B")
-    rates = [float(1.0 + i * 0.003 + rng.uniform(-0.01, 0.01)) for i in range(n)]
-    rr = [{"date": d.strftime("%Y-%m-%d"), "real_rate_10y": rates[i]}
-          for i, d in enumerate(dates)]
-    agent = _make_agent(prices, real_rate_hist=rr)
+    rr = [{"date": d.strftime("%Y-%m-%d"), "real_rate_10y": float(rates[k])}
+          for k, d in enumerate(dates)]
+    agent = _make_agent(list(prices), real_rate_hist=rr)
     result = asyncio.run(agent.run("gold"))
-    # Return-basiert: Ergebnis muss vorhanden und im gültigen Korrelationsbereich liegen
     assert result.real_yield_correlation is not None
-    assert -1.0 <= result.real_yield_correlation <= 1.0
+    assert abs(result.real_yield_correlation) < 0.3
