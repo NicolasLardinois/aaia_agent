@@ -27,6 +27,8 @@ from adapters.data.ecb_sdw import EcbSdwProvider
 from adapters.data.eurostat import EurostatEcbProvider
 from adapters.data.fred_snb import FredSnbProvider
 from adapters.data.cnn_fear_greed import CnnFearGreedProvider
+from adapters.data.cftc_cot import CftcCotProvider
+from adapters.data.multpl_shiller import MultplShillerProvider
 from adapters.event_bus.redis_bus import InMemoryEventBus
 from adapters.llm.claude_adapter import ClaudeAdapter
 from adapters.memory.supabase_memory import SupabaseMemory
@@ -185,6 +187,8 @@ async def run_bottom_up(
         market_provider=YahooFinanceProvider(),
         llm=llm,
         bus=bus,
+        cot_provider=CftcCotProvider(),   # CFTC Commitments of Traders (Managed Money)
+        cape_provider=MultplShillerProvider(),   # Shiller-CAPE (S&P 500) via multpl.com
     )
     result = await orch.run(
         ticker.upper(), underlying=underlying, wrapper=wrapper, sector=sector,

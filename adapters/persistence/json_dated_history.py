@@ -1,9 +1,12 @@
 import json
+import logging
 import os
 from datetime import date
 from typing import Optional
 
 from core.ports.dated_history import DatedHistoryPort
+
+logger = logging.getLogger(__name__)
 
 
 class JsonDatedHistory(DatedHistoryPort):
@@ -41,11 +44,22 @@ class JsonDatedHistory(DatedHistoryPort):
         self._save()
 
     def values(self, series: str) -> list[tuple[date, float]]:
+        # Defensiv gegen korrumpierte Persistenz: ein unparsebares Datum oder ein
+        # nicht-numerischer Wert wird uebersprungen (+ Warn-Log), statt die ganze
+        # Serie mit einer Exception beim Aufrufer zu sprengen. Werte werden
+        # einheitlich zu float gecastet (JSON kennt int und float).
         entries = self._data.get(series, {})
-        return [
-            (date.fromisoformat(d), v)
-            for d, v in sorted(entries.items())
-        ]
+        out: list[tuple[date, float]] = []
+        for d, v in sorted(entries.items()):
+            try:
+                parsed_date = date.fromisoformat(d)
+                parsed_value = float(v)
+            except (ValueError, TypeError):
+                logger.warning("JsonDatedHistory: ueberspringe korrupten Eintrag %r=%r in Serie %r (%s)",
+                               d, v, series, self.path)
+                continue
+            out.append((parsed_date, parsed_value))
+        return out
 
     def value_on_or_before(self, series: str, target: date) -> Optional[float]:
         result: Optional[float] = None

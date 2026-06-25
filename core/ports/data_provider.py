@@ -192,6 +192,13 @@ class COTProvider(ABC):
         ...
 
 
+class ShillerCapeProvider(ABC):
+    @abstractmethod
+    def get_shiller_cape(self, ticker: str) -> Optional[float]:
+        """Aktuelle Shiller-CAPE (zyklisch bereinigtes KGV) des Index; None = nicht verfügbar."""
+        ...
+
+
 class SentimentDataProvider(ABC):
     @abstractmethod
     def get_fear_greed(self) -> Optional[float]:
