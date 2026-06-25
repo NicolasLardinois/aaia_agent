@@ -666,6 +666,29 @@ Alle Cockpit-Drilldowns (US3–US9) über Demo-Naht (Tausch-Naht `useView`/`load
       - [x] **C2c — Portfolio + Inbox + Backtester + Reste** (Branch `worktree-frontend-design-c2c`). **PR #89 am 2026-06-26 gemergt** (Review Claude: reine Styling-Token-Swaps + 2 Farb-Maps (`rollYieldVisual`/`verdictToVisual`), NONE bleibt distinkt von neutral §3, Konflikt in dieser Logbuch-Sektion gegen master aufgelöst, 474 vitest + Build lokal grün, Backend-CI nach Push grün — keine Befunde). Lösung: (1) **zentrale Signal-Farb-Maps** `rollYieldVisual` (futures) + `verdictToVisual` (judgment) auf Tokens — TDD: erst Tests rot (Roll-Yield Gegenwind→`text-bear`, Rückenwind→`text-bull`, flach→`text-neutral`; Verdikt BUY/COVER→`bull`, SELL/SHORT→`bear`, HOLD→`neutral`, **NONE→`text-muted`** = keine Position, kein Signal §3), dann Libs grün; (2) `slate-*`/`sky-`/`blue-`-Reste → Tokens in portfolio/* (PositionsTable, ExposurePanel, HedgeSuggestions, KlumpenWarnings), inbox/* (ConflictCard + Page-Tabs: aktiv=`border-brand text-ink`, Default-Chip invertiert=`bg-ink text-bg`, „Gefolgt"=`bull`, „Vertagt"=neutral, Links=`text-brand`), backtest/* (Card+Filters, Select=`border-line bg-surface`), LongShortPanel, XaiPanel (Treiber +/-→`bull`/`bear`), LoginGate (Primär-Button=`bg-brand text-brand-ink`), PortfolioPage/InboxPage/BacktesterPage/PlaceholderPage; `dark:`-Overrides entfernt; **Amber/Gelb-Warnungen** (Konflikt-Zeile, Klumpen-Limit, „Ignoriert"-Aktion) + `assets.ts` Kategorie-Badges bleiben **bewusst** ohne Token (Warn-Spektrum / kategoriale Palette). **474 grün** (88 Dateien), `npm run build` grün, Token-Klassen (inkl. `bg-bull/10`, `ring-ink`, `divide-line`, `bg-ink`, `text-brand-ink`) im kompilierten CSS bestätigt; migrierte Dateien `slate-frei`.
       - optional danach: Sparklines, dichtere Tabellen, globale Suche/Watchlist-Gefühl.
 
+### Frontend-Mängelliste — Nutzer-Befund 2026-06-26 (13 Punkte)
+
+> Nutzer hat das deployte Frontend durchgesehen und 13 Mängel gemeldet (Bugs, Systematik, Features, Design). Abarbeitung autonom **PR für PR** (jeder PR = Review-Gate), Reihenfolge nach Schaden/Aufwand. Basis: `origin/master` (kanonischer/deployter Stand). Worktree `frontend-design-c2`.
+
+**P0 — Bugs (brechen das Produkt):**
+- [x] **PR-A — Lauf überlebt Navigation** (#5 + #7-„Analyse stoppt"; Branch `fix/cockpit-run-survives-navigation`). Ursache: Lauf-Zustand (WebSocket + `phase`/`events`/`overview`) hing **in** der CockpitPage-Route; beim Wegnavigieren (Portfolio, Buffett, Big-Mac, …) wurde die Seite ausgehängt → `useCockpit`-Unmount schloss den Socket → Lauf brach ab. **Lösung:** neuer `CockpitProvider` hebt den Zustand via React-Context **oberhalb der `<Routes>`** (in `routes.tsx`); `CockpitPage` liest ihn über `useCockpitContext()` statt selbst `useCockpit` zu halten. Navigation hängt die Seite aus, aber **nicht** den Provider → Lauf läuft weiter, Rückkehr zeigt ihn wieder. TDD: neuer Regressionstest (`CockpitProvider.test.tsx`, 2 Fälle: kein WS-Close bei Routenwechsel; Lauf nach Rückkehr noch sichtbar), `CockpitPage.test.tsx` auf Provider umgestellt. **Volle Frontend-Suite 478 grün** (89 Dateien). **PR offen.**
+- [ ] **PR-B — Buffett-Weltkarte farbcodieren** (#7 — USA weiß statt eingefärbt). Verdacht: Namens-Join in `toMapPoints`/`ChoroplethMap` matcht „United States" nicht gegen den GeoJSON-Namen (vermutl. „United States of America"). Lösungsansatz: Join robust machen (ISO3-Join statt Name, oder Namens-Alias-Tabelle), Regressionstest pro Land.
+
+**P1 — schnelle systematische Politur:**
+- [ ] **PR-C — Umlaut-Sweep** ae/oe/ue → ä/ö/ü systematisch (#1; nicht alle Wörter wurden migriert, z. B. „Quelle"). Ansatz: gezielte Suche nach `ae|oe|ue` in UI-Strings/Kommentaren, manuell ersetzen (kein Blind-Replace — `Quelle`≠`Quele`, false positives wie „neue"/„Aktie" ausschließen).
+- [ ] **PR-D — Profi-Icons statt Emojis** (#2): ein konsistentes Icon-Set (z. B. lucide-react) statt ▣◻⚠↕→ etc.
+- [ ] **PR-E — Lade-Erlebnis** (#3): Hexagon-Spinner (Bezug zur hexagonalen Architektur) + mittig rotierende Börsenweisheiten/Finanz-Fun-Facts während der Cockpit-Analyse.
+- [ ] **PR-F — Welcome erweitern** (#9): Total-Return- bzw. Long/Short-Strategie + deren Mehrwert erklären.
+
+**P2 — Features:**
+- [ ] **PR-G — Suche** (#10): Fuzzy-Matching (appl→AAPL) + größeres Titel-Universum (aktuell nur Demo-Tickers).
+- [ ] **PR-H — Einstellungen** (#8): echte Settings (mehr als hell/dunkel) statt Placeholder.
+- [ ] **PR-I — Portfolio-Monitor ausbauen** (#12): mehr Inhalt/Übersicht/Information.
+
+**P3 — Design-Tiefe + Charts (querschnitt, größer):**
+- [ ] **PR-J — Charts** (#6): wiederverwendbare Chart-Bausteine; Backtester-Charts groß/schön; Kurschart im Deep-Dive; Zinschart; generell mehr Charts.
+- [ ] **PR-K — Cockpit füllen** (#4) · **PR-L — Deep-Dive verschönern** (#13) · Gesamt-Design-Politur (#11) zieht sich durch J–L.
+
 ---
 
 ## 8. DESIGN-ENTSCHEIDUNGEN (Frontend — docs/frontend_notes.md)
