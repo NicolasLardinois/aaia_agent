@@ -279,21 +279,25 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 
 ## 5. FEATURE-BACKLOG (aus Plan-Dateien)
 
+> **Audit 2026-06-25 (gegen den Code auf `master`):** Diese Sammeleinträge („X Tasks — siehe Plan-Datei")
+> wurden nie granular abgehakt und erzeugten den größten „Schein-Offen"-Eindruck. Verifiziert: 3 von 4
+> sind (im Kern) erledigt, nur **Big Mac Index** ist echt offen.
+
 ### Agricultural Investment Signal
-- [ ] 4 Tasks — `docs/superpowers/plans/2026-06-15-agricultural-investment-signal.md`
-  Wenn agricultural BEARISH → Hinweis auf Rohstoff-ETFs (DBA, WEAT, CORN, SOYB).
+- [x] 4 Tasks — `docs/superpowers/plans/2026-06-15-agricultural-investment-signal.md` — **erledigt** (Audit 2026-06-25).
+  `agents/market_cockpit/commodity/agricultural_agent.py` existiert + ist im `commodity_chief_agent_makro` verdrahtet; die Rohstoff-ETF-Hinweise (DBA/WEAT/CORN/SOYB bei BEARISH) liegen in `core/domain/models.py`.
 
 ### Big Mac Index
-- [ ] 5 Tasks — `docs/superpowers/plans/2026-06-08-big-mac-index.md`
+- [ ] 5 Tasks — `docs/superpowers/plans/2026-06-08-big-mac-index.md` — **echt offen** (Audit 2026-06-25: kein `big_mac`-Code im Repo; auch als geplantes Frontend-Widget in §5/API erwähnt, aber nicht gebaut).
   Adjustierter Big Mac Index für ~50 Länder (Economist GitHub CSV).
 
 ### ChiefAgents-Refactoring
-- [ ] 12 Tasks — `docs/superpowers/plans/2026-06-04-chief-agents.md`
-  3-schichtige Architektur: Orchestratoren → ChiefAgents → SubAgents, parallel + fehlertolerant.
+- [x] 12 Tasks — `docs/superpowers/plans/2026-06-04-chief-agents.md` — **erledigt** (Audit 2026-06-25).
+  Die 3-Schichten-Architektur (Orchestratoren → ChiefAgents → SubAgents) ist das Fundament des Systems: 11 `*_chief_agent.py` existieren, starten ihre Sub-Agents parallel via `asyncio.gather(..., return_exceptions=True)` und sind fehlertolerant (Defaults).
 
 ### Confidence + Memory + Backtester + XAI + Portfolio
-- [ ] 11 Tasks — `docs/superpowers/plans/2026-06-04-confidence-memory-backtester-xai.md`
-  Anomalieerkennung, dynamische Konfidenz, Supabase-Memory, tägliche Backtester-Läufe.
+- [x] 11 Tasks — `docs/superpowers/plans/2026-06-04-confidence-memory-backtester-xai.md` — **Kern erledigt** (Audit 2026-06-25).
+  Anomalieerkennung (`agents/anomaly/`), dynamische Konfidenz (`core/domain/recommendation.py` `compute_confidence`), Supabase-Memory (`adapters/memory/supabase_memory.py`), Backtester-Suite (`agents/backtester/` + `backtester_chief_agent.py`) und XAI/Erklärung (`judgment_agent`/`judgment_orchestrator`) existieren alle. **Einziger echt offener Rest:** der Producer, der die `compute_confidence`-Kalibrierungs-Buckets befüllt — separat in §4 erfasst (Z. 262).
 
 ### Regime-Backtester: Selbstlernende Validierung (Ausbau-Idee aus code_review)
 
