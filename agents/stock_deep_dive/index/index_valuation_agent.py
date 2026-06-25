@@ -2,7 +2,7 @@ import asyncio
 
 from core.domain.events import IndexValuationReady
 from core.domain.models import IndexValuationSnapshot, Signal
-from core.ports.data_provider import MarketDataProvider
+from core.ports.data_provider import MarketDataProvider, ShillerCapeProvider
 from core.ports.event_bus import EventBus
 from core.utils.valuation_math import earnings_yield, equity_risk_premium, shiller_cape
 
@@ -59,9 +59,11 @@ def _erp_signal(pe: float | None, riskfree: float | None) -> Signal | None:
 
 
 class IndexValuationAgent:
-    def __init__(self, market: MarketDataProvider, bus: EventBus):
+    def __init__(self, market: MarketDataProvider, bus: EventBus,
+                 cape_provider: ShillerCapeProvider | None = None):
         self.market = market
         self.bus    = bus
+        self.cape_provider = cape_provider
 
     async def run(self, ticker: str) -> IndexValuationSnapshot:
         try:
@@ -77,7 +79,12 @@ class IndexValuationAgent:
             price     = info.get("regularMarketPrice") or info.get("currentPrice")
             eps_10y_real = info.get("eps10yReal") or []
 
-            cape = shiller_cape(price, eps_10y_real) if eps_10y_real else None
+            # CAPE bevorzugt aus echter Quelle (multpl, S&P 500); sonst aus 10J-Real-EPS rechnen.
+            cape = None
+            if self.cape_provider is not None:
+                cape = await asyncio.to_thread(self.cape_provider.get_shiller_cape, ticker)
+            if cape is None and eps_10y_real:
+                cape = shiller_cape(price, eps_10y_real)
 
             # Zinsabhängiges ERP-Signal bevorzugen; Fallback: symmetrische PE-Range.
             erp_sig = _erp_signal(pe, riskfree)
