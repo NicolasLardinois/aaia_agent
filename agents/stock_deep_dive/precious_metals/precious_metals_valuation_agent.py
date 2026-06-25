@@ -67,15 +67,18 @@ class PreciousMetalsValuationAgent:
         real_rate = macro_data.get("real_rate_10y")
         model = _REAL_RATE_MODEL.get(metal)
         if real_rate is not None and model is not None:
-            low, high = real_rate_anchor(
+            anchor = real_rate_anchor(
                 real_rate=real_rate,
                 intercept=model["intercept"],
                 slope=model["slope"],
                 band_pct=model["band_pct"],
             )
-            methods.append(ValuationMethod(
-                name="Realzins-Modell", low=round(low, 0), high=round(high, 0),
-            ))
+            # None = kein sinnvoller Anker (fair <= 0, z. B. extrem hoher Realzins) → Methode überspringen.
+            if anchor is not None:
+                low, high = anchor
+                methods.append(ValuationMethod(
+                    name="Realzins-Modell", low=round(low, 0), high=round(high, 0),
+                ))
 
         # Methode 2: AISC-Produktionskosten-Boden (aktuelle Daten)
         floor = _AISC_FLOOR.get(metal)

@@ -27,6 +27,22 @@ def test_concentration_signal_low_is_neutral():
     assert _concentration_signal(hhi=800.0) == Signal.NEUTRAL
 
 
+def test_unbekannte_sektoren_kein_top_sector_aber_konzentration():
+    """Quelle ohne Sektor-Info (z. B. slickcharts): kein irreführender 'Unknown'-Top-Sektor,
+    aber Top-Holding/Konzentration/Signal bleiben gültig."""
+    market = MagicMock()
+    market.get_index_holdings.return_value = [
+        {"name": "NVDA", "weight_pct": 7.0, "sector": None},
+        {"name": "AAPL", "weight_pct": 6.0, "sector": None},
+    ] + [{"name": f"T{i}", "weight_pct": 1.0, "sector": None} for i in range(20)]
+    agent = SectorCompositionAgent(market, MagicMock())
+    res = asyncio.run(agent.run("^GSPC"))
+    assert res.status == SignalStatus.AVAILABLE
+    assert res.top_sector is None and res.top_sector_weight is None
+    assert res.top_holding == "NVDA" and res.top_holding_weight == 7.0
+    assert res.top_10_concentration is not None
+
+
 def test_run_unavailable_without_holdings():
     provider = MagicMock()
     provider.get_index_holdings.return_value = []

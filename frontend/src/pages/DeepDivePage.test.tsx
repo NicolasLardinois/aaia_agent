@@ -36,7 +36,8 @@ describe("DeepDivePage", () => {
     renderAt("AAPL");
     await waitFor(() => screen.getByRole("tab", { name: /Qualität/ }));
     fireEvent.click(screen.getByRole("tab", { name: /Qualität/ }));
-    expect(screen.getByText(/Altman-Z/)).toBeInTheDocument();
+    // exakt: der InfoTip-Tooltip-Text beginnt mit "Altman-Z-Score…" -> Regex wäre mehrdeutig
+    expect(screen.getByText("Altman-Z")).toBeInTheDocument();
   });
   it("Cockpit-Wind sichtbar bei CL=F (Öl-Rückenwind)", async () => {
     renderAt("CL=F");

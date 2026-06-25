@@ -10,13 +10,13 @@ export function InfoTip({ term, text }: { term: string; text?: string }) {
       <button
         type="button"
         aria-label={`Erklärung: ${term}`}
-        className="grid h-4 w-4 place-items-center rounded-full border border-slate-300 text-[10px] leading-none text-slate-500 hover:bg-slate-100 focus:outline-none focus-visible:ring dark:border-slate-600"
+        className="grid h-4 w-4 place-items-center rounded-full border border-line text-[10px] leading-none text-muted hover:bg-ink/[0.06] hover:text-ink"
       >
         ?
       </button>
       <span
         role="tooltip"
-        className="invisible absolute left-1/2 top-5 z-10 w-56 -translate-x-1/2 rounded bg-slate-900 px-2 py-1 text-xs text-white shadow group-hover:visible group-focus-within:visible dark:bg-slate-700"
+        className="invisible absolute left-1/2 top-5 z-10 w-56 -translate-x-1/2 rounded-lg bg-ink px-2.5 py-1.5 text-xs leading-snug text-bg shadow-panel group-hover:visible group-focus-within:visible"
       >
         {explanation}
       </span>

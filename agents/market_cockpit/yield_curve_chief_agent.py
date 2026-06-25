@@ -5,6 +5,7 @@ from agents.market_cockpit.yield_curve.sovereign_spread_agent import SovereignSp
 from core.domain.events import YieldCurveChiefReady
 from core.domain.models import YieldCurveChiefResult, Signal, SignalStatus
 from core.ports.data_provider import EcbDataProvider, MacroDataProvider, SnbDataProvider
+from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
 from core.utils.aggregation import weighted_signal
 
@@ -23,9 +24,10 @@ class YieldCurveChiefAgent:
         ecb: EcbDataProvider,
         snb: SnbDataProvider,
         bus: EventBus,
+        history: DatedHistoryPort | None = None,
     ):
         self.bus = bus
-        self.yield_spread_agent     = YieldSpreadAgent(macro, ecb, snb, bus)
+        self.yield_spread_agent     = YieldSpreadAgent(macro, ecb, snb, bus, history=history)
         self.sovereign_spread_agent = SovereignSpreadAgent(ecb, bus)
 
     async def run(self) -> YieldCurveChiefResult:

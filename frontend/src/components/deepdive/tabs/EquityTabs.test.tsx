@@ -24,4 +24,35 @@ describe("EquityTabs", () => {
     expect(screen.getByText(/Moat/i)).toBeInTheDocument();
     expect(screen.getAllByText(/nicht verfügbar/i).length).toBeGreaterThanOrEqual(1);
   });
+
+  // --- Teil-Projekt B1: erweiterter Kennzahlen-Katalog ---
+  it("Bewertung: zeigt die erweiterten Kennzahlen + Erklär-Tooltips", () => {
+    render(<EquityTabs block={block} tab="valuation" />);
+    expect(screen.getByText("Forward-KGV")).toBeInTheDocument();
+    expect(screen.getByText("Shiller-CAPE")).toBeInTheDocument();
+    expect(screen.getByText("Dividendenrendite")).toBeInTheDocument();
+    expect(screen.getByText("KBV")).toBeInTheDocument();
+    // mindestens ein Fachbegriff-Tooltip ist eingebunden (A-Baukasten)
+    expect(screen.getAllByRole("button", { name: /Erklärung:/i }).length).toBeGreaterThan(0);
+  });
+
+  it("Bewertung: PEG ist im Demo null => 'n.v.' (UNAVAILABLE ≠ 0)", () => {
+    render(<EquityTabs block={block} tab="valuation" />);
+    expect(screen.getByText("PEG")).toBeInTheDocument();
+    expect(screen.getByText("n.v.")).toBeInTheDocument();
+  });
+
+  it("Qualität: zeigt zusätzlich WACC, Umsatzwachstum und Verschuldungsgrad", () => {
+    render(<EquityTabs block={block} tab="quality" />);
+    // über die eindeutige InfoTip-Beschriftung prüfen (Tooltip-Texte enthalten teils dieselben Wörter)
+    expect(screen.getByRole("button", { name: "Erklärung: WACC" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Erklärung: Umsatzwachstum" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Erklärung: Verschuldungsgrad" })).toBeInTheDocument();
+  });
+
+  it("ohne fundamentals-Block: kein Crash, KGV weiterhin sichtbar", () => {
+    const ohneF = { ...block, fundamentals: undefined };
+    render(<EquityTabs block={ohneF} tab="valuation" />);
+    expect(screen.getByText("KGV")).toBeInTheDocument();
+  });
 });

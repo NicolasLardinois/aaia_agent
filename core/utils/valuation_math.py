@@ -116,7 +116,7 @@ def real_rate_anchor(
     intercept: float,
     slope: float,
     band_pct: float = 0.10,
-) -> tuple[float, float]:
+) -> tuple[float, float] | None:
     """Preis-UNABHÄNGIGER fairer Edelmetall-Wert aus einer Realzins-Regression.
 
     fair = intercept + slope * real_rate   (slope < 0 für Gold/Silber: inverse Beziehung)
@@ -125,11 +125,16 @@ def real_rate_anchor(
     `intercept`/`slope` sind injizierte, empirisch kalibrierte Konstanten — bewusst
     NICHT aus dem aktuellen Preis abgeleitet (Entzirkularisierung). `band_pct` ist die
     metallspezifische prozentuale Sensitivität (Unsicherheitsband).
+
+    Gibt **None** zurück, wenn `fair <= 0` (z. B. bei extrem hohem Realzins, wo das
+    lineare Modell die Aussagekraft verliert) — statt eines stillen `(0, 0)`-Degenerats,
+    das den kombinierten Wert verzerren würde. Der Aufrufer überspringt die Methode dann
+    (analog zu den `>0`-Guards bei EPS/EBITDA/FCF).
     """
     fair = intercept + slope * real_rate
-    if fair < 0:
-        fair = 0.0
-    band = abs(fair) * band_pct
+    if fair <= 0:
+        return None
+    band = fair * band_pct
     return fair - band, fair + band
 
 

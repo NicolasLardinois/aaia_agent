@@ -5,8 +5,9 @@ export function DemoBadge({ isDemo }: { isDemo: boolean }) {
   return (
     <span
       title="Diese Ansicht zeigt Demo-Daten, weil der echte Backend-Endpunkt noch fehlt."
-      className="inline-block rounded bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700"
+      className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted"
     >
+      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-brand" />
       Demo-Daten
     </span>
   );

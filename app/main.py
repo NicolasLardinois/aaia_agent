@@ -13,6 +13,7 @@ market:      USA | CH | ISO-2 (DE/FR/IT/ES/NL/AT/BE/PT/FI/IE/GR/...)  (default: 
 """
 
 import asyncio
+import os
 import sys
 
 from config.settings import FRED_API_KEY, ANTHROPIC_API_KEY, FINNHUB_API_KEY
@@ -20,6 +21,7 @@ from core.domain.models import PositionState, RiskAffinity
 from core.domain.portfolio import PortfolioError
 from core.domain.taxonomy import Underlying, Wrapper, legacy_to_taxonomy
 from adapters.persistence.json_portfolio import JsonPortfolioProvider
+from adapters.persistence.json_dated_history import JsonDatedHistory
 from adapters.data.fred_api import FredDataProvider
 from adapters.data.yahoo_finance import YahooFinanceProvider
 from adapters.data.finnhub import FinnhubProvider
@@ -27,8 +29,10 @@ from adapters.data.ecb_sdw import EcbSdwProvider
 from adapters.data.eurostat import EurostatEcbProvider
 from adapters.data.fred_snb import FredSnbProvider
 from adapters.data.cnn_fear_greed import CnnFearGreedProvider
+from adapters.data.slickcharts_holdings import SlickchartsHoldingsMarket
 from adapters.data.cftc_cot import CftcCotProvider
 from adapters.data.index_constituents import ConstituentMarketProvider
+from adapters.data.multpl_shiller import MultplShillerProvider
 from adapters.event_bus.redis_bus import InMemoryEventBus
 from adapters.llm.claude_adapter import ClaudeAdapter
 from adapters.memory.supabase_memory import SupabaseMemory
@@ -136,6 +140,8 @@ async def run_dashboard() -> None:
     print("\n=== MODUS 1: MARKET DASHBOARD ===\n")
     bus   = InMemoryEventBus()
     fred  = FredDataProvider(FRED_API_KEY)
+    # Persistente 10Y-3M-Historie für das Yield-Curve-Bull-Steepening-Signal (über Läufe hinweg).
+    history_path = os.path.join(os.path.dirname(__file__), "..", ".cache", "yield_spread_history.json")
     orch  = TopDownOrchestrator(
         macro=fred,
         ecb=EurostatEcbProvider(EcbSdwProvider()),
@@ -143,6 +149,7 @@ async def run_dashboard() -> None:
         market=YahooFinanceProvider(),
         bus=bus,
         sentiment=CnnFearGreedProvider(),
+        history=JsonDatedHistory(history_path),
     )
     result = await orch.run()
     ResultCache().save_cockpit(result)
@@ -184,11 +191,15 @@ async def run_bottom_up(
     orch = BottomUpOrchestrator(
         fundamentals_provider=FinnhubProvider(FINNHUB_API_KEY),
         macro_provider=FredDataProvider(FRED_API_KEY),
-        # ConstituentMarketProvider ergänzt Konstituenten + Kurshistorien (Index-Breadth)
-        market_provider=ConstituentMarketProvider(YahooFinanceProvider()),
+        # Zwei MarketDataProvider-Decorators komponiert (disjunkte Methoden):
+        # SlickchartsHoldingsMarket → get_index_holdings (Gewichtungen, #71);
+        # ConstituentMarketProvider → get_index_constituents + get_constituent_histories (Breadth, #75);
+        # alles Übrige an YahooFinanceProvider delegiert.
+        market_provider=SlickchartsHoldingsMarket(ConstituentMarketProvider(YahooFinanceProvider())),
         llm=llm,
         bus=bus,
         cot_provider=CftcCotProvider(),   # CFTC Commitments of Traders (Managed Money)
+        cape_provider=MultplShillerProvider(),   # Shiller-CAPE (S&P 500) via multpl.com
     )
     result = await orch.run(
         ticker.upper(), underlying=underlying, wrapper=wrapper, sector=sector,

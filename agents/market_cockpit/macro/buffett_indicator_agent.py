@@ -4,11 +4,9 @@ import requests
 
 from core.domain.events import BuffettIndicatorReady
 from core.domain.models import BuffettCountryPoint, BuffettIndicatorSnapshot, Signal
+from core.domain.top_down_context import buffett_corridor
 from core.ports.data_provider import MacroDataProvider
 from core.ports.event_bus import EventBus
-
-_BULLISH_THRESHOLD = 75.0
-_BEARISH_THRESHOLD = 135.0
 
 _Z_HIGH = 1.5
 _Z_LOW  = -1.5
@@ -23,13 +21,19 @@ _WB_URL = (
 _DEFAULT = BuffettIndicatorSnapshot(countries={}, signal=Signal.NEUTRAL)
 
 
-def _signal(ratio: float | None) -> Signal:
-    """Älterer Absolut-Fallback (für Länder ohne ausreichende Historie)."""
+def _signal(ratio: float | None, code: str) -> Signal:
+    """Absolut-Fallback für Länder ohne ausreichende Historie (z-Score nicht bildbar).
+
+    Nutzt den LÄNDERSPEZIFISCHEN Korridor (z. B. CH 150–260, DE 40–70) statt der
+    früheren globalen 75/135%-Schwelle — sonst würde die strukturell hohe CH-Bewertung
+    dauerhaft fälschlich als „teuer" und die niedrige DE-Bewertung als „günstig" gewertet.
+    Unbekannte Länder fallen auf den Default-Korridor (75/135) zurück."""
     if ratio is None:
         return Signal.NEUTRAL
-    if ratio < _BULLISH_THRESHOLD:
+    low, high = buffett_corridor(code)
+    if ratio < low:
         return Signal.BULLISH
-    if ratio > _BEARISH_THRESHOLD:
+    if ratio > high:
         return Signal.BEARISH
     return Signal.NEUTRAL
 
@@ -139,8 +143,8 @@ class BuffettIndicatorAgent:
         for code, (ratio, year, history, name) in wb_data.items():
             values = [v for _, v in history]   # nur die Werte für den z-Score
             z = _z_score(ratio, values)
-            # z-Score-Pfad primär; Fallback auf Absolut-Schwelle wenn keine ausreichende Historie
-            sig = _signal_from_z(z) if z is not None else _signal(ratio)
+            # z-Score-Pfad primär; Fallback auf landesspezifischen Korridor ohne ausreichende Historie
+            sig = _signal_from_z(z) if z is not None else _signal(ratio, code)
             countries[code] = BuffettCountryPoint(
                 ratio_pct=ratio, signal=sig, year=year, z_score=z, name=name, history=history,
             )
@@ -156,7 +160,7 @@ class BuffettIndicatorAgent:
         if market_cap is not None and gdp is not None and gdp > 0:
             usa_ratio = round(market_cap / gdp * 100, 1)
         usa_z = _z_score(usa_ratio, fred_history)
-        usa_sig = _signal_from_z(usa_z) if usa_z is not None else _signal(usa_ratio)
+        usa_sig = _signal_from_z(usa_z) if usa_z is not None else _signal(usa_ratio, "USA")
         countries["USA"] = BuffettCountryPoint(
             ratio_pct=usa_ratio, signal=usa_sig, year=None, z_score=usa_z, name="United States",
         )
