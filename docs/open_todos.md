@@ -175,10 +175,8 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
   Gibt nur Default-Werte zurück. Benötigt Preisdaten aller Index-Komponenten.
   Quellen: FRED (SPSICOMP), StockCharts, Bloomberg Terminal.
 
-- [ ] **`agents/stock_deep_dive/commodity/cot_agent.py` (Zeile 11)**
-  CFTC Commitment of Traders Report. Format: CSV, wöchentlich.
-  Signallogik: KONTRÄR — Spekulanten liegen am Extrempunkt oft falsch.
-  Quelle: https://www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm
+- [x] **`agents/stock_deep_dive/commodity/cot_agent.py`** — CFTC COT **angebunden** (PR offen, 2026-06-25).
+  **Lösung:** neuer Adapter `adapters/data/cftc_cot.py` (`CftcCotProvider`, COTProvider-Port) liest die Disaggregated-Futures-Only-Managed-Money-Positionen über die CFTC-Socrata-API (Dataset `72hh-3qpy`); Managed-Money-Netto = long − short, plus Open Interest. Mapping Yahoo-Futures-Ticker → exakter CFTC-Hauptkontrakt (16 Rohstoffe, live verifiziert; bewusst der Yahoo-passende Kontrakt, z. B. NG=F = `NAT GAS NYME` Henry-Hub-NYMEX statt der größeren ICE-LD1-Reihe). Verdrahtung über optionales `cot_provider`-Argument: `BottomUpOrchestrator` → `CommodityChiefAgentMikro(cot_provider=…)` → `COTAgent`; in `app/main.py` mit `CftcCotProvider()` gesetzt. Ausfall/unbekannter Ticker → `[]` → `SignalStatus.UNAVAILABLE` (nicht-brechend). Live verifiziert: Gold 180 Wochen, Netto +113 721 / OI 339 330.
 
 - [ ] **`agents/stock_deep_dive/commodity/supply_demand_agent.py` (Zeile 61)**
   EIA API (Öl/Gas), USDA (Agrar), LME (Metalle) nicht angebunden.
