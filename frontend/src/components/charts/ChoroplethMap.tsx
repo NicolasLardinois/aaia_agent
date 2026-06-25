@@ -52,13 +52,13 @@ export function ChoroplethMap({ points, height = 360 }: { points: MapPoint[]; he
   }, []);
 
   if (status === "missing") {
-    return <div className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Karte nicht verfügbar — bitte Tabelle nutzen.</div>;
+    return <div className="rounded border border-dashed border-line p-6 text-center text-sm text-muted">Karte nicht verfügbar — bitte Tabelle nutzen.</div>;
   }
   if (status === "loading") {
-    return <div className="text-sm text-slate-500">Karte lädt …</div>;
+    return <div className="text-sm text-muted">Karte lädt …</div>;
   }
   return (
-    <Suspense fallback={<div className="text-sm text-slate-500">Karte lädt …</div>}>
+    <Suspense fallback={<div className="text-sm text-muted">Karte lädt …</div>}>
       <ReactECharts option={buildMapOption(points)} style={{ height }} notMerge lazyUpdate />
     </Suspense>
   );

@@ -51,7 +51,7 @@ function SortButton({
   return (
     <button
       onClick={() => onToggle(sortKey)}
-      className={`text-left text-xs font-semibold ${active ? "text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
+      className={`text-left text-xs font-semibold ${active ? "text-ink" : "text-muted hover:text-ink"}`}
     >
       {label} {active ? (dir === "desc" ? "↓" : "↑") : "↕"}
     </button>
@@ -61,7 +61,7 @@ function SortButton({
 // ---- Einzelland-10-J-Drilldown ----
 function CountryHistory({ country }: { country: BuffettCountry }) {
   if (country.history.length === 0) {
-    return <p className="text-sm text-slate-500">Keine Verlaufsdaten verfuegbar.</p>;
+    return <p className="text-sm text-muted">Keine Verlaufsdaten verfuegbar.</p>;
   }
   const series = [
     {
@@ -71,7 +71,7 @@ function CountryHistory({ country }: { country: BuffettCountry }) {
   ];
   return (
     <div className="mt-3">
-      <p className="mb-1 text-sm font-semibold text-slate-700">10-J-Verlauf — {country.name}</p>
+      <p className="mb-1 text-sm font-semibold text-ink">10-J-Verlauf — {country.name}</p>
       <LineCurve series={series} height={200} />
     </div>
   );
@@ -97,18 +97,18 @@ function BuffettRow({
     <>
       <tr
         onClick={onClick}
-        className={`cursor-pointer border-b transition-colors ${
+        className={`cursor-pointer border-b border-line transition-colors ${
           highlighted
-            ? "bg-blue-50 font-semibold hover:bg-blue-100"
-            : "hover:bg-slate-50"
+            ? "bg-brand/10 font-semibold hover:bg-brand/[0.15]"
+            : "hover:bg-surface-2"
         }`}
       >
         <td className="p-2 text-sm">{row.name}</td>
-        <td className="p-2 text-right text-sm">{row.ratioPct.toFixed(1)} %</td>
+        <td className="p-2 text-right text-sm font-mono tnum">{row.ratioPct.toFixed(1)} %</td>
         <td className="p-2 text-sm">
           <SignalBadge signal={row.signal} />
         </td>
-        <td className="p-2 text-right text-sm">
+        <td className="p-2 text-right text-sm font-mono tnum">
           {row.zScore !== null ? (
             <span>
               {row.zScore > 0 ? "+" : ""}
@@ -120,17 +120,17 @@ function BuffettRow({
               )}
             </span>
           ) : (
-            <span className="text-slate-400">—</span>
+            <span className="text-muted">—</span>
           )}
         </td>
-        <td className="p-2 text-center text-sm text-slate-500">
+        <td className="p-2 text-center text-sm text-muted">
           {row.year === null ? "live" : row.year}
         </td>
-        <td className="p-2 text-sm text-slate-600">{vsLabel}</td>
+        <td className="p-2 text-sm text-muted">{vsLabel}</td>
       </tr>
       {selected && (
         <tr>
-          <td colSpan={6} className="bg-slate-50 p-3">
+          <td colSpan={6} className="bg-surface-2 p-3">
             <CountryHistory country={row} />
           </td>
         </tr>
@@ -172,14 +172,14 @@ export function BuffettWidget({ loader = loadBuffett }: { loader?: () => Promise
       {data && (
         <div className="space-y-4">
           {/* Asset-Filter-Hinweis (Pflicht, US5) */}
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted">
             Nur fuer <strong>Aktien, ETF und Index</strong> relevant — nicht fuer Anleihen, Rohstoffe oder Immobilien.
           </p>
 
           {/* Global-Median als Referenz */}
-          <div className="rounded-lg bg-slate-50 p-3 text-sm">
-            Globaler Median (Referenz): <span className="font-semibold">{data.globalMedian} %</span>
-            <span className="ml-2 text-slate-400 text-xs">(alle Laender im Datensatz)</span>
+          <div className="rounded-lg bg-surface-2 p-3 text-sm">
+            Globaler Median (Referenz): <span className="font-semibold font-mono tnum">{data.globalMedian} %</span>
+            <span className="ml-2 text-muted text-xs">(alle Laender im Datensatz)</span>
           </div>
 
           {/* Tab-Umschalter */}
@@ -188,8 +188,8 @@ export function BuffettWidget({ loader = loadBuffett }: { loader?: () => Promise
               onClick={() => setTab("tabelle")}
               className={`rounded-md px-3 py-1 text-sm font-medium ${
                 tab === "tabelle"
-                  ? "bg-slate-800 text-white"
-                  : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  ? "bg-brand text-brand-ink"
+                  : "border border-line text-muted hover:bg-surface-2"
               }`}
             >
               Tabelle ▣
@@ -198,8 +198,8 @@ export function BuffettWidget({ loader = loadBuffett }: { loader?: () => Promise
               onClick={() => setTab("karte")}
               className={`rounded-md px-3 py-1 text-sm font-medium ${
                 tab === "karte"
-                  ? "bg-slate-800 text-white"
-                  : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  ? "bg-brand text-brand-ink"
+                  : "border border-line text-muted hover:bg-surface-2"
               }`}
             >
               Karte ◻
@@ -240,9 +240,9 @@ export function BuffettWidget({ loader = loadBuffett }: { loader?: () => Promise
               </div>
 
               {/* Tabelle */}
-              <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <div className="overflow-x-auto rounded-lg border border-line">
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-left">
+                  <thead className="bg-surface-2 text-left">
                     <tr>
                       <th className="p-2">
                         <SortButton label="Land" sortKey="name" current={sortKey} dir={sortDir} onToggle={toggleSort} />
@@ -278,18 +278,18 @@ export function BuffettWidget({ loader = loadBuffett }: { loader?: () => Promise
               </div>
 
               {filterRows(data.countries, { onlyZOutlier, onlyBearish }).length === 0 && (
-                <p className="text-sm text-slate-500">Kein Land erfuellt die aktiven Filter.</p>
+                <p className="text-sm text-muted">Kein Land erfuellt die aktiven Filter.</p>
               )}
             </>
           )}
 
           {/* Einschraenkungen (Pflicht, US6 / frontend_notes.md): aufklappbar, aber standardmaessig offen
               damit die Texte immer im DOM sichtbar sind (Spec: "im DOM vorhanden"). */}
-          <details open className="rounded-lg border border-slate-200 p-3 text-sm">
-            <summary className="cursor-pointer font-medium text-slate-700">
+          <details open className="rounded-lg border border-line p-3 text-sm">
+            <summary className="cursor-pointer font-medium text-ink">
               Einschraenkungen des Buffett-Indikators
             </summary>
-            <ul className="mt-3 space-y-2 text-slate-600">
+            <ul className="mt-3 space-y-2 text-muted">
               {EINSCHRAENKUNGEN.map((e) => (
                 <li key={e.titel}>
                   <strong>{e.titel}:</strong> {e.text}

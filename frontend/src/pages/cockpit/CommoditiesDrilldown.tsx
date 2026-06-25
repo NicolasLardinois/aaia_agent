@@ -14,15 +14,15 @@ export function CommoditiesDrilldown({ loader = loadCommodities }: { loader?: ()
       {data && (
         <ul className="space-y-3">
           {data.commodities.map((c) => (
-            <li key={c.ticker} className="rounded-lg border border-slate-200 p-3">
+            <li key={c.ticker} className="rounded-lg border border-line p-3">
               <div className="flex items-center justify-between">
                 <span className="font-medium">{c.name}</span>
-                <span className="text-xs text-slate-400">{c.ticker}</span>
+                <span className="text-xs text-muted">{c.ticker}</span>
                 {c.signal !== null
                   ? <SignalBadge signal={c.signal} />
                   : <UnavailableField reason="Datenquelle nicht verfügbar" />}
               </div>
-              {c.note && <p className="mt-1 text-xs text-slate-500">{c.note}</p>}
+              {c.note && <p className="mt-1 text-xs text-muted">{c.note}</p>}
             </li>
           ))}
         </ul>
