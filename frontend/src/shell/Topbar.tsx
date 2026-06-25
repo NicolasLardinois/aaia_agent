@@ -27,6 +27,7 @@ export function Topbar({ inboxCount, onSearch, onLogout }: TopbarProps) {
         />
       </form>
       <div className="flex items-center gap-3">
+        <NavLink to="/willkommen" className="text-sm" aria-label="Hilfe / Willkommen" title="Willkommen & Hilfe">?</NavLink>
         <NavLink to="/inbox" className="relative text-sm" aria-label="Inbox">
           ✉
           {inboxCount > 0 && (
