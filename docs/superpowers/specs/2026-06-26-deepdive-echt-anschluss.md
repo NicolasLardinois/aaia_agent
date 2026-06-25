@@ -40,19 +40,21 @@ Anders als das Cockpit (1 Lauf/Tag, alles auf einmal) wird ein Deep-Dive **on de
 Jeder echte Lauf zieht externe Daten **und** eine **Claude-XAI-Erklärung** (`xai_explanation`/`short_xai`) → echte
 API-Kosten + Latenz pro Aufruf. Deshalb sind hier zwei Hebel zu entscheiden, bevor implementiert wird:
 
-1. **Lauf-Architektur**
+> **ENTSCHEIDUNG (User, 2026-06-26): A + X1.** Hintergrund-Lauf + Cache + WebSocket (wie Cockpit) **und**
+> echte Claude-XAI sofort. Begründung: höchster fachlicher Wert; Kosten pro Lauf werden über Caching/TTL pro
+> Ticker gemildert. Damit hängt PR-2 (Endpunkt) an einem pro-Ticker-`DeepDiveRunManager` + WS, und der Lauf
+> erzeugt die XAI-Erklärung live (Claude-Adapter, schon im Judgment vorhanden).
+
+1. **Lauf-Architektur — gewählt: (A)**
    - **(A) Hintergrund + Cache + WS** (wie Cockpit): konsistent zum bestehenden Muster, nicht-blockierend,
      Fortschritt sichtbar; pro Ticker ein eigener Lauf-Lock + eigener `latest`-Cache (Dict statt Singleton).
-   - **(B) Synchroner Request mit Timeout:** einfacher (kein WS/Polling), aber blockiert die Verbindung für die
-     Dauer der Analyse; gleiche Kosten.
-   - *Empfehlung:* **(A)** — spiegelt `RunManager`/WS, minimaler konzeptioneller Bruch, gut für langsame Render-Free-Tier.
+   - ~~(B) Synchroner Request mit Timeout~~ — verworfen (blockiert auf Render-Free-Tier).
 
-2. **XAI-Kostenschalter**
+2. **XAI-Kostenschalter — gewählt: (X1)**
    - **(X1) Voll-Echt sofort:** jeder Deep-Dive ruft Claude für die XAI-Erklärung (höchster fachlicher Wert, Kosten/Lauf).
-   - **(X2) Daten echt, XAI später:** Metriken/Signale/Urteil echt verdrahten, die XAI-Erklärung zunächst aus
-     vorhandenen Feldern **deterministisch** zusammensetzen (keine Claude-Kosten), Claude-XAI als Folge-PR.
-   - *Empfehlung:* **(X2)** als erster Schritt — liefert sofort echten Substanzwert ohne laufende Kosten; XAI-Claude
-     als bewusst zuschaltbarer Folge-PR. (Caching/TTL pro Ticker mildert Wiederholungskosten in beiden Fällen.)
+   - ~~(X2) Daten echt, XAI später~~ — verworfen; der fachliche Wert der live generierten Erklärung überwiegt.
+   - **Kostendämpfung (Pflicht in PR-2):** Caching/TTL pro Ticker, damit wiederholte Aufrufe desselben Tickers
+     keinen neuen Claude-Lauf auslösen.
 
 ## 4. Feld-Mapping (Quelle → `DeepDiveView`)
 
@@ -94,6 +96,6 @@ API-Kosten + Latenz pro Aufruf. Deshalb sind hier zwei Hebel zu entscheiden, bev
 
 ## 7. Offene Entscheidungen (vor PR-2)
 
-- §3.1 Lauf-Architektur (A/B) und §3.2 XAI-Kostenschalter (X1/X2).
+- ~~§3.1 Lauf-Architektur + §3.2 XAI-Kostenschalter~~ → **entschieden: A + X1** (2026-06-26).
 - Ticker-Auflösung underlying/wrapper (woher? bestehender Resolver im Cockpit/Universe wiederverwenden).
-- Caching-TTL pro Ticker (Render-Free-Tier-Cold-Start beachten).
+- Caching-TTL pro Ticker (Render-Free-Tier-Cold-Start beachten) — jetzt **Pflicht** wegen X1-Kosten.
