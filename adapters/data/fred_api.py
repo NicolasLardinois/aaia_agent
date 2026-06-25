@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 from scipy import stats
@@ -33,6 +33,12 @@ EXTENDED_SERIES = {
     "m2_growth":           ("M2SL",     lambda s: s.pct_change(12).dropna().iloc[-1] * 100),
     # PPI (Producer Price Index)
     "ppi":                 ("PPIACO",   lambda s: s.pct_change(12).dropna().iloc[-1] * 100),
+    # Core-CPI (ohne Lebensmittel & Energie) — strukturelle Inflation
+    "core_cpi":            ("CPILFESL", lambda s: s.pct_change(12).dropna().iloc[-1] * 100),
+    # PCE-Preisindex (YoY) — das Fed-Inflationsziel von 2% bezieht sich auf PCE, nicht CPI
+    "pce":                 ("PCEPI",    lambda s: s.pct_change(12).dropna().iloc[-1] * 100),
+    # Fed-Bilanzwachstum (WALCL, wöchentlich → YoY über 52 Wochen); QT = negativ
+    "balance_sheet_growth": ("WALCL",   lambda s: s.pct_change(52).dropna().iloc[-1] * 100),
 }
 
 
@@ -85,7 +91,7 @@ class FredDataProvider(MacroDataProvider):
     def get_buffett_history(self, years: int = 10) -> list[float]:
         """Quartalsweise Buffett-Quoten (%) der letzten N Jahre, älteste zuerst."""
         try:
-            start = f"{datetime.utcnow().year - years}-01-01"
+            start = f"{datetime.now(timezone.utc).year - years}-01-01"
             wilshire = self.fred.get_series("WILL5000INDFC", observation_start=start).resample("Q").last().dropna()
             gdp      = self.fred.get_series("GDP",           observation_start=start).resample("Q").last().dropna()
             aligned  = wilshire.align(gdp, join="inner")
@@ -99,7 +105,7 @@ class FredDataProvider(MacroDataProvider):
         Rueckgabe: [{"date": "YYYY-MM-DD", "real_rate_10y": float}, ...] (aeltester zuerst).
         Bei Fehler/leerer Serie: []."""
         try:
-            start = f"{datetime.utcnow().year - years}-01-01"
+            start = f"{datetime.now(timezone.utc).year - years}-01-01"
             series = self.fred.get_series("DFII10", observation_start=start).dropna()
             return [
                 {"date": ts.strftime("%Y-%m-%d"), "real_rate_10y": round(float(v), 3)}
@@ -112,7 +118,7 @@ class FredDataProvider(MacroDataProvider):
         """FEDFUNDS der letzten `years` Jahre.
         Rueckgabe: [{"date":"YYYY-MM-DD","rate":float}, ...] (aeltester zuerst). Fehler/leer → []."""
         try:
-            start = f"{datetime.utcnow().year - years}-01-01"
+            start = f"{datetime.now(timezone.utc).year - years}-01-01"
             series = self.fred.get_series("FEDFUNDS", observation_start=start).dropna()
             return [
                 {"date": ts.strftime("%Y-%m-%d"), "rate": round(float(v), 3)}

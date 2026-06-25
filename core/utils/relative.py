@@ -2,7 +2,14 @@ from core.utils.statistics import robust_z_score, z_score
 
 
 def _winsorize(history: list[float], fraction: float) -> list[float]:
-    """Kappt unterste und oberste `fraction`-Quantile auf ihre Grenzwerte."""
+    """Kappt unterste und oberste `fraction`-Quantile auf ihre Grenzwerte.
+
+    `fraction` muss in [0, 0.5) liegen: ab 0.5 ueberlappen die beiden gekappten
+    Tails (lo_idx >= hi_idx), wodurch alle Werte still auf einen einzigen Punkt
+    kollabieren. Das ist ein Aufruf-Fehler (kein Datenwert) → fail-loud statt
+    stiller Garbage-Ausgabe."""
+    if fraction >= 0.5:
+        raise ValueError(f"winsorize fraction muss < 0.5 sein, war {fraction}")
     if fraction <= 0.0 or len(history) < 2:
         return list(history)
     ordered = sorted(history)
