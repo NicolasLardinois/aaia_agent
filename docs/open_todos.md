@@ -172,9 +172,10 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 
 ## 3. AGENT-STUBS — KOMPLETTE IMPLEMENTIERUNGEN AUSSTEHEND
 
-- [ ] **`agents/stock_deep_dive/index/index_breadth_agent.py` (Zeile 14)**
-  Gibt nur Default-Werte zurück. Benötigt Preisdaten aller Index-Komponenten.
-  Quellen: FRED (SPSICOMP), StockCharts, Bloomberg Terminal.
+- [x] **`agents/stock_deep_dive/index/index_breadth_agent.py`** — Marktbreite-Datenquelle **angebunden** (PR offen, 2026-06-25).
+  **Lösung:** der Agent hatte die Breadth-Mathematik bereits, es fehlten die Komponenten-Kurse. Neuer MarketDataProvider-Decorator `adapters/data/index_constituents.py` (`ConstituentMarketProvider`): `get_index_constituents` = Mitglieds-Symbole von slickcharts.com (S&P 500/Nasdaq-100/Dow), `get_constituent_histories` = Tages-Schlusskurse je Mitglied via yfinance-Batch (`_download_closes`); Rest an `YahooFinanceProvider` delegiert. In `app/main.py` umhüllt. Beides keyless. Teilausfälle einzelner Ticker degradieren sauber (Reihen < 200 Punkten werden übersprungen). Live verifiziert: 509 S&P-500-Symbole + yfinance-Download.
+  - **Hinweis (Verdrahtung):** Der Decorator umhüllt denselben `market_provider` wie der Holdings-Decorator aus PR #71. Beim Merge beider: verschachteln, z. B. `ConstituentMarketProvider(SlickchartsHoldingsMarket(YahooFinanceProvider()))` (oder beide später zu einem Markt-Decorator konsolidieren).
+  - **Hinweis (Last):** Der Batch-Download umfasst alle ~500 Mitglieder (gleichgewichtete Breite) → latenzintensiv pro Index-Analyse; bewusst vollständig.
 
 - [x] **`agents/stock_deep_dive/commodity/cot_agent.py`** — CFTC COT **angebunden** (PR #67 am 2026-06-25 gemergt; Review Claude: Dataset/Netto-Berechnung/Ticker-Mapping verifiziert, defensiv/hexagonal, kontrarische Signallogik bleibt im COTAgent, CI grün).
   **Lösung:** neuer Adapter `adapters/data/cftc_cot.py` (`CftcCotProvider`, COTProvider-Port) liest die Disaggregated-Futures-Only-Managed-Money-Positionen über die CFTC-Socrata-API (Dataset `72hh-3qpy`); Managed-Money-Netto = long − short, plus Open Interest. Mapping Yahoo-Futures-Ticker → exakter CFTC-Hauptkontrakt (16 Rohstoffe, live verifiziert; bewusst der Yahoo-passende Kontrakt, z. B. NG=F = `NAT GAS NYME` Henry-Hub-NYMEX statt der größeren ICE-LD1-Reihe). Verdrahtung über optionales `cot_provider`-Argument: `BottomUpOrchestrator` → `CommodityChiefAgentMikro(cot_provider=…)` → `COTAgent`; in `app/main.py` mit `CftcCotProvider()` gesetzt. Ausfall/unbekannter Ticker → `[]` → `SignalStatus.UNAVAILABLE` (nicht-brechend). Live verifiziert: Gold 180 Wochen, Netto +113 721 / OI 339 330.
