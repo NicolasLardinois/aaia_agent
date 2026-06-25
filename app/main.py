@@ -13,6 +13,7 @@ market:      USA | CH | ISO-2 (DE/FR/IT/ES/NL/AT/BE/PT/FI/IE/GR/...)  (default: 
 """
 
 import asyncio
+import os
 import sys
 
 from config.settings import FRED_API_KEY, ANTHROPIC_API_KEY, FINNHUB_API_KEY
@@ -20,6 +21,7 @@ from core.domain.models import PositionState, RiskAffinity
 from core.domain.portfolio import PortfolioError
 from core.domain.taxonomy import Underlying, Wrapper, legacy_to_taxonomy
 from adapters.persistence.json_portfolio import JsonPortfolioProvider
+from adapters.persistence.json_dated_history import JsonDatedHistory
 from adapters.data.fred_api import FredDataProvider
 from adapters.data.yahoo_finance import YahooFinanceProvider
 from adapters.data.finnhub import FinnhubProvider
@@ -137,6 +139,8 @@ async def run_dashboard() -> None:
     print("\n=== MODUS 1: MARKET DASHBOARD ===\n")
     bus   = InMemoryEventBus()
     fred  = FredDataProvider(FRED_API_KEY)
+    # Persistente 10Y-3M-Historie für das Yield-Curve-Bull-Steepening-Signal (über Läufe hinweg).
+    history_path = os.path.join(os.path.dirname(__file__), "..", ".cache", "yield_spread_history.json")
     orch  = TopDownOrchestrator(
         macro=fred,
         ecb=EurostatEcbProvider(EcbSdwProvider()),
@@ -144,6 +148,7 @@ async def run_dashboard() -> None:
         market=YahooFinanceProvider(),
         bus=bus,
         sentiment=CnnFearGreedProvider(),
+        history=JsonDatedHistory(history_path),
     )
     result = await orch.run()
     ResultCache().save_cockpit(result)

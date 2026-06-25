@@ -7,6 +7,7 @@ from agents.market_cockpit.yield_curve_chief_agent import YieldCurveChiefAgent
 from agents.market_cockpit.sector_chief_agent import SectorChiefAgent
 from core.domain.models import CockpitResult
 from core.ports.data_provider import EcbDataProvider, MacroDataProvider, MarketDataProvider, SnbDataProvider, SentimentDataProvider
+from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
 
 
@@ -24,11 +25,12 @@ class TopDownOrchestrator:
         market: MarketDataProvider,
         bus: EventBus,
         sentiment: SentimentDataProvider | None = None,
+        history: DatedHistoryPort | None = None,
     ):
         self.macro_chief       = MacroChiefAgent(macro, ecb, snb, bus)
         self.commodity_chief   = CommodityChiefAgentMakro(market, bus)
         self.sentiment_chief   = SentimentChiefAgent(market, bus, sentiment)
-        self.yield_curve_chief = YieldCurveChiefAgent(macro, ecb, snb, bus)
+        self.yield_curve_chief = YieldCurveChiefAgent(macro, ecb, snb, bus, history=history)
         self.sector_chief      = SectorChiefAgent(market, bus)
 
     async def run(self) -> CockpitResult:
