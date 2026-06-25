@@ -15,7 +15,15 @@ import { PortfolioPage } from "./pages/PortfolioPage";
 import { InboxPage } from "./pages/InboxPage";
 import { BacktesterPage } from "./pages/BacktesterPage";
 import { loadInboxCount } from "./data/inboxCount";
+import { WelcomePage } from "./pages/WelcomePage";
+import { useOnboarding } from "./shell/useOnboarding";
 import type { UseCockpitDeps } from "./hooks/useCockpit";
+
+// Index-Redirect: erster Besuch -> Willkommen-Seite, sonst direkt ins Cockpit.
+function IndexRedirect() {
+  const { seen } = useOnboarding();
+  return <Navigate to={seen ? "/cockpit" : "/willkommen"} replace />;
+}
 
 // Routen unter der Shell. Inbox-Anzahl wird einmalig ueber loadInboxCount geladen (Slice 4, US28).
 // Drilldown-Routen (B7): /cockpit/<domain> -> jeweilige Drilldown-Seite.
@@ -36,7 +44,8 @@ export function AppRoutes({ deps, onLogout }: { deps?: UseCockpitDeps; onLogout?
   return (
     <Routes>
       <Route element={<AppShell inboxCount={inboxCount} onLogout={onLogout} />}>
-        <Route index element={<Navigate to="/cockpit" replace />} />
+        <Route index element={<IndexRedirect />} />
+        <Route path="/willkommen" element={<WelcomePage />} />
         <Route path="/cockpit" element={<CockpitPage deps={deps} />} />
 
         {/* Cockpit-Drilldowns (Slice 1, Dispatch B) */}

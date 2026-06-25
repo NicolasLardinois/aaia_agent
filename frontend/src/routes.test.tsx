@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { AppRoutes } from "./routes";
@@ -20,6 +20,9 @@ vi.mock("./data/fetchCockpit", async () => {
   return { fetchBuffett: async () => demoBuffett() };
 });
 
+// Onboarding-Flag deterministisch zuruecksetzen (Index-Redirect haengt davon ab).
+beforeEach(() => localStorage.clear());
+
 function renderAt(path: string) {
   return render(<MemoryRouter initialEntries={[path]}><AppRoutes /></MemoryRouter>);
 }
@@ -30,9 +33,22 @@ describe("AppRoutes", () => {
     await waitFor(() => expect(screen.getByText(/Brutto-Exposure/)).toBeInTheDocument());
   });
 
-  it("leitet / auf das Cockpit", () => {
+  it("leitet / auf das Cockpit (wenn Onboarding gesehen)", () => {
+    localStorage.setItem("aaia_onboarding_seen", "1");
     renderAt("/");
     expect(screen.getByRole("heading", { name: /Cockpit — Übersicht/i })).toBeInTheDocument();
+  });
+
+  it("leitet / beim ERSTEN Besuch (kein Flag) auf die Willkommen-Seite", async () => {
+    renderAt("/");
+    await waitFor(() => expect(screen.getByRole("heading", { name: /Willkommen bei AAIA/i })).toBeInTheDocument());
+  });
+
+  it("die Topbar bietet einen Hilfe-Link zur Willkommen-Seite", () => {
+    localStorage.setItem("aaia_onboarding_seen", "1");
+    renderAt("/cockpit");
+    // ueber /Hilfe/i ansteuern (der Sidebar-Eintrag heisst nur "Willkommen").
+    expect(screen.getByRole("link", { name: /Hilfe/i })).toHaveAttribute("href", "/willkommen");
   });
 
   // Drilldown-Routen (B7)
