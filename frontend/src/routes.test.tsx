@@ -12,6 +12,14 @@ vi.mock("./hooks/useCockpit", () => ({
 // ECharts im jsdom neutralisieren (LineCurve in YieldCurveDrilldown).
 vi.mock("echarts-for-react", () => ({ default: () => null }));
 
+// Buffett-Drilldown holt echte Daten ueber fetchBuffett (GET /api/cockpit). Im Routing-Test
+// die Netz-Grenze durch Demo ersetzen (kein Netz) — geprueft wird nur, dass die Route das
+// Widget rendert, nicht der Datenpfad (der ist in data/fetchCockpit.test.ts getestet).
+vi.mock("./data/fetchCockpit", async () => {
+  const { demoBuffett } = await import("./data/demo/cockpit");
+  return { fetchBuffett: async () => demoBuffett() };
+});
+
 function renderAt(path: string) {
   return render(<MemoryRouter initialEntries={[path]}><AppRoutes /></MemoryRouter>);
 }

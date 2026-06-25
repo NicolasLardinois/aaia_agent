@@ -70,10 +70,12 @@ def _median(values: list[float]) -> float | None:
     return round(clean[mid] if n % 2 else (clean[mid - 1] + clean[mid]) / 2, 1)
 
 
-def _fetch_world_bank() -> dict[str, tuple[float, int, list[float]]]:
+def _fetch_world_bank() -> dict[str, tuple[float, int, list[tuple[int, float]], str]]:
     """
     Gibt {ISO-3-Code: (aktueller_ratio_pct, Jahr, historische_serie)} zurück.
-    Die historische Serie ist älteste → neueste, ohne Lücken (nur vorhandene Werte).
+    Die historische Serie ist eine Liste (Jahr, Ratio%), älteste → neueste, ohne
+    Lücken (nur vorhandene Werte). Daraus entsteht der z-Score; sie dient zugleich
+    als 10-J-Verlauf im Einzelland-Drilldown.
     """
     try:
         resp = requests.get(_WB_URL, timeout=20)
@@ -83,6 +85,7 @@ def _fetch_world_bank() -> dict[str, tuple[float, int, list[float]]]:
         entries = payload[1] or []
 
         by_country: dict[str, list[tuple[int, float]]] = {}
+        names: dict[str, str] = {}   # ISO-3 → Klarname (aus der Weltbank-Antwort)
         for entry in entries:
             if entry.get("value") is None:
                 continue
@@ -93,6 +96,7 @@ def _fetch_world_bank() -> dict[str, tuple[float, int, list[float]]]:
                 year  = int(entry["date"])
                 value = round(float(entry["value"]), 1)
                 by_country.setdefault(code, []).append((year, value))
+                names.setdefault(code, entry.get("country", {}).get("value", ""))
             except (TypeError, ValueError):
                 continue
 
@@ -100,8 +104,8 @@ def _fetch_world_bank() -> dict[str, tuple[float, int, list[float]]]:
         for code, points in by_country.items():
             points.sort(key=lambda x: x[0])        # älteste → neueste
             current_year, current_val = points[-1]
-            history = [v for _, v in points]
-            result[code] = (current_val, current_year, history)
+            # (aktueller Ratio, Jahr, (Jahr, Ratio)-Paare, Klarname)
+            result[code] = (current_val, current_year, points, names.get(code, ""))
 
         return result
     except Exception:
@@ -132,12 +136,13 @@ class BuffettIndicatorAgent:
         countries: dict[str, BuffettCountryPoint] = {}
         all_ratios: list[float] = []
 
-        for code, (ratio, year, history) in wb_data.items():
-            z = _z_score(ratio, history)
+        for code, (ratio, year, history, name) in wb_data.items():
+            values = [v for _, v in history]   # nur die Werte für den z-Score
+            z = _z_score(ratio, values)
             # z-Score-Pfad primär; Fallback auf Absolut-Schwelle wenn keine ausreichende Historie
             sig = _signal_from_z(z) if z is not None else _signal(ratio)
             countries[code] = BuffettCountryPoint(
-                ratio_pct=ratio, signal=sig, year=year, z_score=z,
+                ratio_pct=ratio, signal=sig, year=year, z_score=z, name=name, history=history,
             )
             all_ratios.append(ratio)
 
@@ -153,7 +158,7 @@ class BuffettIndicatorAgent:
         usa_z = _z_score(usa_ratio, fred_history)
         usa_sig = _signal_from_z(usa_z) if usa_z is not None else _signal(usa_ratio)
         countries["USA"] = BuffettCountryPoint(
-            ratio_pct=usa_ratio, signal=usa_sig, year=None, z_score=usa_z,
+            ratio_pct=usa_ratio, signal=usa_sig, year=None, z_score=usa_z, name="United States",
         )
 
         usa_signal = countries["USA"].signal

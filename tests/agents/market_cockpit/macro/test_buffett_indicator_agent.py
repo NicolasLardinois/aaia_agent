@@ -48,4 +48,22 @@ def test_wb_fetch_injizierbar_kein_netz():
     result = asyncio.run(agent.run())
     assert called["n"] == 1                       # der injizierte Fetch wurde benutzt
     assert "USA" in result.countries             # USA aus FRED trotz leerer Weltbank
+    assert result.countries["USA"].name == "United States"  # Klarname (FRED-Pfad)
     assert result.signal in (Signal.BULLISH, Signal.BEARISH, Signal.NEUTRAL)
+
+
+def test_wb_country_carries_year_value_history():
+    """Weltbank-Laender reichen die (Jahr, Ratio)-Serie als history durch — dieselbe
+    Serie, aus der der z-Score entsteht. Fuer den Einzelland-10-J-Drilldown."""
+    series = [(2015, 90.0), (2016, 95.0), (2017, 100.0), (2018, 105.0), (2019, 110.0),
+              (2020, 98.0), (2021, 102.0), (2022, 120.0), (2023, 230.0)]  # >=8 -> z-Score moeglich
+    def _wb():
+        # neue Form: (aktueller_ratio, jahr, [(jahr, ratio), ...] aufsteigend, klarname)
+        return {"CHE": (230.0, 2023, series, "Switzerland")}
+    agent = BuffettIndicatorAgent(_FakeMacro(), _FakeBus(), wb_fetch=_wb)
+    result = asyncio.run(agent.run())
+    assert result.countries["CHE"].history == series
+    assert result.countries["CHE"].year == 2023
+    assert result.countries["CHE"].name == "Switzerland"  # Weltbank-Klarname durchgereicht
+    # z-Score wird weiter aus den Werten (nicht den Tupeln) berechnet -> Zahl, kein Fehler
+    assert isinstance(result.countries["CHE"].z_score, float)
