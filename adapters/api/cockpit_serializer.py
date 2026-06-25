@@ -26,6 +26,28 @@ def _domain(key: str, signal: Signal, status: SignalStatus) -> dict[str, Any]:
     }
 
 
+def _buffett_detail(snapshot: Any) -> dict[str, Any]:
+    """Buffett-Indikator-Drilldown (US5/US6): pro Land Ratio (Marktkap/BIP),
+    eigenes Signal, z-Score zur Landeshistorie und Jahr (None = Echtzeit/FRED).
+    Schluessel snake_case (API-Konvention); das Frontend mappt auf BuffettView.
+    """
+    return {
+        "global_median": snapshot.global_median,
+        "countries": [
+            {
+                "iso3": iso3,
+                "name": point.name,
+                "ratio_pct": point.ratio_pct,
+                "signal": point.signal.value,
+                "z_score": point.z_score,
+                "year": point.year,
+                "history": [{"year": yr, "ratio_pct": ratio} for yr, ratio in point.history],
+            }
+            for iso3, point in snapshot.countries.items()
+        ],
+    }
+
+
 def cockpit_to_dict(result: CockpitResult) -> dict[str, Any]:
     domains = [
         _domain("commodities", result.commodities.signal,        result.commodities.status),
@@ -44,4 +66,9 @@ def cockpit_to_dict(result: CockpitResult) -> dict[str, Any]:
         "domains": domains,
         "sources_active": sources_active,
         "sources_total": 1 + len(domains),  # Macro + 4 Sub-Domaenen
+        # Drilldown-Detaildaten: vom Cockpit-Lauf bereits berechnet, hier nur
+        # durchgereicht (kein I/O, keine neue Rechnung).
+        "detail": {
+            "buffett": _buffett_detail(result.macro.buffett_indicator),
+        },
     }

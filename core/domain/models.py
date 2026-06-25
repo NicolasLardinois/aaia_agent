@@ -221,6 +221,10 @@ class BuffettCountryPoint:
     signal: Signal
     year: Optional[int]          # None = Echtzeit (FRED); int = Weltbank-Jahreswert
     z_score: Optional[float] = None  # aktuell vs. eigene 10J-Geschichte; None = keine History
+    name: str = ""               # Klarname (Weltbank-Antwort bzw. "United States" für FRED/USA)
+    # (Jahr, Ratio%) aufsteigend — dieselbe Serie, aus der der z_score stammt.
+    # Fuer den Einzelland-Drilldown (10-J-Verlauf). Leer = keine Historie vorhanden.
+    history: list[tuple[int, float]] = field(default_factory=list)
 
 
 @dataclass

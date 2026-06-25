@@ -8,8 +8,9 @@ import type {
 } from "../contract/cockpit";
 import {
   demoMacro, demoCommodities, demoSentiment, demoYieldCurve,
-  demoSectors, demoBuffett, demoBigMac,
+  demoSectors, demoBigMac,
 } from "./demo/cockpit";
+import { fetchBuffett } from "./fetchCockpit";
 
 export async function loadMacro(_deps?: ApiDeps): Promise<MacroView> {
   return demoMacro();
@@ -31,9 +32,9 @@ export async function loadSectors(_deps?: ApiDeps): Promise<SectorsView> {
   return demoSectors();
   // return fetchSectors(_deps);
 }
-export async function loadBuffett(_deps?: ApiDeps): Promise<BuffettView> {
-  return demoBuffett();
-  // return fetchBuffett(_deps);
+export async function loadBuffett(deps?: ApiDeps): Promise<BuffettView> {
+  return fetchBuffett(deps);            // ECHT (US5/US6): detail.buffett aus /api/cockpit
+  // return demoBuffett(_deps);         // <- Demo-Fallback (Tausch-Naht zurueck auf Demo)
 }
 export async function loadBigMac(_deps?: ApiDeps): Promise<BigMacView> {
   return demoBigMac();
