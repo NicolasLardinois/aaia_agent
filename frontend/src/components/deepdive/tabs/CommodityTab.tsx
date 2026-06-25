@@ -11,10 +11,10 @@ export function CommodityTab({ block }: { block: CommodityBlockDTO }) {
     <div className="space-y-3 text-sm">
       <div>
         Supply/Demand: <SignalBadge signal={block.supplyDemandSignal} />{" "}
-        <span className="text-slate-600 dark:text-slate-300">— {block.supplyDemandNote}</span>
+        <span className="text-muted">— {block.supplyDemandNote}</span>
       </div>
       <div>
-        <div className="text-xs uppercase text-slate-500">Saisonalität</div>
+        <div className="text-xs uppercase text-muted">Saisonalität</div>
         {block.seasonality.length === 0 ? (
           <UnavailableField reason="Saisonalität nicht verfügbar" />
         ) : (
@@ -34,13 +34,13 @@ export function CommodityTab({ block }: { block: CommodityBlockDTO }) {
         ) : (
           <span className="font-medium">
             {formatNumber(block.cotIndex)}/100 · <SignalBadge signal={block.cotSignal} />{" "}
-            <span className="text-xs text-slate-500">(konträr: hoher Index = bearish)</span>
+            <span className="text-xs text-muted">(konträr: hoher Index = bearish)</span>
           </span>
         )}
       </div>
       {block.crossMetal.length > 0 && (
         <div>
-          <div className="text-xs uppercase text-slate-500">Cross-Metal-Ratios</div>
+          <div className="text-xs uppercase text-muted">Cross-Metal-Ratios</div>
           <ul>
             {block.crossMetal.map((r) => (
               <li key={r.name}>

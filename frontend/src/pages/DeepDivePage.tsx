@@ -76,14 +76,14 @@ export function DeepDivePage({
     if (partner) setParams({ vergleich: partner });
   };
 
-  if (loading) return <p className="text-slate-500">Lädt …</p>;
-  if (error || !data) return <p className="text-red-600">{error ?? "Keine Daten"}</p>;
+  if (loading) return <p className="text-muted">Lädt …</p>;
+  if (error || !data) return <p className="text-bear">{error ?? "Keine Daten"}</p>;
 
   if (!data.found) {
     return (
       <div className="space-y-2">
         <DeepDiveHeader view={data} />
-        <p className="text-slate-600">
+        <p className="text-muted">
           Ticker „{data.ticker}" nicht gefunden. Bitte anderen Ticker suchen.
         </p>
       </div>
@@ -113,14 +113,14 @@ export function DeepDivePage({
 
       {/* Vergleichsmodus (US11): CompareView wenn ?vergleich= gesetzt */}
       {compareView && (
-        <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+        <div className="rounded-lg border border-line p-3">
           <div className="mb-2 text-sm font-semibold">Vergleich — gleicher Basiswert, zwei Hüllen</div>
           <CompareView left={data} right={compareView} />
         </div>
       )}
 
       {/* Tab-Leiste aus Registry — je underlying unterschiedliche Tabs */}
-      <div role="tablist" className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-700">
+      <div role="tablist" className="flex flex-wrap gap-2 border-b border-line">
         {tabs.map((t) => (
           <button
             key={t.key}
@@ -128,7 +128,7 @@ export function DeepDivePage({
             aria-selected={t.key === current}
             onClick={() => setActive(t.key)}
             className={`px-3 py-1.5 text-sm ${
-              t.key === current ? "border-b-2 border-sky-500 font-medium" : "text-slate-500"
+              t.key === current ? "border-b-2 border-brand font-medium" : "text-muted"
             }`}
           >
             {t.label}

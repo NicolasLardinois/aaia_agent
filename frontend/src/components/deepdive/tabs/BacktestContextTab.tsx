@@ -17,7 +17,7 @@ export function BacktestContextTab({ ctx }: { ctx: BacktestContextDTO }) {
         ({formatNumber(ctx.sampleSize)} historische Calls)
       </div>
       {ctx.history.length === 0 ? (
-        <p className="text-slate-500">Keine Einzel-Historie für diesen Ticker.</p>
+        <p className="text-muted">Keine Einzel-Historie für diesen Ticker.</p>
       ) : (
         <ul>
           {ctx.history.map((h, i) => (
