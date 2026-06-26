@@ -1,37 +1,14 @@
 from datetime import datetime, timezone
 from typing import Callable, Optional
 
-import yfinance as yf
-
 from core.ports.memory_port import MemoryPort
 from core.utils.backtest import (
-    HORIZONS_DAYS, MIN_SAMPLE, benchmark_for_market,
-    forward_return, hit_rate_ci, is_correct, market_adjusted_return,
+    HORIZONS_DAYS, MIN_SAMPLE, forward_return, hit_rate_ci, is_correct,
+    market_adjusted_return, no_benchmark_return, no_price_on_horizon,
 )
 from core.utils.performance_metrics import (
     apply_costs, max_drawdown, profit_factor, sharpe_ratio, sortino_ratio,
 )
-
-
-def _default_price_on_horizon(ticker: str, entry_date: datetime, horizon_days: int) -> Optional[float]:
-    """Erster Schlusskurs am/nach entry_date+horizon_days. None = kein Kurs (delistet)."""
-    from datetime import timedelta
-    target = entry_date + timedelta(days=horizon_days)
-    try:
-        df = yf.Ticker(ticker).history(start=target.strftime("%Y-%m-%d"), period="10d")
-        if df is None or df.empty:
-            return None
-        return float(df["Close"].iloc[0])
-    except Exception:
-        return None
-
-
-def _default_benchmark_return(market: str, entry_date: datetime, horizon_days: int) -> Optional[float]:
-    bench = benchmark_for_market(market)
-    entry_px = _default_price_on_horizon(bench, entry_date, 0)
-    fwd_px = _default_price_on_horizon(bench, entry_date, horizon_days)
-    fr = forward_return(entry_px, fwd_px) if entry_px else None
-    return fr
 
 
 class BottomUpBacktesterAgent:
@@ -39,13 +16,16 @@ class BottomUpBacktesterAgent:
     def __init__(
         self,
         memory: MemoryPort,
-        price_on_horizon: Callable[[str, datetime, int], Optional[float]] = _default_price_on_horizon,
-        benchmark_return: Callable[[str, datetime, int], Optional[float]] = _default_benchmark_return,
+        price_on_horizon: Optional[Callable[[str, datetime, int], Optional[float]]] = None,
+        benchmark_return: Optional[Callable[[str, datetime, int], Optional[float]]] = None,
         cost_per_side: float = 0.0005,
     ):
         self.memory = memory
-        self.price_on_horizon = price_on_horizon
-        self.benchmark_return = benchmark_return
+        # Kurs-/Benchmark-Quelle injiziert (Hexagonal §1: I/O liegt im Adapter
+        # YahooPriceHistoryProvider). Ohne Injektion → No-Op-Default: kein Netz,
+        # verhaltens-identisch zum bisherigen geblockten-Netz-Pfad.
+        self.price_on_horizon = price_on_horizon if price_on_horizon is not None else no_price_on_horizon
+        self.benchmark_return = benchmark_return if benchmark_return is not None else no_benchmark_return
         self.cost_per_side = cost_per_side
 
     async def run(self) -> None:

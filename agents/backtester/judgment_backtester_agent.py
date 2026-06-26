@@ -4,13 +4,10 @@ from typing import Callable, Optional
 from core.ports.memory_port import MemoryPort
 from core.utils.backtest import (
     HORIZONS_DAYS, MIN_SAMPLE, forward_return, hit_rate_ci,
-    is_correct, market_adjusted_return,
+    is_correct, market_adjusted_return, no_benchmark_return, no_price_on_horizon,
 )
 from core.utils.performance_metrics import (
     apply_costs, max_drawdown, profit_factor, sharpe_ratio, sortino_ratio,
-)
-from agents.backtester.bottom_up_backtester_agent import (
-    _default_benchmark_return, _default_price_on_horizon,
 )
 
 _DIRECTIONAL = {"BUY", "SELL", "SHORT"}  # HOLD = keine Richtungswette
@@ -21,13 +18,14 @@ class JudgmentBacktesterAgent:
     def __init__(
         self,
         memory: MemoryPort,
-        price_on_horizon: Callable[[str, datetime, int], Optional[float]] = _default_price_on_horizon,
-        benchmark_return: Callable[[str, datetime, int], Optional[float]] = _default_benchmark_return,
+        price_on_horizon: Optional[Callable[[str, datetime, int], Optional[float]]] = None,
+        benchmark_return: Optional[Callable[[str, datetime, int], Optional[float]]] = None,
         cost_per_side: float = 0.0005,
     ):
         self.memory = memory
-        self.price_on_horizon = price_on_horizon
-        self.benchmark_return = benchmark_return
+        # Kurs-/Benchmark-Quelle injiziert (Hexagonal §1); ohne Injektion → No-Op (kein Netz).
+        self.price_on_horizon = price_on_horizon if price_on_horizon is not None else no_price_on_horizon
+        self.benchmark_return = benchmark_return if benchmark_return is not None else no_benchmark_return
         self.cost_per_side = cost_per_side
 
     async def run(self) -> None:

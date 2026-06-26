@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from config.settings import ANTHROPIC_API_KEY
+from config.settings import ANTHROPIC_API_KEY, require_keys
 from adapters.event_bus.redis_bus import InMemoryEventBus
 from adapters.memory.supabase_memory import SupabaseMemory
 from adapters.data.yahoo_finance import YahooFinanceProvider
@@ -13,6 +13,9 @@ from adapters.persistence.supabase_conflict_store import SupabaseConflictStore
 from adapters.cache.result_cache import ResultCache
 from adapters.llm.claude_adapter import ClaudeAdapter
 from agents.backtester_chief_agent import BacktesterChiefAgent
+from adapters.data.yahoo_live_price import YahooLivePriceProvider
+from adapters.data.yahoo_price_history import YahooPriceHistoryProvider
+from core.utils.backtest import make_benchmark_return
 from agents.portfolio.portfolio_monitor_agent import PortfolioMonitorAgent, make_returns_provider
 from agents.conflict.portfolio_conflict_scan import scan_portfolio_conflicts
 from core.domain.models import PositionState
@@ -80,6 +83,8 @@ def _make_conflict_scan(memory: SupabaseMemory):
 
 
 async def main() -> None:
+    # Fail-fast: echte Pflicht-Keys (FRED + ANTHROPIC) verlangen, bevor Adapter aufgebaut werden.
+    require_keys()
     print("=" * 50)
     print("  AAIA Background Runner")
     print("=" * 50)
@@ -93,7 +98,16 @@ async def main() -> None:
         conflict_store = SupabaseConflictStore()
     except Exception:
         conflict_store = None
-    backtester = BacktesterChiefAgent(memory, bus, conflict_store=conflict_store)
+    # Kursquelle der Backtester injiziert (Hexagonal §1: yfinance-I/O liegt jetzt im
+    # Adapter, nicht mehr im Agent-Modul). benchmark_return wird rein aus der
+    # Kurs-Lookup-Funktion abgeleitet (make_benchmark_return).
+    _price_history = YahooPriceHistoryProvider()
+    backtester = BacktesterChiefAgent(
+        memory, bus,
+        price_on_horizon=_price_history.get_price_on_horizon,
+        benchmark_return=make_benchmark_return(_price_history.get_price_on_horizon),
+        conflict_store=conflict_store,
+    )
 
     market = YahooFinanceProvider()
     agents = [
@@ -102,6 +116,7 @@ async def main() -> None:
             memory,
             portfolio_port=JsonPortfolioProvider(),
             market_provider=market,
+            live_price=YahooLivePriceProvider(),   # Live-Kurs + FX (vormals hardcoded yfinance)
             returns_provider=make_returns_provider(market),
         ).run),
     ]

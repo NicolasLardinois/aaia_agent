@@ -9,6 +9,10 @@ from core.domain.models import CockpitResult
 from core.ports.data_provider import EcbDataProvider, MacroDataProvider, MarketDataProvider, SnbDataProvider, SentimentDataProvider
 from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
+from core.ports.world_bank import MarketCapToGdpProvider
+from core.ports.metal_spot import MetalSpotProvider
+from core.ports.put_call_source import PutCallSource
+from core.utils.safe import safe_result
 
 
 class TopDownOrchestrator:
@@ -26,10 +30,13 @@ class TopDownOrchestrator:
         bus: EventBus,
         sentiment: SentimentDataProvider | None = None,
         history: DatedHistoryPort | None = None,
+        world_bank: MarketCapToGdpProvider | None = None,
+        metal_spot: MetalSpotProvider | None = None,
+        put_call_source: PutCallSource | None = None,
     ):
-        self.macro_chief       = MacroChiefAgent(macro, ecb, snb, bus, history=history)
-        self.commodity_chief   = CommodityChiefAgentMakro(market, bus)
-        self.sentiment_chief   = SentimentChiefAgent(market, bus, sentiment, history=history)
+        self.macro_chief       = MacroChiefAgent(macro, ecb, snb, bus, history=history, world_bank=world_bank)
+        self.commodity_chief   = CommodityChiefAgentMakro(market, bus, metal_spot=metal_spot)
+        self.sentiment_chief   = SentimentChiefAgent(market, bus, sentiment, history=history, put_call_source=put_call_source)
         self.yield_curve_chief = YieldCurveChiefAgent(macro, ecb, snb, bus, history=history)
         self.sector_chief      = SectorChiefAgent(market, bus)
 
@@ -42,12 +49,10 @@ class TopDownOrchestrator:
             return_exceptions=True,
         )
 
-        def _safe(r, d): return d if isinstance(r, Exception) else r
-
-        macro       = _safe(macro,       MacroChiefAgent.default())
-        commodities = _safe(commodities, CommodityChiefAgentMakro.default())
-        sentiment   = _safe(sentiment,   SentimentChiefAgent.default())
-        yield_curve = _safe(yield_curve, YieldCurveChiefAgent.default())
+        macro       = safe_result(macro, default=MacroChiefAgent.default())
+        commodities = safe_result(commodities, default=CommodityChiefAgentMakro.default())
+        sentiment   = safe_result(sentiment, default=SentimentChiefAgent.default())
+        yield_curve = safe_result(yield_curve, default=YieldCurveChiefAgent.default())
 
         try:
             sectors = await self.sector_chief.run(macro.regime)

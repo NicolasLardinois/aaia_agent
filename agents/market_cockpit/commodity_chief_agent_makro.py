@@ -8,7 +8,9 @@ from core.domain.events import CommodityChiefReady
 from core.domain.models import CommodityChiefResult, Signal, SignalStatus
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
+from core.ports.metal_spot import MetalSpotProvider
 from core.utils.aggregation import weighted_signal
+from core.utils.safe import safe_result
 
 # Makro-Relevanz-Gewichte (GSCI/BCOM-nah: Energie dominiert)
 _WEIGHTS = {"energy": 0.50, "industrial": 0.20, "precious": 0.15, "agricultural": 0.15}
@@ -19,10 +21,11 @@ def _aggregate(items):
 
 
 class CommodityChiefAgentMakro:
-    def __init__(self, market: MarketDataProvider, bus: EventBus):
+    def __init__(self, market: MarketDataProvider, bus: EventBus,
+                 metal_spot: MetalSpotProvider | None = None):
         self.bus = bus
         self.energy_agent          = EnergyAgent(market, bus)
-        self.industrial_agent      = IndustrialMetalsAgent(market, bus)
+        self.industrial_agent      = IndustrialMetalsAgent(market, bus, metal_spot=metal_spot)
         self.precious_metals_agent = PreciousMetalsMacroAgent(market, bus)
         self.agricultural_agent    = AgriculturalAgent(market, bus)
 
@@ -35,12 +38,10 @@ class CommodityChiefAgentMakro:
             return_exceptions=True,
         )
 
-        def _safe(r, d): return d if isinstance(r, Exception) else r
-
-        energy            = _safe(results[0], EnergyAgent.default())
-        industrial_metals = _safe(results[1], IndustrialMetalsAgent.default())
-        precious_metals   = _safe(results[2], PreciousMetalsMacroAgent.default())
-        agricultural      = _safe(results[3], AgriculturalAgent.default())
+        energy            = safe_result(results[0], default=EnergyAgent.default())
+        industrial_metals = safe_result(results[1], default=IndustrialMetalsAgent.default())
+        precious_metals   = safe_result(results[2], default=PreciousMetalsMacroAgent.default())
+        agricultural      = safe_result(results[3], default=AgriculturalAgent.default())
 
         # Status je Sub-Agent aus dem Vorhandensein der Rohdaten
         status_energy     = (

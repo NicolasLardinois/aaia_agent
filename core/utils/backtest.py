@@ -1,5 +1,6 @@
 import math
-from typing import Optional
+from datetime import datetime
+from typing import Callable, Optional
 
 HORIZONS_DAYS: tuple[int, ...] = (30, 60, 90)
 MIN_SAMPLE: int = 10
@@ -50,6 +51,39 @@ def is_correct(action: str, adjusted_return: float) -> bool:
     if a in _BEARISH:
         return adjusted_return < 0
     return False
+
+
+def no_price_on_horizon(ticker: str, entry_date: datetime, horizon_days: int) -> Optional[float]:
+    """Defensiver No-Op-Default ohne injizierte Kursquelle: kein Kurs → None (kein I/O).
+
+    Verhaltens-identisch zum bisherigen geblockten-Netz-Pfad: ohne echte Quelle
+    liefern die Backtester keine Forward-Kurse und überspringen die Bewertung,
+    statt zu raten oder abzustürzen.
+    """
+    return None
+
+
+def make_benchmark_return(
+    price_on_horizon: Callable[[str, datetime, int], Optional[float]],
+) -> Callable[[str, datetime, int], Optional[float]]:
+    """Baut die benchmark_return-Funktion aus einer Kurs-Lookup-Funktion.
+
+    Reine Ableitung (Benchmark-Ticker je Markt → Forward-Return des Benchmarks);
+    das einzige I/O steckt im injizierten ``price_on_horizon``. So bleibt die
+    Geschäftslogik (Markt→Benchmark, Forward-Return) im Kern, das Netz im Adapter.
+    """
+    def _benchmark_return(market: str, entry_date: datetime, horizon_days: int) -> Optional[float]:
+        bench = benchmark_for_market(market)
+        entry_px = price_on_horizon(bench, entry_date, 0)
+        fwd_px = price_on_horizon(bench, entry_date, horizon_days)
+        return forward_return(entry_px, fwd_px) if entry_px else None
+    return _benchmark_return
+
+
+# Defensiver Benchmark-Default ohne Quelle: liefert immer None (kein Netz).
+no_benchmark_return: Callable[[str, datetime, int], Optional[float]] = make_benchmark_return(
+    no_price_on_horizon
+)
 
 
 def hit_rate_ci(correct: int, total: int, z: float = 1.96) -> tuple[float, float]:

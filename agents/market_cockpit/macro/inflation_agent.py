@@ -3,6 +3,7 @@ from core.domain.events import InflationDataReady
 from core.domain.models import InflationSnapshot, InflationDataPoint, Signal
 from core.ports.data_provider import MacroDataProvider, EcbDataProvider, SnbDataProvider
 from core.ports.event_bus import EventBus
+from core.utils.safe import safe_result
 
 _NEUTRAL = InflationDataPoint(cpi=None, core_cpi=None, pce=None, ppi=None, real_rate_10y=None, signal=Signal.NEUTRAL)
 _DEFAULT = InflationSnapshot(usa=_NEUTRAL, eurozone=_NEUTRAL, switzerland=_NEUTRAL)
@@ -106,22 +107,22 @@ class InflationAgent:
             asyncio.to_thread(self.macro.get_cpi_history),
             return_exceptions=True,
         )
-        def _safe(v): return None if isinstance(v, Exception) else v
-
-        state    = _safe(state) or {}
-        ext      = _safe(ext)   or {}
-        ecb_cpi  = _safe(ecb_cpi)
-        ecb_core = _safe(ecb_core)
-        ecb_ppi  = _safe(ecb_ppi)
-        ecb_10y  = _safe(ecb_10y)
-        snb_cpi  = _safe(snb_cpi)
-        snb_core = _safe(snb_core)
+        # Teilergebnisse aus gather(return_exceptions=True) defensiv entpacken
+        # (geteilter Helfer statt lokalem _safe): Exception -> None.
+        state    = safe_result(state, default=None) or {}
+        ext      = safe_result(ext, default=None)   or {}
+        ecb_cpi  = safe_result(ecb_cpi, default=None)
+        ecb_core = safe_result(ecb_core, default=None)
+        ecb_ppi  = safe_result(ecb_ppi, default=None)
+        ecb_10y  = safe_result(ecb_10y, default=None)
+        snb_cpi  = safe_result(snb_cpi, default=None)
+        snb_core = safe_result(snb_core, default=None)
 
         usa_cpi = state.get("inflation")
         usa_ppi = ext.get("ppi")
         usa_core = ext.get("core_cpi")
         # YoY-CPI-Momentum (USA): leere/fehlende Historie → "stable" (verhaltens-erhaltend)
-        usa_trend = _cpi_trend(_safe(usa_cpi_hist) or [])
+        usa_trend = _cpi_trend(safe_result(usa_cpi_hist, default=None) or [])
         usa = InflationDataPoint(
             cpi=usa_cpi,
             core_cpi=usa_core,       # FRED CPILFESL via extended_state
