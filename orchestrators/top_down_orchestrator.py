@@ -9,6 +9,7 @@ from core.domain.models import CockpitResult
 from core.ports.data_provider import EcbDataProvider, MacroDataProvider, MarketDataProvider, SnbDataProvider, SentimentDataProvider
 from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
+from core.ports.world_bank import MarketCapToGdpProvider
 
 
 class TopDownOrchestrator:
@@ -26,8 +27,9 @@ class TopDownOrchestrator:
         bus: EventBus,
         sentiment: SentimentDataProvider | None = None,
         history: DatedHistoryPort | None = None,
+        world_bank: MarketCapToGdpProvider | None = None,
     ):
-        self.macro_chief       = MacroChiefAgent(macro, ecb, snb, bus, history=history)
+        self.macro_chief       = MacroChiefAgent(macro, ecb, snb, bus, history=history, world_bank=world_bank)
         self.commodity_chief   = CommodityChiefAgentMakro(market, bus)
         self.sentiment_chief   = SentimentChiefAgent(market, bus, sentiment, history=history)
         self.yield_curve_chief = YieldCurveChiefAgent(macro, ecb, snb, bus, history=history)

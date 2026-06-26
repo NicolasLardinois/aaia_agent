@@ -19,6 +19,7 @@ from core.domain.taxonomy import (
 from adapters.persistence.json_portfolio import JsonPortfolioProvider
 from adapters.persistence.json_dated_history import JsonDatedHistory
 from adapters.data.fred_api import FredDataProvider
+from adapters.data.world_bank import WorldBankMarketCapProvider
 from adapters.data.yahoo_finance import YahooFinanceProvider
 from adapters.data.finnhub import FinnhubProvider
 from adapters.data.ecb_sdw import EcbSdwProvider
@@ -198,6 +199,7 @@ async def run_dashboard() -> None:
         bus=bus,
         sentiment=CnnFearGreedProvider(),
         history=JsonDatedHistory(history_path),
+        world_bank=WorldBankMarketCapProvider(),
     )
     result = await orch.run()
     ResultCache().save_cockpit(result)
