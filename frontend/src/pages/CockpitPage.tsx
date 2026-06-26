@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { useCockpitContext } from "../hooks/CockpitProvider";
 import { RegimeBanner } from "../components/RegimeBanner";
+import { RegimeInsightCard } from "../components/RegimeInsightCard";
+import { MarketPulse } from "../components/MarketPulse";
 import { DomainTile } from "../components/DomainTile";
 import { DataHealthIndicator } from "../components/DataHealthIndicator";
 import { RunControl } from "../components/RunControl";
@@ -35,10 +37,18 @@ export function CockpitPage() {
           dass gerade gearbeitet wird (keine veralteten Werte waehrend des Laufs). */}
       {overview && phase !== "running" && phase !== "loading" && (
         <>
-          {/* Regime-Banner: klickbar -> Makro-Drilldown (B7) */}
+          {/* Regime-Banner: klickbar -> Makro-Drilldown (B7) — die Headline der Seite. */}
           <Link to="/cockpit/macro" className="block hover:opacity-90 transition-opacity">
             <RegimeBanner overview={overview} />
           </Link>
+
+          {/* Deutungs-Reihe (#4 "Cockpit zu leer"): Markt-Puls verdichtet die Domaenen-
+              Signale, die Regime-Deutung erklaert die Phase. Bei fehlenden Makro-Daten
+              entfaellt die Deutung und der Markt-Puls nimmt die volle Breite ein. */}
+          <div className={`grid gap-3 ${overview.macro_status === "available" ? "md:grid-cols-2" : ""}`}>
+            <MarketPulse domains={overview.domains} />
+            {overview.macro_status === "available" && <RegimeInsightCard regime={overview.regime} />}
+          </div>
 
           {/* Domain-Kacheln: jede verlinkt auf ihren Drilldown (B7, DomainTile ist jetzt ein Link) */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

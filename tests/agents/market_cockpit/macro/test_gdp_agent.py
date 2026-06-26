@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from unittest.mock import MagicMock
 
 from agents.market_cockpit.macro.gdp_agent import (
@@ -76,3 +77,12 @@ def test_eu_ohne_history_unveraendert_via_run():
     agent = _make_gdp_agent(ecb_gdp=2.0)
     result = asyncio.run(agent.run())
     assert result.eurozone.signal == Signal.BULLISH
+
+
+def test_run_loggt_warnung_bei_ausgefallener_quelle(caplog):
+    # Logging-Pass: ausgefallene Quelle -> sichtbare warning (Default greift weiter).
+    agent = _make_gdp_agent()
+    agent.macro.get_economic_state.side_effect = RuntimeError("FRED down")
+    with caplog.at_level(logging.WARNING):
+        asyncio.run(agent.run())
+    assert "GDP FRED economic_state" in caplog.text

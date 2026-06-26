@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import date, timedelta
 from core.domain.events import MoneySupplyDataReady
 from core.domain.models import MoneySupplySnapshot, MoneySupplyDataPoint, Signal
@@ -7,6 +8,8 @@ from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
 from core.utils.real_nominal import excess_over_nominal_gdp
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 _NEUTRAL = MoneySupplyDataPoint(m2_growth=None, m3_growth=None, velocity_m2=None, signal=Signal.NEUTRAL)
 _DEFAULT = MoneySupplySnapshot(usa=_NEUTRAL, eurozone=_NEUTRAL, switzerland=_NEUTRAL)
@@ -73,13 +76,14 @@ class MoneySupplyAgent:
         )
         # Teilergebnisse aus gather(return_exceptions=True) defensiv entpacken
         # (geteilter Helfer statt lokalem _safe): Exception -> None.
-        ext    = safe_result(ext, default=None)    or {}
-        ecb_m2  = safe_result(ecb_m2, default=None)
-        ecb_m3  = safe_result(ecb_m3, default=None)
-        ecb_gdp = safe_result(ecb_gdp, default=None)
-        ecb_cpi = safe_result(ecb_cpi, default=None)
-        snb_m2 = safe_result(snb_m2, default=None)
-        snb_m3 = safe_result(snb_m3, default=None)
+        # label+logger: ein Quellen-Ausfall wird als warning sichtbar (Default greift weiter).
+        ext    = safe_result(ext, default=None, label="Geldmenge FRED extended_state (USA)", logger=_log)    or {}
+        ecb_m2  = safe_result(ecb_m2, default=None, label="Geldmenge ECB M2-Wachstum (EU)", logger=_log)
+        ecb_m3  = safe_result(ecb_m3, default=None, label="Geldmenge ECB M3-Wachstum (EU)", logger=_log)
+        ecb_gdp = safe_result(ecb_gdp, default=None, label="Geldmenge ECB BIP-Wachstum (EU)", logger=_log)
+        ecb_cpi = safe_result(ecb_cpi, default=None, label="Geldmenge ECB CPI (EU)", logger=_log)
+        snb_m2 = safe_result(snb_m2, default=None, label="Geldmenge SNB M2-Wachstum (CH)", logger=_log)
+        snb_m3 = safe_result(snb_m3, default=None, label="Geldmenge SNB M3-Wachstum (CH)", logger=_log)
 
         usa_m2 = ext.get("m2_growth")
         usa_v  = ext.get("money_velocity")

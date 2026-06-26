@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from agents.market_cockpit.macro_chief_agent import MacroChiefAgent
 from agents.market_cockpit.commodity_chief_agent_makro import CommodityChiefAgentMakro
@@ -13,6 +14,8 @@ from core.ports.world_bank import MarketCapToGdpProvider
 from core.ports.metal_spot import MetalSpotProvider
 from core.ports.put_call_source import PutCallSource
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 
 class TopDownOrchestrator:
@@ -49,10 +52,10 @@ class TopDownOrchestrator:
             return_exceptions=True,
         )
 
-        macro       = safe_result(macro, default=MacroChiefAgent.default())
-        commodities = safe_result(commodities, default=CommodityChiefAgentMakro.default())
-        sentiment   = safe_result(sentiment, default=SentimentChiefAgent.default())
-        yield_curve = safe_result(yield_curve, default=YieldCurveChiefAgent.default())
+        macro       = safe_result(macro, default=MacroChiefAgent.default(), label="TopDownOrchestrator: MacroChiefAgent", logger=_log)
+        commodities = safe_result(commodities, default=CommodityChiefAgentMakro.default(), label="TopDownOrchestrator: CommodityChiefAgentMakro", logger=_log)
+        sentiment   = safe_result(sentiment, default=SentimentChiefAgent.default(), label="TopDownOrchestrator: SentimentChiefAgent", logger=_log)
+        yield_curve = safe_result(yield_curve, default=YieldCurveChiefAgent.default(), label="TopDownOrchestrator: YieldCurveChiefAgent", logger=_log)
 
         try:
             sectors = await self.sector_chief.run(macro.regime)

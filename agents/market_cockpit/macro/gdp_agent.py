@@ -1,9 +1,12 @@
 import asyncio
+import logging
 from core.domain.events import GDPDataReady
 from core.domain.models import GDPSnapshot, GDPDataPoint, Signal
 from core.ports.data_provider import MacroDataProvider, EcbDataProvider, SnbDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 _NEUTRAL = GDPDataPoint(
     gdp_growth=None, industrial_production=None,
@@ -75,13 +78,14 @@ class GDPAgent:
         )
         # Teilergebnisse aus gather(return_exceptions=True) defensiv entpacken
         # (geteilter Helfer statt lokalem _safe): Exception -> None.
-        state          = safe_result(state, default=None) or {}
-        ecb_gdp        = safe_result(ecb_gdp, default=None)
-        ecb_unemp      = safe_result(ecb_unemp, default=None)
-        ecb_unemp_hist = safe_result(ecb_unemp_hist, default=None) or []
-        ecb_pmi        = safe_result(ecb_pmi, default=None)
-        snb_gdp        = safe_result(snb_gdp, default=None)
-        snb_unemp      = safe_result(snb_unemp, default=None)
+        # label+logger: ein Quellen-Ausfall wird als warning sichtbar (Default greift weiter).
+        state          = safe_result(state, default=None, label="GDP FRED economic_state (USA)", logger=_log) or {}
+        ecb_gdp        = safe_result(ecb_gdp, default=None, label="GDP ECB BIP-Wachstum (EU)", logger=_log)
+        ecb_unemp      = safe_result(ecb_unemp, default=None, label="GDP ECB Arbeitslosenquote (EU)", logger=_log)
+        ecb_unemp_hist = safe_result(ecb_unemp_hist, default=None, label="GDP ECB Arbeitslosen-Historie (EU)", logger=_log) or []
+        ecb_pmi        = safe_result(ecb_pmi, default=None, label="GDP ECB PMI (EU)", logger=_log)
+        snb_gdp        = safe_result(snb_gdp, default=None, label="GDP SNB BIP-Wachstum (CH)", logger=_log)
+        snb_unemp      = safe_result(snb_unemp, default=None, label="GDP SNB Arbeitslosenquote (CH)", logger=_log)
 
         usa_gdp   = state.get("gdp_growth")
         usa_unemp = state.get("unemployment")

@@ -16,6 +16,8 @@ import {
   Search, HelpCircle, Sun, Moon,
   // Einstellungen
   Monitor, LogOut,
+  // Cockpit-Synthese
+  Activity, Compass,
   type LucideIcon,
 } from "lucide-react";
 
@@ -32,6 +34,7 @@ export type IconName =
   | "view-table" | "view-map" | "arrow-left" | "arrow-right" | "compare"
   | "search" | "help" | "theme-light" | "theme-dark" | "theme-system"
   | "logout"
+  | "pulse" | "compass"
   | "disclosure-open" | "disclosure-closed";
 
 // Registry: semantischer Name -> lucide-Komponente. Record erzwingt Vollstaendigkeit
@@ -72,6 +75,8 @@ const ICONS: Record<IconName, LucideIcon> = {
   "theme-dark": Moon,
   "theme-system": Monitor,
   logout: LogOut,
+  pulse: Activity,
+  compass: Compass,
   "disclosure-open": ChevronDown,
   "disclosure-closed": ChevronRight,
 };

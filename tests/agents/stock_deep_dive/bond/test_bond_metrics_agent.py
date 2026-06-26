@@ -1,7 +1,20 @@
 import asyncio
+import logging
 import math
 from unittest.mock import MagicMock
 from agents.stock_deep_dive.bond.bond_metrics_agent import BondMetricsAgent
+
+
+def test_run_loggt_warnung_bei_ausgefallener_quelle(caplog):
+    # Logging-Pass: ausgefallene Bond-Datenquelle -> sichtbare warning (Default greift weiter).
+    prov = MagicMock()
+    prov.get_bond_data.side_effect = RuntimeError("FMP down")
+    macro = MagicMock()
+    macro.get_economic_state.return_value = {}
+    agent = BondMetricsAgent(prov, macro, MagicMock())
+    with caplog.at_level(logging.WARNING):
+        asyncio.run(agent.run("AAA"))
+    assert "Bond Metrics Bond-Daten (AAA)" in caplog.text
 
 
 def _make(bond_data, state):

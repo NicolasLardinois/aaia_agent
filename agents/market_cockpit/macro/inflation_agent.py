@@ -1,9 +1,12 @@
 import asyncio
+import logging
 from core.domain.events import InflationDataReady
 from core.domain.models import InflationSnapshot, InflationDataPoint, Signal
 from core.ports.data_provider import MacroDataProvider, EcbDataProvider, SnbDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 _NEUTRAL = InflationDataPoint(cpi=None, core_cpi=None, pce=None, ppi=None, real_rate_10y=None, signal=Signal.NEUTRAL)
 _DEFAULT = InflationSnapshot(usa=_NEUTRAL, eurozone=_NEUTRAL, switzerland=_NEUTRAL)
@@ -109,20 +112,21 @@ class InflationAgent:
         )
         # Teilergebnisse aus gather(return_exceptions=True) defensiv entpacken
         # (geteilter Helfer statt lokalem _safe): Exception -> None.
-        state    = safe_result(state, default=None) or {}
-        ext      = safe_result(ext, default=None)   or {}
-        ecb_cpi  = safe_result(ecb_cpi, default=None)
-        ecb_core = safe_result(ecb_core, default=None)
-        ecb_ppi  = safe_result(ecb_ppi, default=None)
-        ecb_10y  = safe_result(ecb_10y, default=None)
-        snb_cpi  = safe_result(snb_cpi, default=None)
-        snb_core = safe_result(snb_core, default=None)
+        # label+logger: ein Quellen-Ausfall wird als warning sichtbar (Default greift weiter).
+        state    = safe_result(state, default=None, label="Inflation FRED economic_state (USA)", logger=_log) or {}
+        ext      = safe_result(ext, default=None, label="Inflation FRED extended_state (USA)", logger=_log)   or {}
+        ecb_cpi  = safe_result(ecb_cpi, default=None, label="Inflation ECB CPI (EU)", logger=_log)
+        ecb_core = safe_result(ecb_core, default=None, label="Inflation ECB Kern-CPI (EU)", logger=_log)
+        ecb_ppi  = safe_result(ecb_ppi, default=None, label="Inflation ECB PPI (EU)", logger=_log)
+        ecb_10y  = safe_result(ecb_10y, default=None, label="Inflation ECB AAA-10Y-Rendite (EU)", logger=_log)
+        snb_cpi  = safe_result(snb_cpi, default=None, label="Inflation SNB CPI (CH)", logger=_log)
+        snb_core = safe_result(snb_core, default=None, label="Inflation SNB Kern-CPI (CH)", logger=_log)
 
         usa_cpi = state.get("inflation")
         usa_ppi = ext.get("ppi")
         usa_core = ext.get("core_cpi")
         # YoY-CPI-Momentum (USA): leere/fehlende Historie → "stable" (verhaltens-erhaltend)
-        usa_trend = _cpi_trend(safe_result(usa_cpi_hist, default=None) or [])
+        usa_trend = _cpi_trend(safe_result(usa_cpi_hist, default=None, label="Inflation FRED CPI-Historie (USA)", logger=_log) or [])
         usa = InflationDataPoint(
             cpi=usa_cpi,
             core_cpi=usa_core,       # FRED CPILFESL via extended_state

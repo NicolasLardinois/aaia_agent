@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import date, timedelta
 from core.domain.events import YieldSpreadDataReady
 from core.domain.models import YieldSpreadSnapshot, YieldSpreadDataPoint, Signal
@@ -6,6 +7,8 @@ from core.ports.data_provider import MacroDataProvider, EcbDataProvider, SnbData
 from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 _NEUTRAL_PT = YieldSpreadDataPoint(
     spread_10y2y=None, spread_10y3m=None, spread_30y10y=None,
@@ -80,10 +83,11 @@ class YieldSpreadAgent:
         )
         # Teilergebnisse aus gather(return_exceptions=True) defensiv entpacken
         # (geteilter Helfer statt lokalem _safe): Exception -> None.
-        state       = safe_result(state, default=None)       or {}
-        ext         = safe_result(ext, default=None)         or {}
-        ecb_spreads = safe_result(ecb_spreads, default=None) or {}
-        snb_spreads = safe_result(snb_spreads, default=None) or {}
+        # label+logger: ein Quellen-Ausfall wird als warning sichtbar (Default greift weiter).
+        state       = safe_result(state, default=None, label="Yield Spread FRED economic_state (USA)", logger=_log)       or {}
+        ext         = safe_result(ext, default=None, label="Yield Spread FRED extended_state (USA)", logger=_log)         or {}
+        ecb_spreads = safe_result(ecb_spreads, default=None, label="Yield Spread ECB SDW (EU)", logger=_log) or {}
+        snb_spreads = safe_result(snb_spreads, default=None, label="Yield Spread SNB (CH)", logger=_log) or {}
 
         # USA — T10Y2Y from economic_state, T10Y3M from extended_state
         usa_10y2y = state.get("yield_curve")

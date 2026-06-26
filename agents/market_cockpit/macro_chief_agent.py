@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from agents.market_cockpit.macro.inflation_agent import InflationAgent
 from agents.market_cockpit.macro.money_supply_agent import MoneySupplyAgent
@@ -15,6 +16,8 @@ from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
 from core.ports.world_bank import MarketCapToGdpProvider
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 
 class MacroChiefAgent:
@@ -57,17 +60,17 @@ class MacroChiefAgent:
             return_exceptions=True,
         )
 
-        inflation          = safe_result(results[0], default=InflationAgent.default())
-        money_supply       = safe_result(results[1], default=MoneySupplyAgent.default())
-        interest_rate      = safe_result(results[2], default=InterestRateAgent.default())
-        gdp                = safe_result(results[3], default=GDPAgent.default())
-        labor_income       = safe_result(results[4], default=LaborIncomeAgent.default())
-        credit             = safe_result(results[5], default=CreditAgent.default())
-        buffett_indicator  = safe_result(results[6], default=BuffettIndicatorAgent.default())
-        state              = safe_result(results[7], default={})
-        usa_spreads        = safe_result(results[8], default={}) or {}
-        eu_spreads         = safe_result(results[9], default={}) or {}
-        ch_spreads         = safe_result(results[10], default={}) or {}
+        inflation          = safe_result(results[0], default=InflationAgent.default(), label="MacroChief: InflationAgent", logger=_log)
+        money_supply       = safe_result(results[1], default=MoneySupplyAgent.default(), label="MacroChief: MoneySupplyAgent", logger=_log)
+        interest_rate      = safe_result(results[2], default=InterestRateAgent.default(), label="MacroChief: InterestRateAgent", logger=_log)
+        gdp                = safe_result(results[3], default=GDPAgent.default(), label="MacroChief: GDPAgent", logger=_log)
+        labor_income       = safe_result(results[4], default=LaborIncomeAgent.default(), label="MacroChief: LaborIncomeAgent", logger=_log)
+        credit             = safe_result(results[5], default=CreditAgent.default(), label="MacroChief: CreditAgent", logger=_log)
+        buffett_indicator  = safe_result(results[6], default=BuffettIndicatorAgent.default(), label="MacroChief: BuffettIndicatorAgent", logger=_log)
+        state              = safe_result(results[7], default={}, label="MacroChief: economic_state (FRED)", logger=_log)
+        usa_spreads        = safe_result(results[8], default={}, label="MacroChief: USA yield_spreads", logger=_log) or {}
+        eu_spreads         = safe_result(results[9], default={}, label="MacroChief: EU yield_spreads", logger=_log) or {}
+        ch_spreads         = safe_result(results[10], default={}, label="MacroChief: CH yield_spreads", logger=_log) or {}
 
         from core.domain.regime_inputs import assemble_regime_inputs
 

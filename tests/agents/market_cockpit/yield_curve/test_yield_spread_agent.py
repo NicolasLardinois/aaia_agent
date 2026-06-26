@@ -1,5 +1,24 @@
-from agents.market_cockpit.yield_curve.yield_spread_agent import _point
+import asyncio
+import logging
+from unittest.mock import MagicMock
+
+from agents.market_cockpit.yield_curve.yield_spread_agent import YieldSpreadAgent, _point
 from core.domain.models import Signal
+
+
+def test_run_loggt_warnung_bei_ausgefallener_quelle(caplog):
+    # Logging-Pass: ausgefallene EU-Spread-Quelle -> sichtbare warning (Default greift weiter).
+    macro = MagicMock()
+    macro.get_economic_state.return_value = {}
+    macro.get_extended_state.return_value = {}
+    ecb = MagicMock()
+    ecb.get_yield_spreads.side_effect = RuntimeError("ECB SDW down")
+    snb = MagicMock()
+    snb.get_yield_spreads.return_value = {}
+    agent = YieldSpreadAgent(macro=macro, ecb=ecb, snb=snb, bus=MagicMock())
+    with caplog.at_level(logging.WARNING):
+        asyncio.run(agent.run())
+    assert "Yield Spread ECB SDW (EU)" in caplog.text
 
 
 def test_normal_positive_curve_is_neutral():
