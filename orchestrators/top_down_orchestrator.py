@@ -9,6 +9,7 @@ from core.domain.models import CockpitResult
 from core.ports.data_provider import EcbDataProvider, MacroDataProvider, MarketDataProvider, SnbDataProvider, SentimentDataProvider
 from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
+from core.ports.metal_spot import MetalSpotProvider
 
 
 class TopDownOrchestrator:
@@ -26,9 +27,10 @@ class TopDownOrchestrator:
         bus: EventBus,
         sentiment: SentimentDataProvider | None = None,
         history: DatedHistoryPort | None = None,
+        metal_spot: MetalSpotProvider | None = None,
     ):
         self.macro_chief       = MacroChiefAgent(macro, ecb, snb, bus, history=history)
-        self.commodity_chief   = CommodityChiefAgentMakro(market, bus)
+        self.commodity_chief   = CommodityChiefAgentMakro(market, bus, metal_spot=metal_spot)
         self.sentiment_chief   = SentimentChiefAgent(market, bus, sentiment, history=history)
         self.yield_curve_chief = YieldCurveChiefAgent(macro, ecb, snb, bus, history=history)
         self.sector_chief      = SectorChiefAgent(market, bus)
