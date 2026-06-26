@@ -9,6 +9,7 @@ from core.domain.models import BondResult, Signal, RiskAffinity, CreditBand, Sig
 from core.ports.data_provider import FundamentalsProvider, MacroDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.bond_risk import rating_to_band, aggregate_bond_signal
+from core.utils.safe import safe_result
 
 
 class BondChiefAgent:
@@ -40,12 +41,10 @@ class BondChiefAgent:
             return_exceptions=True,
         )
 
-        def _safe(r, d): return d if isinstance(r, Exception) else r
-
-        metrics  = _safe(results[0], BondMetricsAgent.default())
-        duration = _safe(results[1], BondDurationAgent.default())
-        credit   = _safe(results[2], BondCreditAgent.default())
-        spread   = _safe(results[3], BondSpreadAgent.default())
+        metrics  = safe_result(results[0], default=BondMetricsAgent.default())
+        duration = safe_result(results[1], default=BondDurationAgent.default())
+        credit   = safe_result(results[2], default=BondCreditAgent.default())
+        spread   = safe_result(results[3], default=BondSpreadAgent.default())
 
         # §3.4: Eine Komponente ohne verfügbare Daten (UNAVAILABLE) wird als None
         # weitergereicht → aggregate_bond_signal lässt sie weg und re-normalisiert,

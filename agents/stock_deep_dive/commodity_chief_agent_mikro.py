@@ -9,6 +9,7 @@ from core.domain.models import CommodityBottomUpResult
 from core.ports.data_provider import MarketDataProvider, COTProvider
 from core.ports.event_bus import EventBus
 from core.utils.aggregation import weighted_signal
+from core.utils.safe import safe_result
 
 
 class CommodityChiefAgentMikro:
@@ -32,12 +33,10 @@ class CommodityChiefAgentMikro:
             return_exceptions=True,
         )
 
-        def _safe(r, d): return d if isinstance(r, Exception) else r
-
-        supply_demand   = _safe(results[0], SupplyDemandAgent.default())
-        seasonality     = _safe(results[1], SeasonalityAgent.default())
-        cot             = _safe(results[2], COTAgent.default())
-        valuation_range = _safe(results[3], CommodityValuationRangeAgent.default())
+        supply_demand   = safe_result(results[0], default=SupplyDemandAgent.default())
+        seasonality     = safe_result(results[1], default=SeasonalityAgent.default())
+        cot             = safe_result(results[2], default=COTAgent.default())
+        valuation_range = safe_result(results[3], default=CommodityValuationRangeAgent.default())
 
         # Gewichtetes Gesamtsignal (weighted_signal ignoriert UNAVAILABLE + re-normalisiert die
         # Gewichte über die verfügbaren Sub-Signale — analog den übrigen Chiefs). Gewichte fachlich:

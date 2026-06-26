@@ -12,6 +12,7 @@ from core.ports.event_bus import EventBus
 from core.ports.world_bank import MarketCapToGdpProvider
 from core.ports.metal_spot import MetalSpotProvider
 from core.ports.put_call_source import PutCallSource
+from core.utils.safe import safe_result
 
 
 class TopDownOrchestrator:
@@ -48,12 +49,10 @@ class TopDownOrchestrator:
             return_exceptions=True,
         )
 
-        def _safe(r, d): return d if isinstance(r, Exception) else r
-
-        macro       = _safe(macro,       MacroChiefAgent.default())
-        commodities = _safe(commodities, CommodityChiefAgentMakro.default())
-        sentiment   = _safe(sentiment,   SentimentChiefAgent.default())
-        yield_curve = _safe(yield_curve, YieldCurveChiefAgent.default())
+        macro       = safe_result(macro, default=MacroChiefAgent.default())
+        commodities = safe_result(commodities, default=CommodityChiefAgentMakro.default())
+        sentiment   = safe_result(sentiment, default=SentimentChiefAgent.default())
+        yield_curve = safe_result(yield_curve, default=YieldCurveChiefAgent.default())
 
         try:
             sectors = await self.sector_chief.run(macro.regime)
