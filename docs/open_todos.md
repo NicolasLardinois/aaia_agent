@@ -316,7 +316,7 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
   `mean_ret_bullish`/`mean_ret_bearish` im Report-Dict (None bei 0 Beobachtungen, keine Division
   durch 0); `build_report_md` zeigt sie als zwei neue Spalten „Ø-Ret bullish/bearish". Mittel **nach
   Richtung**, nicht nach Treffer/Fehler — misst, ob sich der Markt in der vom Regime erwarteten
-  Richtung bewegte; ein treffender Motor zeigt bullish-Mittel > bearish-Mittel. *(PR offen.)*
+  Richtung bewegte; ein treffender Motor zeigt bullish-Mittel > bearish-Mittel. **PR #108 am 2026-06-26 gemergt** (Review Claude: `regime_direction` ist binär — nur bullish/bearish, kein neutral-Leak in den bearish-Topf; `ret` ist beim Sammeln garantiert ein gültiger Float (None/fehlender Forward-Kurs wird vorher per `continue` übersprungen); None-Guards bei 0 Beobachtungen je Richtung → keine Division durch 0; Report-Spalten defensiv via `.get(...) is not None`; Mittel **nach erwarteter Richtung**, nicht nach Treffer — korrekter Spec-§3.1-Plausibilitätscheck; CI grün — keine Befunde).
 - [ ] **Voll-Lauf-Performance: FRED-Serien einmalig laden statt pro Stichtag (Spec §9).** Der
   Default-Loader ruft `get_series_as_of_date` pro Serie **pro Stichtag**, plus die 4 Sub-Signal-Agenten
   ziehen weitere FRED-Serien je Stichtag → grob mehrere tausend API-Calls für 1960→heute. **Ansatz:**
