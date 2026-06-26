@@ -1,10 +1,13 @@
 import asyncio
+import logging
 from core.domain.events import EnergyDataReady
 from core.domain.models import EnergySnapshot, Signal
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.relative import zscore_vs_history
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 TICKERS = {"wti": "CL=F", "brent": "BZ=F", "natural_gas": "NG=F"}
 _DEFAULT = EnergySnapshot(wti_usd=None, brent_usd=None, natural_gas_usd=None, signal=Signal.NEUTRAL)
@@ -71,10 +74,11 @@ class EnergyAgent:
                 return_exceptions=True,
             ),
         )
-        # Ausgefallene Preisquelle -> None (geteilter Helfer statt lokalem _safe).
-        wti = safe_result(wti, default=None)
-        brent = safe_result(brent, default=None)
-        gas = safe_result(gas, default=None)
+        # Ausgefallene Preisquelle -> None (geteilter Helfer statt lokalem _safe);
+        # mit label+logger wird der Ausfall als warning sichtbar (nicht mehr still).
+        wti = safe_result(wti, default=None, label=f"Energy WTI ({TICKERS['wti']})", logger=_log)
+        brent = safe_result(brent, default=None, label=f"Energy Brent ({TICKERS['brent']})", logger=_log)
+        gas = safe_result(gas, default=None, label=f"Energy Natural Gas ({TICKERS['natural_gas']})", logger=_log)
 
         result = EnergySnapshot(
             wti_usd=wti, brent_usd=brent, natural_gas_usd=gas,

@@ -1,10 +1,13 @@
 import asyncio
+import logging
 from core.domain.events import PreciousMetalsMacroDataReady
 from core.domain.models import PreciousMetalsMacroSnapshot, Signal
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.relative import percentile_rank, zscore_vs_history
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 TICKERS = {"gold": "GC=F", "silver": "SI=F", "platinum": "PL=F", "palladium": "PA=F"}
 
@@ -97,10 +100,11 @@ class PreciousMetalsMacroAgent:
             ),
         )
         # Ausgefallene Preisquelle -> None (geteilter Helfer statt lokalem _safe).
-        gold = safe_result(gold, default=None)
-        silver = safe_result(silver, default=None)
-        platinum = safe_result(platinum, default=None)
-        palladium = safe_result(palladium, default=None)
+        # label+logger: ein ausgefallener Metallpreis wird als warning sichtbar.
+        gold = safe_result(gold, default=None, label=f"Precious Metals Macro Gold ({TICKERS['gold']})", logger=_log)
+        silver = safe_result(silver, default=None, label=f"Precious Metals Macro Silver ({TICKERS['silver']})", logger=_log)
+        platinum = safe_result(platinum, default=None, label=f"Precious Metals Macro Platinum ({TICKERS['platinum']})", logger=_log)
+        palladium = safe_result(palladium, default=None, label=f"Precious Metals Macro Palladium ({TICKERS['palladium']})", logger=_log)
 
         gs_ratio = round(gold / silver, 2) if gold is not None and silver is not None and silver > 0 else None
         gp_ratio = round(gold / platinum, 2) if gold is not None and platinum is not None and platinum > 0 else None
