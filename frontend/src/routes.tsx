@@ -18,6 +18,7 @@ import { loadInboxCount } from "./data/inboxCount";
 import { WelcomePage } from "./pages/WelcomePage";
 import { useOnboarding } from "./shell/useOnboarding";
 import type { UseCockpitDeps } from "./hooks/useCockpit";
+import { CockpitProvider } from "./hooks/CockpitProvider";
 
 // Index-Redirect: erster Besuch -> Willkommen-Seite, sonst direkt ins Cockpit.
 function IndexRedirect() {
@@ -42,31 +43,36 @@ export function AppRoutes({ deps, onLogout }: { deps?: UseCockpitDeps; onLogout?
   }, []);
 
   return (
-    <Routes>
-      <Route element={<AppShell inboxCount={inboxCount} onLogout={onLogout} />}>
-        <Route index element={<IndexRedirect />} />
-        <Route path="/willkommen" element={<WelcomePage />} />
-        <Route path="/cockpit" element={<CockpitPage deps={deps} />} />
+    // CockpitProvider UMSCHLIESST die Routen -> der Lauf-Zustand lebt oberhalb der
+    // Seiten und ueberlebt jede Navigation (Bug #5/#7). Die CockpitPage liest ihn
+    // jetzt aus dem Context statt selbst useCockpit zu halten.
+    <CockpitProvider deps={deps}>
+      <Routes>
+        <Route element={<AppShell inboxCount={inboxCount} onLogout={onLogout} />}>
+          <Route index element={<IndexRedirect />} />
+          <Route path="/willkommen" element={<WelcomePage />} />
+          <Route path="/cockpit" element={<CockpitPage />} />
 
-        {/* Cockpit-Drilldowns (Slice 1, Dispatch B) */}
-        <Route path="/cockpit/macro" element={<MacroDrilldown />} />
-        <Route path="/cockpit/commodities" element={<CommoditiesDrilldown />} />
-        <Route path="/cockpit/sentiment" element={<SentimentDrilldown />} />
-        <Route path="/cockpit/yield-curve" element={<YieldCurveDrilldown />} />
-        <Route path="/cockpit/sectors" element={<SectorsDrilldown />} />
+          {/* Cockpit-Drilldowns (Slice 1, Dispatch B) */}
+          <Route path="/cockpit/macro" element={<MacroDrilldown />} />
+          <Route path="/cockpit/commodities" element={<CommoditiesDrilldown />} />
+          <Route path="/cockpit/sentiment" element={<SentimentDrilldown />} />
+          <Route path="/cockpit/yield-curve" element={<YieldCurveDrilldown />} />
+          <Route path="/cockpit/sectors" element={<SectorsDrilldown />} />
 
-        {/* Spezial-Widgets (Slice 1, Dispatch C) */}
-        <Route path="/cockpit/buffett" element={<BuffettWidget />} />
-        <Route path="/cockpit/big-mac" element={<BigMacWidget />} />
+          {/* Spezial-Widgets (Slice 1, Dispatch C) */}
+          <Route path="/cockpit/buffett" element={<BuffettWidget />} />
+          <Route path="/cockpit/big-mac" element={<BigMacWidget />} />
 
-        <Route path="/deep-dive" element={<PlaceholderPage title="Deep-Dive — Titel über die Suche oben öffnen" />} />
-        <Route path="/deep-dive/:ticker" element={<DeepDivePage />} />
-        <Route path="/portfolio" element={<PortfolioPage />} />
-        <Route path="/inbox" element={<InboxPage />} />
-        <Route path="/backtester" element={<BacktesterPage />} />
-        <Route path="/einstellungen" element={<PlaceholderPage title="Einstellungen" />} />
-        <Route path="*" element={<Navigate to="/cockpit" replace />} />
-      </Route>
-    </Routes>
+          <Route path="/deep-dive" element={<PlaceholderPage title="Deep-Dive — Titel über die Suche oben öffnen" />} />
+          <Route path="/deep-dive/:ticker" element={<DeepDivePage />} />
+          <Route path="/portfolio" element={<PortfolioPage />} />
+          <Route path="/inbox" element={<InboxPage />} />
+          <Route path="/backtester" element={<BacktesterPage />} />
+          <Route path="/einstellungen" element={<PlaceholderPage title="Einstellungen" />} />
+          <Route path="*" element={<Navigate to="/cockpit" replace />} />
+        </Route>
+      </Routes>
+    </CockpitProvider>
   );
 }

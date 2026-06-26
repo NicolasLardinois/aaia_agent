@@ -1,22 +1,17 @@
 import asyncio
 
-import requests
-
 from core.domain.events import BuffettIndicatorReady
 from core.domain.models import BuffettCountryPoint, BuffettIndicatorSnapshot, Signal
 from core.domain.top_down_context import buffett_corridor
 from core.ports.data_provider import MacroDataProvider
 from core.ports.event_bus import EventBus
+from core.ports.world_bank import MarketCapToGdpProvider
 
 _Z_HIGH = 1.5
 _Z_LOW  = -1.5
 
-# mrv=15 → letzte 15 Jahreswerte pro Land (reicht für Z-Score-Berechnung)
-# per_page=5000 verhindert Paginierung bei ~150 Ländern × 15 Jahre = ~2250 Einträgen
-_WB_URL = (
-    "https://api.worldbank.org/v2/country/all/indicator/"
-    "CM.MKT.LCAP.GD.ZS?format=json&mrv=15&per_page=5000"
-)
+# Die Weltbank-Rohdaten (Marktkap./BIP je Land) kommen über den injizierten
+# MarketCapToGdpProvider (World-Bank-Adapter), nicht mehr aus hartkodiertem I/O.
 
 _DEFAULT = BuffettIndicatorSnapshot(countries={}, signal=Signal.NEUTRAL)
 
@@ -74,58 +69,24 @@ def _median(values: list[float]) -> float | None:
     return round(clean[mid] if n % 2 else (clean[mid - 1] + clean[mid]) / 2, 1)
 
 
-def _fetch_world_bank() -> dict[str, tuple[float, int, list[tuple[int, float]], str]]:
-    """
-    Gibt {ISO-3-Code: (aktueller_ratio_pct, Jahr, historische_serie)} zurück.
-    Die historische Serie ist eine Liste (Jahr, Ratio%), älteste → neueste, ohne
-    Lücken (nur vorhandene Werte). Daraus entsteht der z-Score; sie dient zugleich
-    als 10-J-Verlauf im Einzelland-Drilldown.
-    """
-    try:
-        resp = requests.get(_WB_URL, timeout=20)
-        payload = resp.json()
-        if not isinstance(payload, list) or len(payload) < 2:
-            return {}
-        entries = payload[1] or []
-
-        by_country: dict[str, list[tuple[int, float]]] = {}
-        names: dict[str, str] = {}   # ISO-3 → Klarname (aus der Weltbank-Antwort)
-        for entry in entries:
-            if entry.get("value") is None:
-                continue
-            code = entry.get("countryiso3code", "")
-            if not code or len(code) != 3:
-                continue
-            try:
-                year  = int(entry["date"])
-                value = round(float(entry["value"]), 1)
-                by_country.setdefault(code, []).append((year, value))
-                names.setdefault(code, entry.get("country", {}).get("value", ""))
-            except (TypeError, ValueError):
-                continue
-
-        result = {}
-        for code, points in by_country.items():
-            points.sort(key=lambda x: x[0])        # älteste → neueste
-            current_year, current_val = points[-1]
-            # (aktueller Ratio, Jahr, (Jahr, Ratio)-Paare, Klarname)
-            result[code] = (current_val, current_year, points, names.get(code, ""))
-
-        return result
-    except Exception:
-        return {}
-
-
 class BuffettIndicatorAgent:
-    def __init__(self, macro: MacroDataProvider, bus: EventBus, wb_fetch=_fetch_world_bank):
+    def __init__(self, macro: MacroDataProvider, bus: EventBus,
+                 world_bank: MarketCapToGdpProvider | None = None):
         self.macro = macro
         self.bus   = bus
-        self._wb_fetch = wb_fetch  # Injizierbar: erlaubt netzfreien Replay/Backtest
+        # Optionaler Port für die Weltbank-Länderdaten. Fehlt er (None), entstehen
+        # keine Weltbank-Länder — nur USA aus FRED (netzfreier Replay/Backtest).
+        self._world_bank = world_bank
+
+    async def _fetch_wb(self) -> dict:
+        if self._world_bank is None:
+            return {}
+        return await asyncio.to_thread(self._world_bank.get_market_cap_to_gdp)
 
     async def run(self) -> BuffettIndicatorSnapshot:
         fred_data, wb_data, fred_history = await asyncio.gather(
             asyncio.to_thread(self.macro.get_buffett_data),
-            asyncio.to_thread(self._wb_fetch),
+            self._fetch_wb(),
             asyncio.to_thread(self.macro.get_buffett_history, 10),
             return_exceptions=True,
         )

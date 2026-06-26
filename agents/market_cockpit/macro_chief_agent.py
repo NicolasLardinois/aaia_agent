@@ -13,6 +13,7 @@ from core.domain.regime import RegimeDetector
 from core.ports.data_provider import EcbDataProvider, MacroDataProvider, SnbDataProvider
 from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
+from core.ports.world_bank import MarketCapToGdpProvider
 
 
 class MacroChiefAgent:
@@ -23,6 +24,7 @@ class MacroChiefAgent:
         snb: SnbDataProvider,
         bus: EventBus,
         history: DatedHistoryPort | None = None,
+        world_bank: MarketCapToGdpProvider | None = None,
     ):
         self._macro    = macro
         self._ecb      = ecb
@@ -36,7 +38,7 @@ class MacroChiefAgent:
         self.gdp_agent              = GDPAgent(macro, ecb, snb, bus)
         self.labor_income_agent     = LaborIncomeAgent(macro, bus)
         self.credit_agent           = CreditAgent(macro, bus)
-        self.buffett_indicator_agent = BuffettIndicatorAgent(macro, bus)
+        self.buffett_indicator_agent = BuffettIndicatorAgent(macro, bus, world_bank=world_bank)
 
     async def run(self) -> MacroChiefResult:
         results = await asyncio.gather(

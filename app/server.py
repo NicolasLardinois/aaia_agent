@@ -9,6 +9,7 @@ import uvicorn
 
 from config.settings import FRED_API_KEY
 from adapters.data.fred_api import FredDataProvider
+from adapters.data.world_bank import WorldBankMarketCapProvider
 from adapters.data.yahoo_finance import YahooFinanceProvider
 from adapters.data.ecb_sdw import EcbSdwProvider
 from adapters.data.eurostat import EurostatEcbProvider
@@ -38,6 +39,7 @@ def make_orchestrator(bus):
         bus=bus,
         sentiment=CnnFearGreedProvider(),
         history=JsonDatedHistory(_HISTORY_PATH),
+        world_bank=WorldBankMarketCapProvider(),
         metal_spot=FmpMetalSpotProvider(),
     )
 
