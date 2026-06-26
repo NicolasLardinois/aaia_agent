@@ -307,11 +307,14 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
   Echter Lernkreislauf: Vorhersage → Realität → Kalibrierung.
 
 #### Folge-Aufgaben aus Review PR #26 (Regime-Replay-Backtest Stufe 1, 2026-06-22)
-- [ ] **Mean-Forward-Return je Richtung in `evaluate_market` ergänzen (Spec §3.1).** Spec nennt als
-  Plausibilitätscheck den „mittleren Forward-Return der bullish- vs. bearish-Calls"; aktuell liefert
-  `evaluate_market` nur Hit-Rate + Wilson-CI. **Ansatz:** je Horizont die Returns nach Richtung
-  (`regime_direction`) summieren/mitteln → `mean_ret_bullish`/`mean_ret_bearish` ins Report-Dict +
-  `build_report_md`; ein bullisch-treffender Motor sollte bullish-Mittel > bearish-Mittel zeigen.
+- [x] **Mean-Forward-Return je Richtung in `evaluate_market` ergänzen (Spec §3.1).** Spec nannte als
+  Plausibilitätscheck den „mittleren Forward-Return der bullish- vs. bearish-Calls"; `evaluate_market`
+  lieferte bislang nur Hit-Rate + Wilson-CI. **Lösung (TDD):** je Horizont werden die rohen
+  Forward-Returns nach erwarteter Richtung (`regime_direction`) gesammelt und gemittelt →
+  `mean_ret_bullish`/`mean_ret_bearish` im Report-Dict (None bei 0 Beobachtungen, keine Division
+  durch 0); `build_report_md` zeigt sie als zwei neue Spalten „Ø-Ret bullish/bearish". Mittel **nach
+  Richtung**, nicht nach Treffer/Fehler — misst, ob sich der Markt in der vom Regime erwarteten
+  Richtung bewegte; ein treffender Motor zeigt bullish-Mittel > bearish-Mittel. *(PR offen.)*
 - [ ] **Voll-Lauf-Performance: FRED-Serien einmalig laden statt pro Stichtag (Spec §9).** Der
   Default-Loader ruft `get_series_as_of_date` pro Serie **pro Stichtag**, plus die 4 Sub-Signal-Agenten
   ziehen weitere FRED-Serien je Stichtag → grob mehrere tausend API-Calls für 1960→heute. **Ansatz:**
