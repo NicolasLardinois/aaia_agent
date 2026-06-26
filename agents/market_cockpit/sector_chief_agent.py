@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from agents.market_cockpit.sector.sector_performance_agent import SectorPerformanceAgent
 from agents.market_cockpit.sector.sector_rotation_agent import SectorRotationAgent
@@ -7,6 +8,8 @@ from core.domain.models import MarketRegime, SectorChiefResult, SectorRotationSn
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 _DEFAULT_ROTATION = SectorRotationSnapshot(recommended=[], avoid=[], alignment="neutral", signal=Signal.NEUTRAL)
 
@@ -32,7 +35,7 @@ class SectorChiefAgent:
             return_exceptions=True,
         )
 
-        performance = safe_result(performance_result[0], default=SectorPerformanceAgent.default())
+        performance = safe_result(performance_result[0], default=SectorPerformanceAgent.default(), label="SectorChief: SectorPerformanceAgent", logger=_log)
 
         try:
             top = _top_sectors(performance, n=3)

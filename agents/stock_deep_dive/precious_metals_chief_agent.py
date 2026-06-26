@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from agents.stock_deep_dive.commodity.cot_agent import COTAgent
 from agents.stock_deep_dive.precious_metals.precious_metal_price_agent import PreciousMetalPriceAgent
@@ -9,6 +10,8 @@ from core.domain.models import PreciousMetalsResult, Signal
 from core.ports.data_provider import COTProvider, MacroDataProvider, MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 
 class PreciousMetalsChiefAgent:
@@ -38,10 +41,10 @@ class PreciousMetalsChiefAgent:
             return_exceptions=True,
         )
 
-        price_snap     = safe_result(results[0], default=PreciousMetalPriceAgent.default(metal))
-        cross_snap     = safe_result(results[1], default=CrossMetalAgent.default())
-        valuation_snap = safe_result(results[2], default=PreciousMetalsValuationAgent.default())
-        cot_snap       = safe_result(results[3], default=COTAgent.default())
+        price_snap     = safe_result(results[0], default=PreciousMetalPriceAgent.default(metal), label="PreciousMetalsChief: PreciousMetalPriceAgent", logger=_log)
+        cross_snap     = safe_result(results[1], default=CrossMetalAgent.default(), label="PreciousMetalsChief: CrossMetalAgent", logger=_log)
+        valuation_snap = safe_result(results[2], default=PreciousMetalsValuationAgent.default(), label="PreciousMetalsChief: PreciousMetalsValuationAgent", logger=_log)
+        cot_snap       = safe_result(results[3], default=COTAgent.default(), label="PreciousMetalsChief: COTAgent", logger=_log)
 
         self.bus.publish(PreciousMetalsChiefReady(source="precious_metals_chief_agent", payload={"metal": metal}))
 
