@@ -10,7 +10,7 @@ import asyncio
 import os
 import sys
 
-from config.settings import FRED_API_KEY, ANTHROPIC_API_KEY, FINNHUB_API_KEY
+from config.settings import FRED_API_KEY, ANTHROPIC_API_KEY, FINNHUB_API_KEY, require_keys
 from core.domain.models import PositionState, RiskAffinity
 from core.domain.portfolio import PortfolioError
 from core.domain.taxonomy import (
@@ -371,6 +371,9 @@ async def run_judgment(ticker: str, market: str = "USA") -> None:
 
 
 def main() -> None:
+    # Fail-fast: echte Pflicht-Keys (FRED + ANTHROPIC) erst hier verlangen, nicht beim Import
+    # (so bleibt config.settings für Tests/CI keyfrei importierbar). Siehe require_keys().
+    require_keys()
     args = sys.argv[1:]
     if not args or args[0] == "dashboard":
         asyncio.run(run_dashboard())
