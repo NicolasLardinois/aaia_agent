@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import replace
 from unittest.mock import MagicMock, AsyncMock
 from agents.stock_deep_dive.equity_chief_agent import EquityChiefAgent
 from core.domain.models import (
@@ -324,3 +325,129 @@ def test_precious_metals_chief_resilience():
 def test_precious_metals_chief_default():
     result = PreciousMetalsChiefAgent.default("GOLD")
     assert isinstance(result, PreciousMetalsResult)
+
+
+# ---------------------------------------------------------------------------
+# AGGREGATIONS-LOGIK (Test-Lücke §6 / open_todos.md: bisher prüften die Chief-
+# Tests nur isinstance(result, XxxResult), nie OB die Sub-Signale korrekt ins
+# Gesamtsignal einfliessen). Hier: Richtungs-Tests — fütterst du jedem Chief
+# einheitlich BULLISH-Sub-Snapshots, muss das aggregierte Gesamtsignal BULLISH
+# sein, bei einheitlich BEARISH entsprechend BEARISH. Der BULLISH↔BEARISH-
+# Kontrast ist der eigentliche Regressionswächter: würde ein Chief die
+# Sub-Signale ignorieren (z. B. hartkodiert NEUTRAL liefern), schlüge das Paar
+# fehl. equity/index legen das Gesamtsignal in den Event-Payload (`signal`),
+# commodity-mikro zusätzlich ins Result-Feld `overall_signal`.
+#
+# Nicht abgedeckt (bewusst): `bond` aggregiert über `aggregate_bond_signal`
+# (Kreditband + Risikoaffinität — eigene, separat getestete Funktion) und
+# `precious_metals` aggregiert gar nicht (reicht Snapshots/COT durch).
+# ---------------------------------------------------------------------------
+
+def _mit_signal(snap, signal):
+    """Kopiert einen neutralen Snapshot mit gesetztem Signal (Status-Default AVAILABLE bleibt)."""
+    return replace(snap, signal=signal)
+
+
+def _aggregiertes_signal(bus):
+    """Liest das aggregierte Gesamtsignal aus dem publizierten *ChiefReady-Event.
+
+    equity/index legen es als ``payload['signal']`` ab, commodity-mikro als
+    ``payload['overall_signal']`` — beide als ``Signal.value``-String.
+    """
+    for call in bus.publish.call_args_list:
+        payload = call.args[0].payload
+        if "signal" in payload or "overall_signal" in payload:
+            return payload.get("signal", payload.get("overall_signal"))
+    raise AssertionError("kein aggregiertes Signal im Event-Payload publiziert")
+
+
+def _equity_chief_einheitlich(signal):
+    bus = MagicMock()
+    chief = EquityChiefAgent(MagicMock(), MagicMock(), MagicMock(), bus)
+    chief.fundamentals_agent.run    = AsyncMock(return_value=_mit_signal(_neutral_fundamentals(), signal))
+    chief.quality_agent.run         = AsyncMock(return_value=_mit_signal(_neutral_quality(), signal))
+    chief.short_agent.run           = AsyncMock(return_value=ShortInterestSnapshot(short_float_pct=None, days_to_cover=None, signal=signal))
+    chief.insider_agent.run         = AsyncMock(return_value=InsiderSnapshot(net_direction="unknown", recent_transactions=0, signal=signal))
+    chief.earnings_agent.run        = AsyncMock(return_value=EarningsTrendSnapshot(beat_rate=None, estimate_revision="stable", signal=signal))
+    chief.moat_agent.run            = AsyncMock(return_value=_mit_signal(_neutral_moat(), signal))
+    chief.valuation_range_agent.run = AsyncMock(return_value=_mit_signal(_neutral_valuation_range(), signal))
+    chief.momentum_agent.run        = AsyncMock(return_value=_mit_signal(_neutral_momentum(), signal))
+    return bus, chief
+
+
+def test_equity_chief_aggregiert_einheitlich_bullish():
+    bus, chief = _equity_chief_einheitlich(Signal.BULLISH)
+    asyncio.run(chief.run("AAPL", "technology"))
+    assert _aggregiertes_signal(bus) == Signal.BULLISH.value
+
+
+def test_equity_chief_aggregiert_einheitlich_bearish():
+    bus, chief = _equity_chief_einheitlich(Signal.BEARISH)
+    asyncio.run(chief.run("AAPL", "technology"))
+    assert _aggregiertes_signal(bus) == Signal.BEARISH.value
+
+
+def _index_chief_einheitlich(signal):
+    bus = MagicMock()
+    chief = IndexChiefAgent(MagicMock(), bus)
+    # Die 5 ins Aggregat eingehenden Sub-Signale (valuation, momentum, earnings, breadth, price):
+    chief.index_price_agent.run     = AsyncMock(return_value=_mit_signal(_neutral_index_price(), signal))
+    chief.index_valuation_agent.run = AsyncMock(return_value=_mit_signal(_neutral_index_valuation(), signal))
+    chief.index_earnings_agent.run  = AsyncMock(return_value=_mit_signal(_neutral_index_earnings(), signal))
+    chief.index_breadth_agent.run   = AsyncMock(return_value=_mit_signal(_neutral_index_breadth(), signal))
+    chief.index_momentum_agent.run  = AsyncMock(return_value=_mit_signal(_neutral_index_momentum(), signal))
+    # composition + valuation_range fliessen NICHT ins Aggregat → neutral lassen:
+    chief.sector_composition_agent.run    = AsyncMock(return_value=_neutral_sector_composition())
+    chief.index_valuation_range_agent.run = AsyncMock(return_value=_neutral_index_valuation_range())
+    return bus, chief
+
+
+def test_index_chief_aggregiert_einheitlich_bullish():
+    bus, chief = _index_chief_einheitlich(Signal.BULLISH)
+    asyncio.run(chief.run("SPY"))
+    assert _aggregiertes_signal(bus) == Signal.BULLISH.value
+
+
+def test_index_chief_aggregiert_einheitlich_bearish():
+    bus, chief = _index_chief_einheitlich(Signal.BEARISH)
+    asyncio.run(chief.run("SPY"))
+    assert _aggregiertes_signal(bus) == Signal.BEARISH.value
+
+
+def _commodity_mikro_chief_einheitlich(signal):
+    bus = MagicMock()
+    chief = CommodityChiefAgentMikro(MagicMock(), bus)
+    chief.supply_demand_agent.run             = AsyncMock(return_value=_mit_signal(_neutral_supply_demand(), signal))
+    chief.seasonality_agent.run               = AsyncMock(return_value=_mit_signal(_neutral_seasonality(), signal))
+    chief.cot_agent.run                       = AsyncMock(return_value=_mit_signal(_neutral_cot(), signal))
+    chief.commodity_valuation_range_agent.run = AsyncMock(return_value=_mit_signal(_neutral_commodity_valuation(), signal))
+    return bus, chief
+
+
+def test_commodity_mikro_chief_aggregiert_einheitlich_bullish():
+    bus, chief = _commodity_mikro_chief_einheitlich(Signal.BULLISH)
+    result = asyncio.run(chief.run("CL=F"))
+    assert result.overall_signal == Signal.BULLISH      # Result-Feld
+    assert _aggregiertes_signal(bus) == Signal.BULLISH.value  # Event-Payload
+    assert result.confidence > 0.0
+
+
+def test_commodity_mikro_chief_aggregiert_einheitlich_bearish():
+    bus, chief = _commodity_mikro_chief_einheitlich(Signal.BEARISH)
+    result = asyncio.run(chief.run("CL=F"))
+    assert result.overall_signal == Signal.BEARISH
+    assert _aggregiertes_signal(bus) == Signal.BEARISH.value
+
+
+def test_precious_metals_chief_reicht_cot_signal_durch():
+    """PM aggregiert nicht gewichtet — prüft daher die Verdrahtung: das COT-
+    Sub-Signal muss unverändert im Result (`cot_signal`) ankommen."""
+    bus = MagicMock()
+    chief = PreciousMetalsChiefAgent(MagicMock(), MagicMock(), bus)
+    chief.pm_price_agent.run     = AsyncMock(return_value=_neutral_pm_price())
+    chief.pm_cross_agent.run     = AsyncMock(return_value=_neutral_cross_metal())
+    chief.pm_valuation_agent.run = AsyncMock(return_value=_neutral_valuation_range())
+    chief.cot_agent.run          = AsyncMock(return_value=_mit_signal(_neutral_cot(), Signal.BULLISH))
+
+    result = asyncio.run(chief.run("GOLD"))
+    assert result.cot_signal == Signal.BULLISH
