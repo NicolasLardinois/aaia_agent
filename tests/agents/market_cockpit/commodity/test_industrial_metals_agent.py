@@ -75,3 +75,21 @@ def test_run_survives_metal_spot_exception():
     snap = asyncio.run(agent.run())
     assert snap.zinc_usd is None
     assert snap.nickel_usd is None
+
+
+# --- Logging: ausgefallener Kupfer-Preis wird als warning sichtbar (Befund 2 / Bug #46) ---
+
+def test_run_loggt_warnung_bei_ausgefallenem_kupferpreis(caplog):
+    import logging
+
+    class _RaisingMarket:
+        def get_current_price(self, ticker):
+            raise RuntimeError("Quelle down")
+        def get_price_history(self, ticker, period="1y"):
+            return None
+
+    agent = IndustrialMetalsAgent(_RaisingMarket(), _FakeBus())
+    with caplog.at_level(logging.WARNING):
+        snap = asyncio.run(agent.run())
+    assert snap.copper_usd is None
+    assert "Copper" in caplog.text
