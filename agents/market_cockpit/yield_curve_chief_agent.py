@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from agents.market_cockpit.yield_curve.yield_spread_agent import YieldSpreadAgent
 from agents.market_cockpit.yield_curve.sovereign_spread_agent import SovereignSpreadAgent
@@ -9,6 +10,8 @@ from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
 from core.utils.aggregation import weighted_signal
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 # US-Kurve als primärer Rezessionsprädiktor (NY-Fed-Modell); EU-Sovereign als Stress-Indikator
 _WEIGHTS = {"us_curve": 0.60, "eu_sovereign": 0.40}
@@ -38,8 +41,8 @@ class YieldCurveChiefAgent:
             return_exceptions=True,
         )
 
-        yield_spreads     = safe_result(results[0], default=YieldSpreadAgent.default())
-        sovereign_spreads = safe_result(results[1], default=SovereignSpreadAgent.default())
+        yield_spreads     = safe_result(results[0], default=YieldSpreadAgent.default(), label="YieldCurveChief: YieldSpreadAgent", logger=_log)
+        sovereign_spreads = safe_result(results[1], default=SovereignSpreadAgent.default(), label="YieldCurveChief: SovereignSpreadAgent", logger=_log)
 
         # US-Status: UNAVAILABLE wenn kein Spread vorhanden
         usa_pt = yield_spreads.usa

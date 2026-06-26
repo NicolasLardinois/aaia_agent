@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from agents.market_cockpit.commodity.energy_agent import EnergyAgent
 from agents.market_cockpit.commodity.industrial_metals_agent import IndustrialMetalsAgent
@@ -11,6 +12,8 @@ from core.ports.event_bus import EventBus
 from core.ports.metal_spot import MetalSpotProvider
 from core.utils.aggregation import weighted_signal
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 # Makro-Relevanz-Gewichte (GSCI/BCOM-nah: Energie dominiert)
 _WEIGHTS = {"energy": 0.50, "industrial": 0.20, "precious": 0.15, "agricultural": 0.15}
@@ -38,10 +41,10 @@ class CommodityChiefAgentMakro:
             return_exceptions=True,
         )
 
-        energy            = safe_result(results[0], default=EnergyAgent.default())
-        industrial_metals = safe_result(results[1], default=IndustrialMetalsAgent.default())
-        precious_metals   = safe_result(results[2], default=PreciousMetalsMacroAgent.default())
-        agricultural      = safe_result(results[3], default=AgriculturalAgent.default())
+        energy            = safe_result(results[0], default=EnergyAgent.default(), label="CommodityChiefMakro: EnergyAgent", logger=_log)
+        industrial_metals = safe_result(results[1], default=IndustrialMetalsAgent.default(), label="CommodityChiefMakro: IndustrialMetalsAgent", logger=_log)
+        precious_metals   = safe_result(results[2], default=PreciousMetalsMacroAgent.default(), label="CommodityChiefMakro: PreciousMetalsMacroAgent", logger=_log)
+        agricultural      = safe_result(results[3], default=AgriculturalAgent.default(), label="CommodityChiefMakro: AgriculturalAgent", logger=_log)
 
         # Status je Sub-Agent aus dem Vorhandensein der Rohdaten
         status_energy     = (

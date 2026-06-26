@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from agents.stock_deep_dive.bond.bond_metrics_agent import BondMetricsAgent
 from agents.stock_deep_dive.bond.bond_duration_agent import BondDurationAgent
@@ -10,6 +11,8 @@ from core.ports.data_provider import FundamentalsProvider, MacroDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.bond_risk import rating_to_band, aggregate_bond_signal
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 
 class BondChiefAgent:
@@ -41,10 +44,10 @@ class BondChiefAgent:
             return_exceptions=True,
         )
 
-        metrics  = safe_result(results[0], default=BondMetricsAgent.default())
-        duration = safe_result(results[1], default=BondDurationAgent.default())
-        credit   = safe_result(results[2], default=BondCreditAgent.default())
-        spread   = safe_result(results[3], default=BondSpreadAgent.default())
+        metrics  = safe_result(results[0], default=BondMetricsAgent.default(), label="BondChief: BondMetricsAgent", logger=_log)
+        duration = safe_result(results[1], default=BondDurationAgent.default(), label="BondChief: BondDurationAgent", logger=_log)
+        credit   = safe_result(results[2], default=BondCreditAgent.default(), label="BondChief: BondCreditAgent", logger=_log)
+        spread   = safe_result(results[3], default=BondSpreadAgent.default(), label="BondChief: BondSpreadAgent", logger=_log)
 
         # §3.4: Eine Komponente ohne verfügbare Daten (UNAVAILABLE) wird als None
         # weitergereicht → aggregate_bond_signal lässt sie weg und re-normalisiert,
