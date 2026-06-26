@@ -2,8 +2,7 @@ from datetime import datetime, timezone
 from typing import Callable, Optional
 
 from core.ports.memory_port import MemoryPort
-from core.utils.backtest import HORIZONS_DAYS, hit_rate_ci
-from agents.backtester.bottom_up_backtester_agent import _default_benchmark_return
+from core.utils.backtest import HORIZONS_DAYS, hit_rate_ci, no_benchmark_return
 
 # Regime → erwartete Richtung des realisierten Benchmark-Returns (risk-on/off).
 _RISK_ON  = {"Boom", "Aufschwung", "Erholung"}
@@ -30,10 +29,11 @@ class TopDownBacktesterAgent:
     def __init__(
         self,
         memory: MemoryPort,
-        benchmark_return: Callable[[str, datetime, int], Optional[float]] = _default_benchmark_return,
+        benchmark_return: Optional[Callable[[str, datetime, int], Optional[float]]] = None,
     ):
         self.memory = memory
-        self.benchmark_return = benchmark_return
+        # Benchmark-Quelle injiziert (Hexagonal §1); ohne Injektion → No-Op (kein Netz).
+        self.benchmark_return = benchmark_return if benchmark_return is not None else no_benchmark_return
 
     async def run(self) -> None:
         history = self.memory.load_global_history(days=180)
