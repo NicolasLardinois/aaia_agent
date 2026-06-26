@@ -11,6 +11,17 @@ describe("glossaryLookup", () => {
     expect(glossaryLookup("Quatschbegriff")).toBeNull();
   });
 
+  it("erklärt die Anlage-Philosophie (Long-Short + Total-Return)", () => {
+    // Long-Short: Kern-Grundsatz — Short ist NICHT das Spiegelbild eines Longs.
+    const ls = glossaryLookup("Long-Short");
+    expect(ls).toBeTruthy();
+    expect(ls).toContain("Spiegelbild");
+    // Total-Return: fachlich korrekt = Kursveränderung + Erträge (Dividenden/Zinsen).
+    const tr = glossaryLookup("Total-Return");
+    expect(tr).toBeTruthy();
+    expect(tr).toMatch(/Dividend|Erträge|Ausschüttung/);
+  });
+
   it("erklärt die Deep-Dive-Aktienkennzahlen (Teil-Projekt B1)", () => {
     const terms = [
       "KGV", "Forward-KGV", "Shiller-CAPE", "PEG", "EV/EBITDA", "EV/Umsatz",

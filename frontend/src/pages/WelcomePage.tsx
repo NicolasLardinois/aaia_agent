@@ -43,6 +43,47 @@ export function WelcomePage() {
         </div>
       </div>
 
+      {/* Philosophie — Signatur: zwei gleichwertige Linsen (Diptychon), nie ein Umschalter (§5.3).
+          Spiegelt das echte Long-Short-Panel aus dem Deep-Dive und macht den Wert sofort sichtbar. */}
+      <SectionCard eyebrow="Die Idee" title="Zwei Linsen, ein Ziel" subtitle="Long · Short · Total-Return">
+        <p className="max-w-2xl text-sm leading-relaxed text-muted">
+          AAIA beurteilt jeden Titel durch zwei <strong className="text-ink">gleichwertige Linsen</strong> —
+          nie bloß „kaufen oder nicht". Das Ziel ist <strong className="text-ink">Rendite in beide Marktrichtungen</strong>,
+          statt nur auf steigende Märkte zu setzen.
+        </p>
+
+        {/* Diptychon: strikt gleich breite Spalten, mittig getrennt — die Gleichwertigkeit IST die Aussage. */}
+        <div className="mt-4 grid grid-cols-1 divide-line overflow-hidden rounded-xl border border-line sm:grid-cols-2 sm:divide-x">
+          <div className="space-y-1.5 bg-bull/[0.04] p-4">
+            <div className="flex items-center gap-2">
+              <span className="grid h-7 w-7 place-items-center rounded-md bg-bull/10 text-bull">
+                <Icon name="trend-up" className="h-4 w-4" />
+              </span>
+              <span className="font-display font-semibold text-ink">Long-Linse</span>
+            </div>
+            <p className="text-xs font-medium uppercase tracking-wide text-bull">Lohnt sich der Kauf?</p>
+            <p className="text-sm text-muted">Steigende Kurse als Gewinnquelle — Bewertung, Qualität und Rückenwind sprechen dafür.</p>
+          </div>
+          <div className="space-y-1.5 bg-bear/[0.04] p-4">
+            <div className="flex items-center gap-2">
+              <span className="grid h-7 w-7 place-items-center rounded-md bg-bear/10 text-bear">
+                <Icon name="trend-down" className="h-4 w-4" />
+              </span>
+              <span className="font-display font-semibold text-ink">Short-Linse</span>
+            </div>
+            <p className="text-xs font-medium uppercase tracking-wide text-bear">Lohnt die Wette auf einen Fall?</p>
+            <p className="text-sm text-muted">Fallende Kurse als Gewinnquelle — Bilanz-Stress, Gewinneinbruch oder ein konkreter Auslöser.</p>
+          </div>
+        </div>
+
+        {/* Kern-Grundsatz (volle Breite) — hebt Long-Short von „einfach invertieren" ab (short.md §Grundsatz). */}
+        <p className="mt-3 rounded-lg border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-ink/90">
+          <strong className="text-ink">Wichtig:</strong> Ein Short ist <strong className="text-ink">nicht das Spiegelbild</strong> eines
+          Longs. „Teuer" allein ist nie ein Short — teure Werte bleiben oft jahrelang teuer. Es braucht einen echten Grund zu
+          fallen plus einen <strong className="text-ink">Katalysator</strong> (einen Auslöser, der den Fall in Gang bringt).
+        </p>
+      </SectionCard>
+
       {/* Analyse-Ablauf — echte Sequenz (Top-Down → Bottom-Up → Urteil), daher nummeriert. */}
       <SectionCard eyebrow="So funktioniert es" title="Der Weg zum Urteil" subtitle="In drei Schritten">
         <ol className="grid gap-3 sm:grid-cols-3">
