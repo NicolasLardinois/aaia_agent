@@ -1,6 +1,7 @@
 // Fachlich plausible Beispielwerte (Spec §1: Demo, nicht exakt). isDemo:true -> DemoBadge.
 // Mehrere Ticker quer ueber underlying x wrapper; unbekannt -> "nicht gefunden"-View.
 import type { DeepDiveView } from "../../contract/deepdive";
+import type { LongVerdict, ShortVerdict } from "../../contract/common";
 
 function notFound(ticker: string): DeepDiveView {
   return {
@@ -256,8 +257,121 @@ function goldEtc(): DeepDiveView {
   };
 }
 
+// --- Generische Aktien-Fixtures (Bug #10: groesseres Such-Universum) ---
+// Bewusst kompakter Generator: jede bekannte Aktie aus dem TICKER_UNIVERSE soll als
+// Demo-Deep-Dive oeffnen, statt "nicht gefunden" zu zeigen. Zahlen sind plausible
+// Demo-Ballparks (isDemo:true -> DemoBadge), keine exakten Echtwerte.
+interface EquityProfile {
+  ticker: string;
+  name: string;
+  market: string;
+  price: number;
+  sector: string;          // steuert Altman-Z-Schwellen (Original vs. Z'')
+  pe: number;              // KGV
+  evEbitda: number;
+  grossMarginPct: number;
+  operatingMarginPct: number;
+  roicPct: number;
+  altmanZ: number;
+  moat: "wide" | "narrow" | "none";
+  shortInterestPct: number;
+  long: { verdict: LongVerdict; confidence: number; rationale: string; whatFlips: string };
+  short: { verdict: ShortVerdict; confidence: number; rationale: string };
+  hitRatePct: number;
+  sampleSize: number;
+}
+
+function equity(p: EquityProfile): () => DeepDiveView {
+  return () => ({
+    isDemo: true, sourcesActive: 5, sourcesTotal: 5, failed: [],
+    ticker: p.ticker, name: p.name, underlying: "equity", wrapper: "single",
+    price: p.price, currency: "USD", market: p.market, found: true,
+    long: {
+      verdict: p.long.verdict, confidence: p.long.confidence, rationale: p.long.rationale,
+      xai: {
+        drivers: [
+          { text: p.moat === "wide" ? "Breiter Burggraben + hohe Kapitalrendite" : "Solide Marktposition", sign: "+" },
+          { text: "Kurs im oberen Bereich der Bewertungs-Bandbreite", sign: "-" },
+        ],
+        conflicts: [], confidenceReason: "ausgewogene Demo-Treiber", whatFlips: p.long.whatFlips,
+      },
+    },
+    short: { verdict: p.short.verdict, confidence: p.short.confidence, rationale: p.short.rationale },
+    anomaly: { severity: "none", outliers: [], conflicts: [] },
+    equity: {
+      // Bewertungs-Bandbreiten als +/-Spanne um den Kurs (Demo) — ergibt eine lesbare Bandbreiten-Grafik.
+      valuation: {
+        methods: [
+          { name: "KGV-Multiple", low: Math.round(p.price * 0.90), high: Math.round(p.price * 1.10) },
+          { name: "EV/EBITDA-Multiple", low: Math.round(p.price * 0.92), high: Math.round(p.price * 1.12) },
+          { name: "DCF", low: Math.round(p.price * 0.85), high: Math.round(p.price * 1.08) },
+        ],
+        currentPrice: p.price, peRatio: p.pe, evEbitda: p.evEbitda,
+      },
+      quality: {
+        grossMarginPct: p.grossMarginPct, operatingMarginPct: p.operatingMarginPct,
+        roicPct: p.roicPct, altmanZ: p.altmanZ, sector: p.sector,
+      },
+      signals: { shortInterestPct: p.shortInterestPct, insiderSignal: "neutral", earningsTrend: "neutral", moat: p.moat },
+    },
+    backtestContext: { hitRatePct: p.hitRatePct, sampleSize: p.sampleSize, history: [] },
+  });
+}
+
+const EQUITY_PROFILES: EquityProfile[] = [
+  {
+    ticker: "MSFT", name: "Microsoft Corp.", market: "NASDAQ", price: 430, sector: "Technology",
+    pe: 35, evEbitda: 25, grossMarginPct: 69, operatingMarginPct: 45, roicPct: 32, altmanZ: 8.5,
+    moat: "wide", shortInterestPct: 0.7,
+    long: { verdict: "HOLD", confidence: 0.55, rationale: "Cloud-Wachstum stützt die Qualität, Bewertung aber ambitioniert.", whatFlips: "Kursrücksetzer in die Bewertungs-Bandbreite" },
+    short: { verdict: "NONE", confidence: 0.16, rationale: "Kein tragfähiger Short — Bilanz erstklassig, kein Katalysator." },
+    hitRatePct: 62, sampleSize: 24,
+  },
+  {
+    ticker: "NVDA", name: "NVIDIA Corp.", market: "NASDAQ", price: 125, sector: "Technology",
+    pe: 45, evEbitda: 40, grossMarginPct: 75, operatingMarginPct: 55, roicPct: 60, altmanZ: 18,
+    moat: "wide", shortInterestPct: 1.2,
+    long: { verdict: "HOLD", confidence: 0.50, rationale: "Dominante Marktstellung, aber Bewertung preist viel Wachstum ein.", whatFlips: "Wachstum verlangsamt sich unter die Erwartung" },
+    short: { verdict: "NONE", confidence: 0.30, rationale: "Bewertung hoch, aber kein konkreter Katalysator für einen Fall." },
+    hitRatePct: 55, sampleSize: 16,
+  },
+  {
+    ticker: "GOOGL", name: "Alphabet Inc.", market: "NASDAQ", price: 178, sector: "Communication Services",
+    pe: 24, evEbitda: 16, grossMarginPct: 57, operatingMarginPct: 32, roicPct: 28, altmanZ: 9,
+    moat: "wide", shortInterestPct: 0.9,
+    long: { verdict: "BUY", confidence: 0.60, rationale: "Werbe-Cashflow + moderate Bewertung im Verhältnis zur Qualität.", whatFlips: "Bewertung läuft der Qualität davon" },
+    short: { verdict: "NONE", confidence: 0.15, rationale: "Kein Short — robuste Bilanz, kein Auslöser." },
+    hitRatePct: 63, sampleSize: 20,
+  },
+  {
+    ticker: "AMZN", name: "Amazon.com Inc.", market: "NASDAQ", price: 185, sector: "Consumer Discretionary",
+    pe: 42, evEbitda: 18, grossMarginPct: 48, operatingMarginPct: 9, roicPct: 14, altmanZ: 5.5,
+    moat: "wide", shortInterestPct: 1.1,
+    long: { verdict: "HOLD", confidence: 0.54, rationale: "Cloud + Handel stützen, hohes KGV verlangt aber weiteres Margenwachstum.", whatFlips: "Margenausweitung im Cloud-Segment" },
+    short: { verdict: "NONE", confidence: 0.20, rationale: "Kein Short — Wachstum und Cashflow intakt." },
+    hitRatePct: 59, sampleSize: 19,
+  },
+  {
+    ticker: "TSLA", name: "Tesla Inc.", market: "NASDAQ", price: 250, sector: "Consumer Discretionary",
+    pe: 65, evEbitda: 35, grossMarginPct: 18, operatingMarginPct: 9, roicPct: 11, altmanZ: 6.5,
+    moat: "narrow", shortInterestPct: 3.0,
+    long: { verdict: "HOLD", confidence: 0.45, rationale: "Hohe Bewertung trifft auf Margendruck — Chance/Risiko ausgewogen.", whatFlips: "Margen stabilisieren sich wieder" },
+    short: { verdict: "HOLD", confidence: 0.40, rationale: "Short denkbar (Bewertung + Margendruck), aber es fehlt ein klarer Katalysator." },
+    hitRatePct: 51, sampleSize: 22,
+  },
+  {
+    ticker: "META", name: "Meta Platforms Inc.", market: "NASDAQ", price: 500, sector: "Communication Services",
+    pe: 26, evEbitda: 15, grossMarginPct: 81, operatingMarginPct: 38, roicPct: 30, altmanZ: 8,
+    moat: "wide", shortInterestPct: 1.0,
+    long: { verdict: "BUY", confidence: 0.59, rationale: "Sehr hohe Marge + moderate Bewertung; Werbe-Cashflow trägt.", whatFlips: "Bewertung läuft der Qualität davon" },
+    short: { verdict: "NONE", confidence: 0.17, rationale: "Kein Short — Cashflow stark, kein Auslöser." },
+    hitRatePct: 61, sampleSize: 18,
+  },
+];
+
 const FIXTURES: Record<string, () => DeepDiveView> = {
   AAPL: aapl, "GC=F": gcFuture, TLT: tltBond, SPY: spyIndex, "CL=F": clFuture, "4GLD": goldEtc,
+  ...Object.fromEntries(EQUITY_PROFILES.map((p) => [p.ticker, equity(p)])),
 };
 
 export function demoDeepDive(ticker: string): DeepDiveView {

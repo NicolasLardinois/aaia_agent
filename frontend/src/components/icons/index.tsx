@@ -14,6 +14,8 @@ import {
   Table, Map, ArrowLeft, ArrowRight,
   // Topbar
   Search, HelpCircle, Sun, Moon,
+  // Einstellungen
+  Monitor, LogOut,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,7 +30,8 @@ export type IconName =
   | "warning" | "check" | "cross"
   | "sort-asc" | "sort-desc" | "sort-none"
   | "view-table" | "view-map" | "arrow-left" | "arrow-right"
-  | "search" | "help" | "theme-light" | "theme-dark"
+  | "search" | "help" | "theme-light" | "theme-dark" | "theme-system"
+  | "logout"
   | "disclosure-open" | "disclosure-closed";
 
 // Registry: semantischer Name -> lucide-Komponente. Record erzwingt Vollstaendigkeit
@@ -66,6 +69,8 @@ const ICONS: Record<IconName, LucideIcon> = {
   help: HelpCircle,
   "theme-light": Sun,
   "theme-dark": Moon,
+  "theme-system": Monitor,
+  logout: LogOut,
   "disclosure-open": ChevronDown,
   "disclosure-closed": ChevronRight,
 };

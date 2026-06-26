@@ -14,16 +14,20 @@ import { DeepDivePage } from "./pages/DeepDivePage";
 import { PortfolioPage } from "./pages/PortfolioPage";
 import { InboxPage } from "./pages/InboxPage";
 import { BacktesterPage } from "./pages/BacktesterPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { loadInboxCount } from "./data/inboxCount";
 import { WelcomePage } from "./pages/WelcomePage";
 import { useOnboarding } from "./shell/useOnboarding";
+import { usePreferences } from "./shell/usePreferences";
 import type { UseCockpitDeps } from "./hooks/useCockpit";
 import { CockpitProvider } from "./hooks/CockpitProvider";
 
-// Index-Redirect: erster Besuch -> Willkommen-Seite, sonst direkt ins Cockpit.
+// Index-Redirect: erster Besuch -> Willkommen-Seite, sonst in die gewaehlte Start-Ansicht
+// (Einstellungen-Seite; Default /cockpit). So bestimmt der Nutzer, womit AAIA startet.
 function IndexRedirect() {
   const { seen } = useOnboarding();
-  return <Navigate to={seen ? "/cockpit" : "/willkommen"} replace />;
+  const { prefs } = usePreferences();
+  return <Navigate to={seen ? prefs.startView : "/willkommen"} replace />;
 }
 
 // Routen unter der Shell. Inbox-Anzahl wird einmalig ueber loadInboxCount geladen (Slice 4, US28).
@@ -69,7 +73,7 @@ export function AppRoutes({ deps, onLogout }: { deps?: UseCockpitDeps; onLogout?
           <Route path="/portfolio" element={<PortfolioPage />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/backtester" element={<BacktesterPage />} />
-          <Route path="/einstellungen" element={<PlaceholderPage title="Einstellungen" />} />
+          <Route path="/einstellungen" element={<SettingsPage onLogout={onLogout} />} />
           <Route path="*" element={<Navigate to="/cockpit" replace />} />
         </Route>
       </Routes>
