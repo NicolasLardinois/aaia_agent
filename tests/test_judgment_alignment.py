@@ -109,6 +109,62 @@ def _run_judgment(current_position, bottom_up=None, cockpit=None):
         ))
 
 
+def _run_judgment_with_ctx(backtester_context, current_position=PositionState.NONE):
+    """Wie _run_judgment, aber mit injizierbarem backtester_context (für die
+    Kalibrierungs-Verdrahtung). Gleiche Distress-These/Cockpit → identisches Alignment
+    in allen Läufen, sodass allein der calibration-Bucket die Confidence verschiebt."""
+    bus = MagicMock()
+    llm = MagicMock()
+    llm.complete.return_value = "Urteil"
+    agent = JudgmentAgent(llm, bus)
+    with patch("asyncio.to_thread", side_effect=_to_thread_mock):
+        return asyncio.run(agent.run(
+            ticker="TEST",
+            top_down_context="Rezession, bearish Makro",
+            bottom_up=_make_distress_bu(),
+            cockpit=_make_cockpit_recession(),
+            market="USA",
+            current_position=current_position,
+            top_down_available=True,
+            top_down_anomaly=AnomalyReport.empty(),
+            bottom_up_anomaly=AnomalyReport.empty(),
+            backtester_context=backtester_context,
+        ))
+
+
+def _full_calibration(hit_rate: float) -> dict:
+    """calibration-Dict, das jeden (alignment:severity)-Bucket auf hit_rate setzt
+    (n über _CALIB_MIN_N), egal welches Alignment die These produziert."""
+    alignments = ("aligned_bullish", "aligned_bearish", "contradicting", "mixed")
+    severities = ("none", "low", "medium", "high")
+    return {f"{a}:{s}": {"n": 20, "hit_rate": hit_rate}
+            for a in alignments for s in severities}
+
+
+def test_backtester_calibration_drives_confidence_monotonically():
+    """Verdrahtung backtester_context['calibration'] → compute_confidence.
+
+    Gleiche These, nur der historisch kalibrierte Basis-Hit-Rate-Bucket variiert:
+    hoher Bucket (0.95) → höhere Confidence als der 0.70-Default; niedriger Bucket
+    (0.40) → niedrigere. Beweist, dass der Backtester-Kontext real einfließt
+    (nicht bloß „nicht-leerer Kontext ändert irgendwas")."""
+    conf_high = _run_judgment_with_ctx({"calibration": _full_calibration(0.95)}).confidence
+    conf_base = _run_judgment_with_ctx({}).confidence
+    conf_low  = _run_judgment_with_ctx({"calibration": _full_calibration(0.40)}).confidence
+    assert conf_high > conf_base > conf_low
+
+
+def test_backtester_calibration_thin_bucket_ignored():
+    """Ein zu dünner Bucket (n < _CALIB_MIN_N) wird ignoriert → Confidence wie ohne
+    Kalibrierung (0.70-Default-Basis). Schützt vor Übersteuerung durch Mini-Stichproben."""
+    thin = {f"{a}:{s}": {"n": 3, "hit_rate": 0.95}
+            for a in ("aligned_bullish", "aligned_bearish", "contradicting", "mixed")
+            for s in ("none", "low", "medium", "high")}
+    conf_thin = _run_judgment_with_ctx({"calibration": thin}).confidence
+    conf_base = _run_judgment_with_ctx({}).confidence
+    assert conf_thin == conf_base
+
+
 def test_judgment_short_held_distress_gives_hold():
     """SHORT gehalten + starke Distress-These → short_action == HOLD."""
     result = _run_judgment(PositionState.SHORT)

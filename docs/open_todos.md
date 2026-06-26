@@ -370,7 +370,14 @@ SNB — wired ist **`FredSnbProvider`** (`adapters/data/fred_snb.py`), nicht der
 - [x] **ValuationRangeAgent** — **abgedeckt** (verifiziert 2026-06-25, `test_valuation_range_agent.py`, 12 Tests): `two_stage_dcf` (Zwei-Stufen statt Gordon, WACC=g-Edgecase), sektorabhängiges Terminal-Growth, Median-Band-Aggregation (nicht Extrem), EV/EBITDA-Skip bei negativem EBITDA, KGV-Skip bei negativem EPS, DCF-Skip ohne FCF. *(§6-Aussage durch Plan-A überholt.)*
 - [x] **FundamentalsAgent** — **abgedeckt** (verifiziert 2026-06-25, `test_fundamentals_agent.py`): `_score()` sektor-relativ (P/E, EV/EBITDA), PEG nur mit Wachstumsbasis, P/FCF & P/B aktiviert, symmetrische Aggregationsschwellen (±3), negativer forward_pe ohne Bullish-Credit (Fix I2), Exception-Guard in `run()` (Fix M2). *(§6-Aussage durch Plan-A überholt.)* **(§6-Reconcile Moat/Valuation/Fundamentals: PR #72 am 2026-06-25 gemergt.)**
 - [ ] **Chief-Agent-Tests** — prüfen nur `isinstance(result, XxxResult)`, keine Logik oder Aggregation
-- [ ] **BacktesterChiefAgent** — `backtester_context`-Einfluss auf Confidence nie getestet
+- [x] **BacktesterChiefAgent** — `backtester_context`-Einfluss auf Confidence **getestet** (2026-06-26,
+  `tests/test_judgment_alignment.py`). Die reine `compute_confidence`-Kalibrierung war abgedeckt, aber die
+  **Verdrahtung** `backtester_context["calibration"]` → `JudgmentAgent.run` → `compute_confidence` war es nie
+  (Chief-Tests mocken `judgment_agent.run`). Neu zwei Integrationstests auf `JudgmentAgent.run`: (1) ein hoher
+  Kalibrierungs-Bucket (0.95) hebt, ein niedriger (0.40) senkt die Confidence ggü. dem 0.70-Default → **monoton**
+  `high > base > low` (beweist, dass der Bucket-*Wert* real einfließt, nicht nur „nicht-leerer Kontext"); (2) ein
+  zu dünner Bucket (`n < _CALIB_MIN_N`) wird ignoriert → Confidence wie ohne Kalibrierung. Reines Regressionsnetz,
+  kein Verhaltenswechsel. *(PR offen.)*
 - [x] **ResultCache Bottom-Up Round-Trip** *(Folge aus Bug #1, Audit 2026-06-20)* — **erledigt 2026-06-25** (`tests/adapters/test_result_cache_bottom_up_roundtrip.py`). Disk-Round-Trip (`save_bottom_up` → JSON → `load_bottom_up`) mit **befülltem** `index`+`commodity_deep` (die Bug-#1-auslösenden Felder, die der bestehende `test_taxonomy_model_roundtrip` auf `None` liess) + Gegenprobe (None bleibt None).
   **⚠️ Dabei echten latenten Bug gefunden + gefixt:** `_commodity_deep_out`/`_load_commodity_deep` verloren `overall_signal`+`confidence` (das in Bug #47 ergänzte Commodity-Gesamturteil) → beim Laden fielen sie still auf `NEUTRAL`/`0.0` zurück (**exakt** die Persistenz-Lücken-Klasse wie der Bond-Fix in PR #19). Serializer + Loader ergänzt; ältere Cache-Dateien fallen defensiv auf Defaults zurück.
 - [x] **JudgmentOrchestrator-Konstruktor-Smoke-Test** *(Folge aus Bug #2, Audit 2026-06-20)* — **erledigt 2026-06-25** (`tests/test_judgment_orchestrator_construction.py`). Nagelt die 3-Argument-Signatur `(llm, bus, memory)`: Konstruktion mit den Pflicht-Argumenten läuft ohne `TypeError` und hält `memory` fest; ein `(llm, bus)`-Aufruf (der ursprüngliche Bug-#2-Crash) wirft jetzt nachweislich `TypeError`.
