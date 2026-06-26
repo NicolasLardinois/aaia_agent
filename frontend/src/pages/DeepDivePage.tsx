@@ -130,16 +130,19 @@ export function DeepDivePage({
         </div>
       )}
 
-      {/* Tab-Leiste aus Registry — je underlying unterschiedliche Tabs */}
-      <div role="tablist" className="flex flex-wrap gap-2 border-b border-line">
+      {/* Tab-Leiste aus Registry — je underlying unterschiedliche Tabs. Aktiver Tab als
+          Brand-Pill (statt nur dünner Unterstrich) — klarere Orientierung, weniger "leer". */}
+      <div role="tablist" className="flex flex-wrap gap-1 border-b border-line">
         {tabs.map((t) => (
           <button
             key={t.key}
             role="tab"
             aria-selected={t.key === current}
             onClick={() => setActive(t.key)}
-            className={`px-3 py-1.5 text-sm ${
-              t.key === current ? "border-b-2 border-brand font-medium" : "text-muted"
+            className={`rounded-t-md px-3 py-1.5 text-sm transition-colors ${
+              t.key === current
+                ? "border-b-2 border-brand bg-surface-2 font-medium text-brand"
+                : "border-b-2 border-transparent text-muted hover:text-ink"
             }`}
           >
             {t.label}

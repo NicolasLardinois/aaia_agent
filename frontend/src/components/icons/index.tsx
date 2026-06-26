@@ -11,7 +11,7 @@ import {
   Circle, Layers, CalendarClock, Package,
   // Status / UI-Chrome
   AlertTriangle, Check, X, ChevronUp, ChevronDown, ChevronRight, ChevronsUpDown,
-  Table, Map, ArrowLeft, ArrowRight,
+  Table, Map, ArrowLeft, ArrowRight, ArrowLeftRight,
   // Topbar
   Search, HelpCircle, Sun, Moon,
   // Einstellungen
@@ -29,7 +29,7 @@ export type IconName =
   | "wrap-single" | "wrap-fund" | "wrap-future" | "wrap-physical"
   | "warning" | "check" | "cross"
   | "sort-asc" | "sort-desc" | "sort-none"
-  | "view-table" | "view-map" | "arrow-left" | "arrow-right"
+  | "view-table" | "view-map" | "arrow-left" | "arrow-right" | "compare"
   | "search" | "help" | "theme-light" | "theme-dark" | "theme-system"
   | "logout"
   | "disclosure-open" | "disclosure-closed";
@@ -65,6 +65,7 @@ const ICONS: Record<IconName, LucideIcon> = {
   "view-map": Map,
   "arrow-left": ArrowLeft,
   "arrow-right": ArrowRight,
+  compare: ArrowLeftRight,
   search: Search,
   help: HelpCircle,
   "theme-light": Sun,

@@ -13,6 +13,10 @@ describe("DeepDiveHeader", () => {
     expect(screen.getByText(/COMEX/)).toBeInTheDocument();
     expect(screen.getByText(/2\.380/)).toBeInTheDocument(); // DE-Tausenderpunkt
   });
+  it("hebt das Urteil in den Kopf (Urteil auf einen Blick)", () => {
+    render(<DeepDiveHeader view={demoDeepDive("GC=F")} />);
+    expect(screen.getByText("Urteil auf einen Blick")).toBeInTheDocument();
+  });
   it("ruft onCompare beim Klick auf 'vergleichen'", () => {
     const onCompare = vi.fn();
     render(<DeepDiveHeader view={demoDeepDive("GC=F")} onCompare={onCompare} />);
