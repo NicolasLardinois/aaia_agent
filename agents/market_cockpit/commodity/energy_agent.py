@@ -4,6 +4,7 @@ from core.domain.models import EnergySnapshot, Signal
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.relative import zscore_vs_history
+from core.utils.safe import safe_result
 
 TICKERS = {"wti": "CL=F", "brent": "BZ=F", "natural_gas": "NG=F"}
 _DEFAULT = EnergySnapshot(wti_usd=None, brent_usd=None, natural_gas_usd=None, signal=Signal.NEUTRAL)
@@ -70,8 +71,10 @@ class EnergyAgent:
                 return_exceptions=True,
             ),
         )
-        def _safe(v): return None if isinstance(v, Exception) else v
-        wti = _safe(wti); brent = _safe(brent); gas = _safe(gas)
+        # Ausgefallene Preisquelle -> None (geteilter Helfer statt lokalem _safe).
+        wti = safe_result(wti, default=None)
+        brent = safe_result(brent, default=None)
+        gas = safe_result(gas, default=None)
 
         result = EnergySnapshot(
             wti_usd=wti, brent_usd=brent, natural_gas_usd=gas,

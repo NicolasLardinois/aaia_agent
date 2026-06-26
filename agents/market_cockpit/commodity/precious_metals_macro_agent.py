@@ -4,6 +4,7 @@ from core.domain.models import PreciousMetalsMacroSnapshot, Signal
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.relative import percentile_rank, zscore_vs_history
+from core.utils.safe import safe_result
 
 TICKERS = {"gold": "GC=F", "silver": "SI=F", "platinum": "PL=F", "palladium": "PA=F"}
 
@@ -95,9 +96,11 @@ class PreciousMetalsMacroAgent:
                 return_exceptions=True,
             ),
         )
-        def _safe(v): return None if isinstance(v, Exception) else v
-        gold = _safe(gold); silver = _safe(silver)
-        platinum = _safe(platinum); palladium = _safe(palladium)
+        # Ausgefallene Preisquelle -> None (geteilter Helfer statt lokalem _safe).
+        gold = safe_result(gold, default=None)
+        silver = safe_result(silver, default=None)
+        platinum = safe_result(platinum, default=None)
+        palladium = safe_result(palladium, default=None)
 
         gs_ratio = round(gold / silver, 2) if gold is not None and silver is not None and silver > 0 else None
         gp_ratio = round(gold / platinum, 2) if gold is not None and platinum is not None and platinum > 0 else None

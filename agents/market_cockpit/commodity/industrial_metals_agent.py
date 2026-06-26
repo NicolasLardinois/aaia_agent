@@ -6,6 +6,7 @@ from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.ports.metal_spot import MetalSpotProvider
 from core.utils.relative import zscore_vs_history
+from core.utils.safe import safe_result
 
 # Kupfer und Aluminium: CME-Futures, verfügbar über Yahoo Finance
 TICKERS = {"copper": "HG=F", "aluminium": "ALI=F", "gold": "GC=F"}
@@ -85,8 +86,11 @@ class IndustrialMetalsAgent:
                 return_exceptions=True,
             ),
         )
-        def _safe(v): return None if isinstance(v, Exception) else v
-        copper = _safe(copper); alu = _safe(alu); zinc = _safe(zinc); nickel = _safe(nickel)
+        # Ausgefallene Preisquelle -> None (geteilter Helfer statt lokalem _safe).
+        copper = safe_result(copper, default=None)
+        alu = safe_result(alu, default=None)
+        zinc = safe_result(zinc, default=None)
+        nickel = safe_result(nickel, default=None)
 
         cg_z = _copper_gold_z(h_copper, h_gold)
 
