@@ -4,6 +4,7 @@ import { RegimeBanner } from "../components/RegimeBanner";
 import { DomainTile } from "../components/DomainTile";
 import { DataHealthIndicator } from "../components/DataHealthIndicator";
 import { RunControl } from "../components/RunControl";
+import { Icon } from "../components/icons";
 
 // Liest den Lauf-Zustand aus dem CockpitProvider (oberhalb der Routen), damit ein
 // laufender Lauf beim Wegnavigieren nicht abbricht (Bug #5/#7).
@@ -44,17 +45,19 @@ export function CockpitPage() {
           <div className="flex gap-3">
             <Link
               to="/cockpit/buffett"
-              className="flex-1 rounded-lg border border-line p-3 text-center text-sm font-medium
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-line p-3 text-center text-sm font-medium
                          text-ink transition-colors hover:border-brand/40 hover:bg-surface-2"
             >
-              Buffett-Indikator →
+              Buffett-Indikator
+              <Icon name="arrow-right" className="h-4 w-4" />
             </Link>
             <Link
               to="/cockpit/big-mac"
-              className="flex-1 rounded-lg border border-line p-3 text-center text-sm font-medium
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-line p-3 text-center text-sm font-medium
                          text-ink transition-colors hover:border-brand/40 hover:bg-surface-2"
             >
-              Big-Mac-Index →
+              Big-Mac-Index
+              <Icon name="arrow-right" className="h-4 w-4" />
             </Link>
           </div>
         </>

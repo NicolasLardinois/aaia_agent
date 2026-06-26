@@ -6,6 +6,7 @@ import { zScoreFlag } from "../../lib/anomaly";
 import { SignalBadge } from "../../components/SignalBadge";
 import { ChoroplethMap } from "../../components/charts/ChoroplethMap";
 import { LineCurve } from "../../components/charts/LineCurve";
+import { Icon } from "../../components/icons";
 import { DrilldownShell } from "./DrilldownShell";
 import type { BuffettView, BuffettCountry } from "../../contract/cockpit";
 import type { SortKey } from "../../lib/buffett";
@@ -51,9 +52,10 @@ function SortButton({
   return (
     <button
       onClick={() => onToggle(sortKey)}
-      className={`text-left text-xs font-semibold ${active ? "text-ink" : "text-muted hover:text-ink"}`}
+      className={`inline-flex items-center gap-0.5 text-left text-xs font-semibold ${active ? "text-ink" : "text-muted hover:text-ink"}`}
     >
-      {label} {active ? (dir === "desc" ? "↓" : "↑") : "↕"}
+      {label}
+      <Icon name={active ? (dir === "desc" ? "sort-desc" : "sort-asc") : "sort-none"} className="h-3.5 w-3.5" />
     </button>
   );
 }
@@ -114,9 +116,11 @@ function BuffettRow({
               {row.zScore > 0 ? "+" : ""}
               {row.zScore.toFixed(1)}
               {flag !== "none" && (
-                <span className="ml-1 text-amber-600" title={flag === "anomaly" ? "Anomalie (|Z|>2)" : "Auffällig (|Z|≥1.5)"}>
-                  ⚠
-                </span>
+                <Icon
+                  name="warning"
+                  label={flag === "anomaly" ? "Anomalie (|Z|>2)" : "Auffällig (|Z|≥1.5)"}
+                  className="ml-1 inline-block h-3.5 w-3.5 text-amber-600"
+                />
               )}
             </span>
           ) : (
@@ -186,23 +190,23 @@ export function BuffettWidget({ loader = loadBuffett }: { loader?: () => Promise
           <div className="flex gap-2">
             <button
               onClick={() => setTab("tabelle")}
-              className={`rounded-md px-3 py-1 text-sm font-medium ${
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium ${
                 tab === "tabelle"
                   ? "bg-brand text-brand-ink"
                   : "border border-line text-muted hover:bg-surface-2"
               }`}
             >
-              Tabelle ▣
+              <Icon name="view-table" className="h-4 w-4" /> Tabelle
             </button>
             <button
               onClick={() => setTab("karte")}
-              className={`rounded-md px-3 py-1 text-sm font-medium ${
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium ${
                 tab === "karte"
                   ? "bg-brand text-brand-ink"
                   : "border border-line text-muted hover:bg-surface-2"
               }`}
             >
-              Karte ◻
+              <Icon name="view-map" className="h-4 w-4" /> Karte
             </button>
           </div>
 

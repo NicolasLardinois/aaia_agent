@@ -48,7 +48,7 @@ describe("SectorsDrilldown", () => {
   it("zeigt SourceHealth 2/3 und Warnung (US9)", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("2/3 Quellen aktiv")).toBeInTheDocument());
-    expect(screen.getByText("⚠", { exact: false })).toBeInTheDocument();
+    expect(screen.getByLabelText("Quellen ausgefallen")).toBeInTheDocument();
   });
 
   it("zeigt Demo-Badge", async () => {

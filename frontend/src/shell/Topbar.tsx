@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
+import { Icon } from "../components/icons";
 import { useTheme } from "./useTheme";
 
 export interface TopbarProps {
@@ -21,7 +22,7 @@ export function Topbar({ inboxCount, onSearch, onLogout }: TopbarProps) {
         className="flex-1"
       >
         <div className="relative max-w-md">
-          <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">⌕</span>
+          <Icon name="search" className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <input
             type="search"
             value={q}
@@ -33,9 +34,11 @@ export function Topbar({ inboxCount, onSearch, onLogout }: TopbarProps) {
         </div>
       </form>
       <div className="flex items-center gap-1">
-        <NavLink to="/willkommen" className={ICON_BTN} aria-label="Hilfe / Willkommen" title="Willkommen & Hilfe">?</NavLink>
+        <NavLink to="/willkommen" className={ICON_BTN} aria-label="Hilfe / Willkommen" title="Willkommen & Hilfe">
+          <Icon name="help" className="h-[1.05rem] w-[1.05rem]" />
+        </NavLink>
         <NavLink to="/inbox" className={`relative ${ICON_BTN}`} aria-label="Inbox" title="Konflikt-Inbox">
-          ✉
+          <Icon name="nav-inbox" className="h-[1.05rem] w-[1.05rem]" />
           {inboxCount > 0 && (
             <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-bear px-1 text-[10px] font-semibold text-white">
               {inboxCount}
@@ -43,7 +46,7 @@ export function Topbar({ inboxCount, onSearch, onLogout }: TopbarProps) {
           )}
         </NavLink>
         <button type="button" onClick={toggle} className={ICON_BTN} aria-label="Theme umschalten" title="Hell/Dunkel">
-          {theme === "dark" ? "☀" : "◐"}
+          <Icon name={theme === "dark" ? "theme-light" : "theme-dark"} className="h-[1.05rem] w-[1.05rem]" />
         </button>
         {onLogout && (
           <button type="button" onClick={onLogout} className="ml-1 rounded-lg px-2 py-1 text-sm text-muted hover:text-ink hover:underline">

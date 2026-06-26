@@ -1,4 +1,5 @@
 import type { KlumpenWarningDTO, KlumpenDimension } from "../../contract/portfolio";
+import { Icon } from "../icons";
 
 // Deutsche Dimensions-Bezeichnung (Wireframe §4.8: Sektor / Asset-Klasse / Geographie).
 const DIM_LABEL: Record<KlumpenDimension, string> = {
@@ -9,7 +10,9 @@ const DIM_LABEL: Record<KlumpenDimension, string> = {
 export function KlumpenWarnings({ klumpen }: { klumpen: KlumpenWarningDTO[] }) {
   return (
     <div>
-      <h3 className="text-sm font-semibold">⚠ Klumpen-Warnungen</h3>
+      <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+        <Icon name="warning" className="h-4 w-4 text-amber-600" /> Klumpen-Warnungen
+      </h3>
       {klumpen.length === 0 ? (
         <p className="mt-1 rounded bg-bull/10 p-2 text-sm text-bull">
           Keine Konzentration über den Limits.

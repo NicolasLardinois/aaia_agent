@@ -16,7 +16,7 @@ function Lens({ title, lens }: { title: string; lens: VerdictLens }) {
   return (
     <div className="flex-1 space-y-2 p-3">
       <div className="text-xs uppercase tracking-wide text-muted">{title}</div>
-      <div className={`text-xl font-bold ${v.colorClass}`}>▶ {v.label}</div>
+      <div className={`text-xl font-bold ${v.colorClass}`}>{v.label}</div>
       <ConfidenceBar value={lens.confidence} />
       <div className="flex flex-wrap gap-1">
         <AutoHoldBadge confidence={lens.confidence} />

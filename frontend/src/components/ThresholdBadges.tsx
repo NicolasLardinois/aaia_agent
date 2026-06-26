@@ -1,11 +1,12 @@
 import { confidenceFlags } from "../lib/judgment";
+import { Icon } from "./icons";
 
 // Konfidenz <0.50 -> auto-HOLD (Konzept §2.3 / frontend_notes.md).
 export function AutoHoldBadge({ confidence }: { confidence: number }) {
   if (!confidenceFlags(confidence).autoHold) return null;
   return (
-    <span className="inline-block rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-      ⚠ &lt;0.50 → auto-HOLD
+    <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+      <Icon name="warning" className="h-3.5 w-3.5" /> &lt;0.50 → auto-HOLD
     </span>
   );
 }

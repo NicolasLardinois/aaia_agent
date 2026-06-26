@@ -32,8 +32,8 @@ describe("BuffettWidget (C1)", () => {
   it("USA-Zeile ist hervorgehoben (analyzedIso3) und Z=+2.1 traegt Warnung", async () => {
     renderWidget();
     await waitFor(() => expect(screen.getByText("USA")).toBeInTheDocument());
-    // USA-Zeile hat z=+2.1 (|Z|>=1.5 -> zScoreFlag='anomaly') -> ⚠ vorhanden
-    expect(screen.getAllByText(/⚠/).length).toBeGreaterThan(0);
+    // USA-Zeile hat z=+2.1 (|Z|>=1.5 -> zScoreFlag='anomaly') -> Warn-Icon mit Label vorhanden
+    expect(screen.getAllByLabelText(/Anomalie|Auffällig/).length).toBeGreaterThan(0);
   });
 
   it("year===null (USA) zeigt 'live'; CHE zeigt '2024'", async () => {

@@ -1,13 +1,15 @@
 import { NavLink } from "react-router-dom";
+import { Icon } from "../components/icons";
+import type { IconName } from "../components/icons";
 
-const ITEMS: { to: string; label: string; icon: string }[] = [
-  { to: "/willkommen", label: "Willkommen", icon: "✺" },
-  { to: "/cockpit", label: "Cockpit", icon: "▣" },
-  { to: "/deep-dive", label: "Deep-Dive", icon: "◆" },
-  { to: "/portfolio", label: "Portfolio", icon: "⬚" },
-  { to: "/inbox", label: "Inbox", icon: "✉" },
-  { to: "/backtester", label: "Backtester", icon: "↺" },
-  { to: "/einstellungen", label: "Einstellungen", icon: "⚙" },
+const ITEMS: { to: string; label: string; icon: IconName }[] = [
+  { to: "/willkommen", label: "Willkommen", icon: "nav-welcome" },
+  { to: "/cockpit", label: "Cockpit", icon: "nav-cockpit" },
+  { to: "/deep-dive", label: "Deep-Dive", icon: "nav-deepdive" },
+  { to: "/portfolio", label: "Portfolio", icon: "nav-portfolio" },
+  { to: "/inbox", label: "Inbox", icon: "nav-inbox" },
+  { to: "/backtester", label: "Backtester", icon: "nav-backtester" },
+  { to: "/einstellungen", label: "Einstellungen", icon: "nav-settings" },
 ];
 
 export function Sidebar() {
@@ -31,7 +33,7 @@ export function Sidebar() {
             }`
           }
         >
-          <span aria-hidden className="w-4 text-center text-base opacity-80">{it.icon}</span>
+          <Icon name={it.icon} className="h-[1.05rem] w-[1.05rem] shrink-0 opacity-80" />
           {it.label}
         </NavLink>
       ))}
