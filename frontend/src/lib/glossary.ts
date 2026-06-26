@@ -6,6 +6,8 @@ const ENTRIES: Record<string, string> = {
   "Regime": "Die aktuelle Großwetterlage am Markt (z. B. Aufschwung, Abschwung, Rezession), abgeleitet aus Makro-Daten.",
   "Urteil": "Die Zusammenführung von Top-Down und Bottom-Up zu einer Gesamteinschätzung pro Anlage.",
   "Demo-Daten": "Beispielwerte, die echte Daten nachstellen, solange die echte Quelle noch nicht angebunden ist — am Etikett erkennbar.",
+  "Long-Short": "AAIA beurteilt jeden Titel durch zwei gleichwertige Linsen: die Long-Sicht (lohnt sich der Kauf?) und die Short-Sicht (lohnt sich die Wette auf einen Fall?). Grundsatz: Ein Short ist nicht das Spiegelbild eines Longs — „teuer“ allein reicht nie, es braucht einen echten Grund zu fallen plus einen Katalysator.",
+  "Total-Return": "Gesamtrendite einer Anlage = Kursveränderung + laufende Erträge (Dividenden, Zinsen/Kupons), im Gegensatz zum reinen Price Return (nur Kurs). Als Denkhaltung: Ertrag in beide Marktrichtungen anstreben — steigend (long) wie fallend (short).",
   "Exposure": "Wie stark dein Kapital insgesamt im Markt steckt (brutto = Summe aller Positionen, netto = long minus short).",
   // Deep-Dive-Aktienkennzahlen (Teil-Projekt B1) — etablierte Definitionen.
   "KGV": "Kurs-Gewinn-Verhältnis: Aktienkurs ÷ Gewinn je Aktie. Wie viele Jahresgewinne man zahlt; niedriger = günstiger bewertet.",

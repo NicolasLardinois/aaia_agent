@@ -28,6 +28,21 @@ describe("WelcomePage", () => {
       expect(link).toHaveAttribute("href", to);
     }
   });
+  it("erklärt die Long-Short-Philosophie als zwei gleichwertige Linsen", () => {
+    renderWelcome();
+    // Beide Linsen werden benannt …
+    expect(screen.getByText(/Long-Linse/i)).toBeInTheDocument();
+    expect(screen.getByText(/Short-Linse/i)).toBeInTheDocument();
+    // … und der Kern-Grundsatz: ein Short ist NICHT das Spiegelbild eines Longs (Katalysator nötig).
+    expect(screen.getByText(/Spiegelbild/i)).toBeInTheDocument();
+    expect(screen.getByText(/Katalysator/i)).toBeInTheDocument();
+  });
+
+  it("erklärt das Total-Return-Ziel: Rendite in beide Marktrichtungen", () => {
+    renderWelcome();
+    expect(screen.getByText(/beide.*Richtung|in jeder Marktlage|steigen.*fallen/i)).toBeInTheDocument();
+  });
+
   it("setzt das gesehen-Flag und navigiert ins Cockpit beim 'los geht's'-Knopf", async () => {
     renderWelcome();
     await userEvent.click(screen.getByRole("button", { name: /los geht's/i }));

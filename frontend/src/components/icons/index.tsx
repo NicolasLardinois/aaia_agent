@@ -6,7 +6,7 @@ import {
   // Navigation
   Home, LayoutDashboard, Telescope, Briefcase, Inbox, History, Settings,
   // Basiswerte (underlying)
-  Building2, TrendingUp, Landmark, Fuel, Gem,
+  Building2, TrendingUp, TrendingDown, Landmark, Fuel, Gem,
   // Huellen (wrapper)
   Circle, Layers, CalendarClock, Package,
   // Status / UI-Chrome
@@ -23,6 +23,7 @@ export type IconName =
   | "nav-welcome" | "nav-cockpit" | "nav-deepdive" | "nav-portfolio"
   | "nav-inbox" | "nav-backtester" | "nav-settings"
   | "asset-equity" | "asset-index" | "asset-bond" | "asset-commodity" | "asset-precious-metal"
+  | "trend-up" | "trend-down"
   | "wrap-single" | "wrap-fund" | "wrap-future" | "wrap-physical"
   | "warning" | "check" | "cross"
   | "sort-asc" | "sort-desc" | "sort-none"
@@ -45,6 +46,8 @@ const ICONS: Record<IconName, LucideIcon> = {
   "asset-bond": Landmark,
   "asset-commodity": Fuel,
   "asset-precious-metal": Gem,
+  "trend-up": TrendingUp,
+  "trend-down": TrendingDown,
   "wrap-single": Circle,
   "wrap-fund": Layers,
   "wrap-future": CalendarClock,
