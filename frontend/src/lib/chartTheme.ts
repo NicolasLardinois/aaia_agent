@@ -40,7 +40,16 @@ export function themedAxis(type: "value" | "category", over: EChartsOption = {})
 export function themedTooltip(trigger: "axis" | "item"): EChartsOption {
   return {
     trigger,
-    axisPointer: { type: trigger === "axis" ? "line" : "shadow" },
+    // Achsen-Tooltip: Fadenkreuz (vertikale + horizontale Hilfslinie) wie auf Trading-Plattformen
+    // -> exakter Ablesepunkt. Item-Tooltip (Balken): dezenter Schatten.
+    axisPointer: trigger === "axis"
+      ? {
+          type: "cross",
+          lineStyle: { color: CHART.axisLabel, width: 1, type: "dashed" },
+          crossStyle: { color: CHART.axisLabel, width: 1, type: "dashed" },
+          label: { backgroundColor: "#131b2b", color: "#e7ecf5" },
+        }
+      : { type: "shadow" },
     backgroundColor: "rgba(19,27,43,0.96)",  // dunkler Tooltip (lesbar auf beiden Decks)
     borderWidth: 0,
     textStyle: { color: "#e7ecf5", fontSize: 12 },

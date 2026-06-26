@@ -35,7 +35,7 @@ const DIR_COLOR: Record<"up" | "down" | "flat", string> = {
 
 // Kursverlauf-Panel: Kopf (letzter Kurs + Periodenveraenderung mit Vorzeichen) + Flaechenchart.
 // Leere Reihe -> dezenter Hinweis (kein Crash, UNAVAILABLE != 0).
-export function PriceChart({ points, currency, height = 220 }: { points: PricePoint[]; currency: string; height?: number }) {
+export function PriceChart({ points, currency, height = 300 }: { points: PricePoint[]; currency: string; height?: number }) {
   if (points.length === 0) {
     return <p className="text-sm text-muted">Kein Kursverlauf verfügbar.</p>;
   }

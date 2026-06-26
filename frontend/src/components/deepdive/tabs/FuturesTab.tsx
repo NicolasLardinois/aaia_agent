@@ -16,7 +16,8 @@ export function FuturesTab({ block }: { block: FuturesBlockDTO }) {
           name: "Terminkurve",
           points: block.curve.map((p) => ({ x: p.contractMonth, y: p.price })),
         }]}
-        height={200}
+        height={260}
+        area
       />
       <div>Form: <span className="font-medium uppercase">{block.form}</span></div>
       <div>

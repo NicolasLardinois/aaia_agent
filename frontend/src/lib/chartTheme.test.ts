@@ -28,6 +28,13 @@ describe("chartTheme", () => {
     expect(themedTooltip("item").trigger).toBe("item");
   });
 
+  it("Achsen-Tooltip nutzt ein Fadenkreuz (cross) wie auf Trading-Plattformen", () => {
+    // Crosshair: beim Hovern eine vertikale + horizontale Hilfslinie -> exakter Ablesepunkt.
+    expect(themedTooltip("axis").axisPointer.type).toBe("cross");
+    // Item-Tooltip (z. B. Balken) bleibt beim Schatten-Pointer.
+    expect(themedTooltip("item").axisPointer.type).toBe("shadow");
+  });
+
   it("areaGradient legt die Farbe oben deckend, unten transparent an (Flaeche unter der Linie)", () => {
     const grad = areaGradient("#0e9f6e");
     // ECharts-LinearGradient-Form; Farbe als rgba(14,159,110,..) gespiegelt

@@ -45,7 +45,8 @@ export function YieldCurveDrilldown({ loader = loadYieldCurve }: { loader?: () =
                 name: "Rendite",
                 points: data.points.map((p) => ({ x: p.tenor, y: p.yieldPct })),
               }]}
-              height={200}
+              height={300}
+              area
             />
           </div>
 
