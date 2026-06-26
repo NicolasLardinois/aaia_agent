@@ -1,9 +1,12 @@
 import asyncio
+import logging
 from core.domain.events import VIXDataReady
 from core.domain.models import VIXSnapshot, Signal
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 _DEFAULT = VIXSnapshot(vix=None, vstoxx=None, signal=Signal.NEUTRAL)
 
@@ -35,9 +38,9 @@ class VIXAgent:
             asyncio.to_thread(self.provider.get_current_price, "^V2TX"),
             return_exceptions=True,
         )
-        # Ausgefallene Quelle -> None (geteilter Helfer statt lokalem _safe).
-        vix = safe_result(vix, default=None)
-        vstoxx = safe_result(vstoxx, default=None)
+        # Ausgefallene Quelle -> None; label+logger machen den Ausfall als warning sichtbar.
+        vix = safe_result(vix, default=None, label="VIX Spot (^VIX)", logger=_log)
+        vstoxx = safe_result(vstoxx, default=None, label="VIX VSTOXX (^V2TX)", logger=_log)
 
         result = VIXSnapshot(vix=vix, vstoxx=vstoxx, signal=_signal(vix, vstoxx))
         self.bus.publish(VIXDataReady(source="vix_agent", payload={"vix": vix, "vstoxx": vstoxx}))

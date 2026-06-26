@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from core.domain.events import BondMetricsReady
 from core.domain.models import BondMetricsSnapshot, Signal, SignalStatus
 from core.ports.data_provider import FundamentalsProvider, MacroDataProvider
@@ -6,6 +7,8 @@ from core.ports.event_bus import EventBus
 from core.utils.bond_math import ytm as _ytm, yield_to_worst
 from core.utils.real_nominal import to_real
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 _DEFAULT = BondMetricsSnapshot(
     bond_type="government", current_price=None, coupon=None, maturity_years=None,
@@ -47,8 +50,9 @@ class BondMetricsAgent:
         )
         # Teilergebnisse defensiv entpacken (geteilter Helfer statt lokalem _safe):
         # Exception ODER falsy (None) -> {}, damit .get(...) unten nie crasht.
-        data  = safe_result(data, default={}) or {}
-        state = safe_result(state, default={}) or {}
+        # label+logger: ein Quellen-Ausfall wird als warning sichtbar (Default greift weiter).
+        data  = safe_result(data, default={}, label=f"Bond Metrics Bond-Daten ({ticker})", logger=_log) or {}
+        state = safe_result(state, default={}, label="Bond Metrics FRED economic_state", logger=_log) or {}
 
         price = data.get("current_price")
         face = data.get("face", 100.0)

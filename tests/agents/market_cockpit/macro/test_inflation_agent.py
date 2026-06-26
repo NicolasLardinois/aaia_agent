@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from unittest.mock import MagicMock
 
 from agents.market_cockpit.macro.inflation_agent import InflationAgent, _signal, _cpi_trend
@@ -210,3 +211,13 @@ def test_usa_ohne_cpi_history_bleibt_neutral_via_run():
     agent = _make_agent(eco={"inflation": 4.5}, ext={"core_cpi": 2.2})
     result = asyncio.run(agent.run())
     assert result.usa.signal == Signal.NEUTRAL
+
+
+def test_run_loggt_warnung_bei_ausgefallener_quelle(caplog):
+    # Logging-Pass: faellt eine Datenquelle aus, wird das jetzt als warning sichtbar
+    # (vorher still auf Default zurueckgefallen). Verhalten bleibt unveraendert.
+    agent = _make_agent()
+    agent.macro.get_economic_state.side_effect = RuntimeError("FRED down")
+    with caplog.at_level(logging.WARNING):
+        asyncio.run(agent.run())
+    assert "Inflation FRED economic_state" in caplog.text

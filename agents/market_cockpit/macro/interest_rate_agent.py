@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import date
 from typing import Optional
 from core.domain.events import InterestRateDataReady
@@ -9,6 +10,8 @@ from core.ports.dated_history import DatedHistoryPort
 from core.utils.real_nominal import to_real
 from core.utils.safe import safe_result
 from adapters.persistence.in_memory_dated_history import InMemoryDatedHistory
+
+_log = logging.getLogger(__name__)
 
 _NEUTRAL = InterestRateDataPoint(
     policy_rate=None, rate_direction="stable",
@@ -74,12 +77,13 @@ class InterestRateAgent:
         # Teilergebnisse aus gather(return_exceptions=True) defensiv entpacken
         # (geteilter Helfer statt lokalem _safe): Exception -> None. Die separaten
         # Helfer _safe_real / _safe_hist unten bleiben unberuehrt (andere Semantik).
-        state    = safe_result(state, default=None)    or {}
-        ext      = safe_result(ext, default=None)      or {}
-        ecb_rate = safe_result(ecb_rate, default=None)
-        ecb_bs   = safe_result(ecb_bs, default=None)
-        snb_rate = safe_result(snb_rate, default=None)
-        snb_bs   = safe_result(snb_bs, default=None)
+        # label+logger: ein Quellen-Ausfall wird als warning sichtbar (Default greift weiter).
+        state    = safe_result(state, default=None, label="Zins FRED economic_state (USA)", logger=_log)    or {}
+        ext      = safe_result(ext, default=None, label="Zins FRED extended_state (USA)", logger=_log)      or {}
+        ecb_rate = safe_result(ecb_rate, default=None, label="Zins ECB Leitzins (EU)", logger=_log)
+        ecb_bs   = safe_result(ecb_bs, default=None, label="Zins ECB Bilanzsumme-Wachstum (EU)", logger=_log)
+        snb_rate = safe_result(snb_rate, default=None, label="Zins SNB Leitzins (CH)", logger=_log)
+        snb_bs   = safe_result(snb_bs, default=None, label="Zins SNB Bilanzsumme-Wachstum (CH)", logger=_log)
 
         fed_rate = state.get("fed_rate")
         usa_cpi  = state.get("inflation")
