@@ -6,6 +6,7 @@ from core.domain.events import SectorChiefReady
 from core.domain.models import MarketRegime, SectorChiefResult, SectorRotationSnapshot, Signal, SignalStatus
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
+from core.utils.safe import safe_result
 
 _DEFAULT_ROTATION = SectorRotationSnapshot(recommended=[], avoid=[], alignment="neutral", signal=Signal.NEUTRAL)
 
@@ -31,9 +32,7 @@ class SectorChiefAgent:
             return_exceptions=True,
         )
 
-        def _safe(r, d): return d if isinstance(r, Exception) else r
-
-        performance = _safe(performance_result[0], SectorPerformanceAgent.default())
+        performance = safe_result(performance_result[0], default=SectorPerformanceAgent.default())
 
         try:
             top = _top_sectors(performance, n=3)

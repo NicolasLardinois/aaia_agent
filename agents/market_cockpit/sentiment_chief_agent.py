@@ -10,6 +10,7 @@ from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
 from core.ports.put_call_source import PutCallSource
 from core.utils.aggregation import weighted_signal
+from core.utils.safe import safe_result
 
 _WEIGHTS = {"vix": 0.45, "fear_greed": 0.25, "put_call": 0.30}
 
@@ -38,11 +39,9 @@ class SentimentChiefAgent:
             return_exceptions=True,
         )
 
-        def _safe(r, d): return d if isinstance(r, Exception) else r
-
-        vix        = _safe(results[0], VIXAgent.default())
-        fear_greed = _safe(results[1], FearGreedAgent.default())
-        put_call   = _safe(results[2], PutCallAgent.default())
+        vix        = safe_result(results[0], default=VIXAgent.default())
+        fear_greed = safe_result(results[1], default=FearGreedAgent.default())
+        put_call   = safe_result(results[2], default=PutCallAgent.default())
 
         # Status aus Rohdaten ableiten; Fear&Greed ist Stub → UNAVAILABLE
         vix_status        = SignalStatus.UNAVAILABLE if (vix.vix is None and vix.vstoxx is None) else SignalStatus.AVAILABLE

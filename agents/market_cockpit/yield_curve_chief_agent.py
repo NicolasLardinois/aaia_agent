@@ -8,6 +8,7 @@ from core.ports.data_provider import EcbDataProvider, MacroDataProvider, SnbData
 from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
 from core.utils.aggregation import weighted_signal
+from core.utils.safe import safe_result
 
 # US-Kurve als primärer Rezessionsprädiktor (NY-Fed-Modell); EU-Sovereign als Stress-Indikator
 _WEIGHTS = {"us_curve": 0.60, "eu_sovereign": 0.40}
@@ -37,10 +38,8 @@ class YieldCurveChiefAgent:
             return_exceptions=True,
         )
 
-        def _safe(r, d): return d if isinstance(r, Exception) else r
-
-        yield_spreads     = _safe(results[0], YieldSpreadAgent.default())
-        sovereign_spreads = _safe(results[1], SovereignSpreadAgent.default())
+        yield_spreads     = safe_result(results[0], default=YieldSpreadAgent.default())
+        sovereign_spreads = safe_result(results[1], default=SovereignSpreadAgent.default())
 
         # US-Status: UNAVAILABLE wenn kein Spread vorhanden
         usa_pt = yield_spreads.usa

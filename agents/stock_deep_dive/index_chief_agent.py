@@ -12,6 +12,7 @@ from core.domain.models import IndexResult, Signal, SignalStatus
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.aggregation import weighted_signal
+from core.utils.safe import safe_result
 
 # Top-down-Gewichte: Bewertung = Langfrist-Anker, Momentum/Breadth = Timing.
 _W_VALUATION = 0.30
@@ -58,15 +59,13 @@ class IndexChiefAgent:
             return_exceptions=True,
         )
 
-        def _safe(r, d): return d if isinstance(r, Exception) else r
-
-        price           = _safe(results[0], IndexPriceAgent.default())
-        valuation       = _safe(results[1], IndexValuationAgent.default())
-        earnings        = _safe(results[2], IndexEarningsAgent.default())
-        breadth         = _safe(results[3], IndexBreadthAgent.default())
-        momentum        = _safe(results[4], IndexMomentumAgent.default())
-        composition     = _safe(results[5], SectorCompositionAgent.default())
-        valuation_range = _safe(results[6], IndexValuationRangeAgent.default())
+        price           = safe_result(results[0], default=IndexPriceAgent.default())
+        valuation       = safe_result(results[1], default=IndexValuationAgent.default())
+        earnings        = safe_result(results[2], default=IndexEarningsAgent.default())
+        breadth         = safe_result(results[3], default=IndexBreadthAgent.default())
+        momentum        = safe_result(results[4], default=IndexMomentumAgent.default())
+        composition     = safe_result(results[5], default=SectorCompositionAgent.default())
+        valuation_range = safe_result(results[6], default=IndexValuationRangeAgent.default())
 
         overall_signal, confidence = _aggregate_index_signal(
             valuation_sig=valuation.signal,

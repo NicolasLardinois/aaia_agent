@@ -14,6 +14,7 @@ from core.ports.data_provider import FundamentalsProvider, MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
 from core.utils.aggregation import weighted_signal
+from core.utils.safe import safe_result
 
 # Gewichte: Bewertung = Langfrist-Anker, Qualität/Moat = Prämien-Rechtfertigung,
 # Earnings/Insider/Short/Momentum = Timing/Bestätigung.
@@ -85,16 +86,14 @@ class EquityChiefAgent:
             return_exceptions=True,
         )
 
-        def _safe(r, d): return d if isinstance(r, Exception) else r
-
-        fundamentals    = _safe(results[0], FundamentalsAgent.default())
-        quality         = _safe(results[1], QualityAgent.default())
-        short_interest  = _safe(results[2], ShortInterestAgent.default())
-        insider         = _safe(results[3], InsiderAgent.default())
-        earnings_trend  = _safe(results[4], EarningsTrendAgent.default())
-        moat            = _safe(results[5], MoatAgent.default())
-        valuation_range = _safe(results[6], ValuationRangeAgent.default())
-        momentum        = _safe(results[7], EquityMomentumAgent.default())
+        fundamentals    = safe_result(results[0], default=FundamentalsAgent.default())
+        quality         = safe_result(results[1], default=QualityAgent.default())
+        short_interest  = safe_result(results[2], default=ShortInterestAgent.default())
+        insider         = safe_result(results[3], default=InsiderAgent.default())
+        earnings_trend  = safe_result(results[4], default=EarningsTrendAgent.default())
+        moat            = safe_result(results[5], default=MoatAgent.default())
+        valuation_range = safe_result(results[6], default=ValuationRangeAgent.default())
+        momentum        = safe_result(results[7], default=EquityMomentumAgent.default())
 
         overall_signal, confidence = _aggregate_signal(
             fundamentals_sig=fundamentals.signal,

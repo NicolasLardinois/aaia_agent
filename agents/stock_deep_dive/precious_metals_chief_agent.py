@@ -8,6 +8,7 @@ from core.domain.events import PreciousMetalsChiefReady
 from core.domain.models import PreciousMetalsResult, Signal
 from core.ports.data_provider import COTProvider, MacroDataProvider, MarketDataProvider
 from core.ports.event_bus import EventBus
+from core.utils.safe import safe_result
 
 
 class PreciousMetalsChiefAgent:
@@ -37,12 +38,10 @@ class PreciousMetalsChiefAgent:
             return_exceptions=True,
         )
 
-        def _safe(r, d): return d if isinstance(r, Exception) else r
-
-        price_snap     = _safe(results[0], PreciousMetalPriceAgent.default(metal))
-        cross_snap     = _safe(results[1], CrossMetalAgent.default())
-        valuation_snap = _safe(results[2], PreciousMetalsValuationAgent.default())
-        cot_snap       = _safe(results[3], COTAgent.default())
+        price_snap     = safe_result(results[0], default=PreciousMetalPriceAgent.default(metal))
+        cross_snap     = safe_result(results[1], default=CrossMetalAgent.default())
+        valuation_snap = safe_result(results[2], default=PreciousMetalsValuationAgent.default())
+        cot_snap       = safe_result(results[3], default=COTAgent.default())
 
         self.bus.publish(PreciousMetalsChiefReady(source="precious_metals_chief_agent", payload={"metal": metal}))
 

@@ -5,6 +5,7 @@ from core.ports.data_provider import FundamentalsProvider, MacroDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.bond_math import ytm as _ytm, yield_to_worst
 from core.utils.real_nominal import to_real
+from core.utils.safe import safe_result
 
 _DEFAULT = BondMetricsSnapshot(
     bond_type="government", current_price=None, coupon=None, maturity_years=None,
@@ -44,8 +45,10 @@ class BondMetricsAgent:
             asyncio.to_thread(self.macro.get_economic_state),
             return_exceptions=True,
         )
-        def _safe(v): return {} if isinstance(v, Exception) else (v or {})
-        data, state = _safe(data), _safe(state)
+        # Teilergebnisse defensiv entpacken (geteilter Helfer statt lokalem _safe):
+        # Exception ODER falsy (None) -> {}, damit .get(...) unten nie crasht.
+        data  = safe_result(data, default={}) or {}
+        state = safe_result(state, default={}) or {}
 
         price = data.get("current_price")
         face = data.get("face", 100.0)
