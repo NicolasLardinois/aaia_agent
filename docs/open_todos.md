@@ -24,6 +24,8 @@ Stand: 2026-06-19 | Nach Erledigung: Zeile abhaken oder entfernen.
 | Code-Qualität / toter Code |
 | Design-Entscheidungen (Frontend) |
 
+> **Doku/Meta — PR-Protokoll:** README umfassend aktualisiert (deckt jetzt das gesamte System ab — Taxonomie `underlying × wrapper` als aktiver Stand, Long+Short-Urteil, 5 CLI-Modi, Web-API, mehrseitiges Frontend, ConflictAgent, Regime-Replay-Backtest, Datenquellen live/Stub, Deploy/CI — **inkl. neuem Abschnitt „Aktueller Stand & offene Punkte"**). Dieser Abschnitt ist bewusst eine **stabile Kategorie-Übersicht** mit Link auf dieses Logbuch als einzige Quelle der Wahrheit (kein paralleler Status → kein Drift, AGENTS.md). Faktencheck gegen `master`: `_safe`-Helfer existiert (Rollout läuft), Ticker-Auflösung via Fuzzy-Suche (#124) + Chief-Aggregations-Tests (#131) erledigt → **nicht** mehr als offen gelistet. **PR #132 am 2026-06-26 gemergt.**
+
 ---
 
 ## 1. OFFENE BUGS (aus code_review_2026-06-05.md)
