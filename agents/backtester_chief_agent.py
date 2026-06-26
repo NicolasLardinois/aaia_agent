@@ -3,9 +3,7 @@ from datetime import datetime
 from typing import Callable, Optional
 
 from agents.backtester.top_down_backtester_agent import TopDownBacktesterAgent
-from agents.backtester.bottom_up_backtester_agent import (
-    BottomUpBacktesterAgent, _default_benchmark_return, _default_price_on_horizon,
-)
+from agents.backtester.bottom_up_backtester_agent import BottomUpBacktesterAgent
 from agents.backtester.conflict_backtester_agent import ConflictBacktesterAgent
 from agents.backtester.judgment_backtester_agent import JudgmentBacktesterAgent
 from agents.backtester.short_backtester_agent import ShortBacktesterAgent
@@ -20,8 +18,8 @@ class BacktesterChiefAgent:
         self,
         memory: MemoryPort,
         bus: EventBus,
-        price_on_horizon: Callable[[str, datetime, int], Optional[float]] = _default_price_on_horizon,
-        benchmark_return: Callable[[str, datetime, int], Optional[float]] = _default_benchmark_return,
+        price_on_horizon: Optional[Callable[[str, datetime, int], Optional[float]]] = None,
+        benchmark_return: Optional[Callable[[str, datetime, int], Optional[float]]] = None,
         conflict_store: Optional[ConflictStorePort] = None,
     ):
         self.memory = memory

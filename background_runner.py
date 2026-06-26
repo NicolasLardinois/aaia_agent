@@ -14,6 +14,8 @@ from adapters.cache.result_cache import ResultCache
 from adapters.llm.claude_adapter import ClaudeAdapter
 from agents.backtester_chief_agent import BacktesterChiefAgent
 from adapters.data.yahoo_live_price import YahooLivePriceProvider
+from adapters.data.yahoo_price_history import YahooPriceHistoryProvider
+from core.utils.backtest import make_benchmark_return
 from agents.portfolio.portfolio_monitor_agent import PortfolioMonitorAgent, make_returns_provider
 from agents.conflict.portfolio_conflict_scan import scan_portfolio_conflicts
 from core.domain.models import PositionState
@@ -94,7 +96,16 @@ async def main() -> None:
         conflict_store = SupabaseConflictStore()
     except Exception:
         conflict_store = None
-    backtester = BacktesterChiefAgent(memory, bus, conflict_store=conflict_store)
+    # Kursquelle der Backtester injiziert (Hexagonal §1: yfinance-I/O liegt jetzt im
+    # Adapter, nicht mehr im Agent-Modul). benchmark_return wird rein aus der
+    # Kurs-Lookup-Funktion abgeleitet (make_benchmark_return).
+    _price_history = YahooPriceHistoryProvider()
+    backtester = BacktesterChiefAgent(
+        memory, bus,
+        price_on_horizon=_price_history.get_price_on_horizon,
+        benchmark_return=make_benchmark_return(_price_history.get_price_on_horizon),
+        conflict_store=conflict_store,
+    )
 
     market = YahooFinanceProvider()
     agents = [
