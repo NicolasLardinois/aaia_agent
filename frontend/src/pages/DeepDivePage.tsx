@@ -11,6 +11,7 @@ import { LongShortPanel } from "../components/LongShortPanel";
 import { AnomalyReport } from "../components/AnomalyReport";
 import { SourceHealth } from "../components/SourceHealth";
 import { DemoBadge } from "../components/DemoBadge";
+import { PriceChart } from "../components/charts/PriceChart";
 import { EquityTabs } from "../components/deepdive/tabs/EquityTabs";
 import { BondTab } from "../components/deepdive/tabs/BondTab";
 import { IndexTab } from "../components/deepdive/tabs/IndexTab";
@@ -107,6 +108,16 @@ export function DeepDivePage({
         <DemoBadge isDemo={data.isDemo} />
       </div>
       <SourceHealth active={data.sourcesActive} total={data.sourcesTotal} failed={data.failed} />
+
+      {/* Kursverlauf (Mangel #6): Flaechenchart im Kopf, gefaerbt nach Periodenrichtung.
+          Nur wenn eine Historie vorliegt (UNAVAILABLE -> kein Chart, nicht 0). */}
+      {data.priceHistory && data.priceHistory.length > 0 && (
+        <div className="rounded-lg border border-line bg-surface p-4">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Kursverlauf</div>
+          <PriceChart points={data.priceHistory} currency={data.currency} />
+        </div>
+      )}
+
       <LongShortPanel long={data.long} short={data.short} />
       <AnomalyReport anomaly={data.anomaly} />
       {data.cockpitWind && <CockpitWind wind={data.cockpitWind} />}

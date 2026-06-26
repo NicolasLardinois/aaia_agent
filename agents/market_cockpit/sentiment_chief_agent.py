@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from agents.market_cockpit.sentiment.vix_agent import VIXAgent
 from agents.market_cockpit.sentiment.fear_greed_agent import FearGreedAgent
@@ -11,6 +12,8 @@ from core.ports.event_bus import EventBus
 from core.ports.put_call_source import PutCallSource
 from core.utils.aggregation import weighted_signal
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 _WEIGHTS = {"vix": 0.45, "fear_greed": 0.25, "put_call": 0.30}
 
@@ -39,9 +42,9 @@ class SentimentChiefAgent:
             return_exceptions=True,
         )
 
-        vix        = safe_result(results[0], default=VIXAgent.default())
-        fear_greed = safe_result(results[1], default=FearGreedAgent.default())
-        put_call   = safe_result(results[2], default=PutCallAgent.default())
+        vix        = safe_result(results[0], default=VIXAgent.default(), label="SentimentChief: VIXAgent", logger=_log)
+        fear_greed = safe_result(results[1], default=FearGreedAgent.default(), label="SentimentChief: FearGreedAgent", logger=_log)
+        put_call   = safe_result(results[2], default=PutCallAgent.default(), label="SentimentChief: PutCallAgent", logger=_log)
 
         # Status aus Rohdaten ableiten; Fear&Greed ist Stub → UNAVAILABLE
         vix_status        = SignalStatus.UNAVAILABLE if (vix.vix is None and vix.vstoxx is None) else SignalStatus.AVAILABLE

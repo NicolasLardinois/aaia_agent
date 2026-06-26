@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import statistics
 from core.domain.events import AgriculturalDataReady
 from core.domain.models import AgriculturalSnapshot, Signal
@@ -6,6 +7,8 @@ from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.relative import zscore_vs_history
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 TICKERS = {
     "wheat":        "ZW=F",
@@ -91,9 +94,12 @@ class AgriculturalAgent:
             ),
         )
         # Teilergebnisse aus gather(return_exceptions=True) defensiv entpacken:
-        # eine ausgefallene Preisquelle -> None (geteilter Helfer statt lokalem _safe).
+        # eine ausgefallene Preisquelle -> None (geteilter Helfer statt lokalem _safe);
+        # je Rohstoff label+logger -> ein Quellen-Ausfall wird als warning sichtbar.
+        # zip mit TICKERS.items() ist sicher: gather-Reihenfolge == TICKERS-Reihenfolge.
         wheat, corn, soy, coffee, sugar, cotton, oj = [
-            safe_result(v, default=None) for v in prices
+            safe_result(v, default=None, label=f"Agricultural {name.capitalize()} ({tic})", logger=_log)
+            for v, (name, tic) in zip(prices, TICKERS.items())
         ]
 
         changes = [z for z in (_yoy_change_z(h) for h in histories) if z is not None]

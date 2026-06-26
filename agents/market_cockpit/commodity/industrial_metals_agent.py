@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from core.domain.events import IndustrialMetalsDataReady
 from core.domain.models import IndustrialMetalsSnapshot, Signal
@@ -7,6 +8,8 @@ from core.ports.event_bus import EventBus
 from core.ports.metal_spot import MetalSpotProvider
 from core.utils.relative import zscore_vs_history
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 # Kupfer und Aluminium: CME-Futures, verfügbar über Yahoo Finance
 TICKERS = {"copper": "HG=F", "aluminium": "ALI=F", "gold": "GC=F"}
@@ -86,11 +89,12 @@ class IndustrialMetalsAgent:
                 return_exceptions=True,
             ),
         )
-        # Ausgefallene Preisquelle -> None (geteilter Helfer statt lokalem _safe).
-        copper = safe_result(copper, default=None)
-        alu = safe_result(alu, default=None)
-        zinc = safe_result(zinc, default=None)
-        nickel = safe_result(nickel, default=None)
+        # Ausgefallene Preisquelle -> None (geteilter Helfer statt lokalem _safe);
+        # label+logger machen den jeweiligen Quellen-Ausfall als warning sichtbar.
+        copper = safe_result(copper, default=None, label=f"Industrial Metals Copper ({TICKERS['copper']})", logger=_log)
+        alu = safe_result(alu, default=None, label=f"Industrial Metals Aluminium ({TICKERS['aluminium']})", logger=_log)
+        zinc = safe_result(zinc, default=None, label="Industrial Metals Zinc (LME)", logger=_log)
+        nickel = safe_result(nickel, default=None, label="Industrial Metals Nickel (LME)", logger=_log)
 
         cg_z = _copper_gold_z(h_copper, h_gold)
 

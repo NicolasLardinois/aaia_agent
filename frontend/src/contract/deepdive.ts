@@ -121,6 +121,10 @@ export interface FuturesBlockDTO {
   notional: number;                 // Nominalwert (fuer Hebel = notional/margin)
 }
 
+// --- Kursverlauf (US13ff, Mangel #6: Kurschart im Deep-Dive) ---
+// Tages-Schlusskurse fuer den Sparkline-/Flaechenchart im Kopf der Deep-Dive-Seite.
+export interface PricePointDTO { date: string; close: number; } // ISO-Datum + Schlusskurs in `currency`
+
 // --- Cockpit-Rueckenwind (US12) ---
 export interface CockpitWindDTO {
   domainKey: string;      // z. B. "commodities" — Ziel des Rueck-Links ins Drilldown
@@ -142,6 +146,7 @@ export interface DeepDiveView extends DemoMeta, SourceHealthMeta {
   underlying: Underlying;
   wrapper: Wrapper;
   price: number | null;        // aktueller Kurs; null => UNAVAILABLE
+  priceHistory?: PricePointDTO[]; // Tages-Schlusskurse fuer den Kursverlauf-Chart; fehlt => kein Chart
   currency: string;            // z. B. "USD"
   market: string;              // z. B. "NASDAQ", "COMEX"
   found: boolean;              // false => "nicht gefunden"-Ansicht

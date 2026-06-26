@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from agents.stock_deep_dive.equity.fundamentals_agent import FundamentalsAgent
 from agents.stock_deep_dive.equity.quality_agent import QualityAgent
@@ -15,6 +16,8 @@ from core.ports.event_bus import EventBus
 from core.ports.llm_provider import LLMProvider
 from core.utils.aggregation import weighted_signal
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 # Gewichte: Bewertung = Langfrist-Anker, Qualität/Moat = Prämien-Rechtfertigung,
 # Earnings/Insider/Short/Momentum = Timing/Bestätigung.
@@ -86,14 +89,14 @@ class EquityChiefAgent:
             return_exceptions=True,
         )
 
-        fundamentals    = safe_result(results[0], default=FundamentalsAgent.default())
-        quality         = safe_result(results[1], default=QualityAgent.default())
-        short_interest  = safe_result(results[2], default=ShortInterestAgent.default())
-        insider         = safe_result(results[3], default=InsiderAgent.default())
-        earnings_trend  = safe_result(results[4], default=EarningsTrendAgent.default())
-        moat            = safe_result(results[5], default=MoatAgent.default())
-        valuation_range = safe_result(results[6], default=ValuationRangeAgent.default())
-        momentum        = safe_result(results[7], default=EquityMomentumAgent.default())
+        fundamentals    = safe_result(results[0], default=FundamentalsAgent.default(), label="EquityChief: FundamentalsAgent", logger=_log)
+        quality         = safe_result(results[1], default=QualityAgent.default(), label="EquityChief: QualityAgent", logger=_log)
+        short_interest  = safe_result(results[2], default=ShortInterestAgent.default(), label="EquityChief: ShortInterestAgent", logger=_log)
+        insider         = safe_result(results[3], default=InsiderAgent.default(), label="EquityChief: InsiderAgent", logger=_log)
+        earnings_trend  = safe_result(results[4], default=EarningsTrendAgent.default(), label="EquityChief: EarningsTrendAgent", logger=_log)
+        moat            = safe_result(results[5], default=MoatAgent.default(), label="EquityChief: MoatAgent", logger=_log)
+        valuation_range = safe_result(results[6], default=ValuationRangeAgent.default(), label="EquityChief: ValuationRangeAgent", logger=_log)
+        momentum        = safe_result(results[7], default=EquityMomentumAgent.default(), label="EquityChief: EquityMomentumAgent", logger=_log)
 
         overall_signal, confidence = _aggregate_signal(
             fundamentals_sig=fundamentals.signal,

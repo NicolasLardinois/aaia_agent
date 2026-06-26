@@ -6,6 +6,7 @@
 import { hitRate, hitRateCurve, formatHitRate } from "../../lib/backtest";
 import type { BacktestResult, BacktestArea } from "../../contract/backtest";
 import { LineCurve } from "../charts/LineCurve";
+import { CHART } from "../../lib/chartTheme";
 
 export interface BacktestCardProps {
   area: BacktestArea;          // top_down / bottom_up / judgment
@@ -52,7 +53,9 @@ export function BacktestCard({ area, results }: BacktestCardProps) {
           // Wiederverwendung der bestehenden Chart-Komponente (nicht duplizieren).
           <LineCurve
             series={[{ name: "Kumulierte Trefferquote (%)", points: curve }]}
-            height={180}
+            height={240}
+            area
+            color={CHART.brand}
           />
         ) : (
           // Leere Stichprobe nach Filter: dezenter Hinweis, keine Null-Linie (UNAVAILABLE != 0).

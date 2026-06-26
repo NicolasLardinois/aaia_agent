@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -166,3 +167,12 @@ def test_eu_neutral_wenn_bip_fehlt():
     agent = _make_agent(eu_m3=2.7, eu_gdp=None, eu_cpi=2.0)
     result = asyncio.run(agent.run())
     assert result.eurozone.signal == Signal.NEUTRAL
+
+
+def test_run_loggt_warnung_bei_ausgefallener_quelle(caplog):
+    # Logging-Pass: ausgefallene Quelle -> sichtbare warning (Default greift weiter).
+    agent = _make_agent()
+    agent.macro.get_extended_state.side_effect = RuntimeError("FRED down")
+    with caplog.at_level(logging.WARNING):
+        asyncio.run(agent.run())
+    assert "Geldmenge FRED extended_state" in caplog.text

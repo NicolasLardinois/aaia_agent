@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from agents.stock_deep_dive.index.index_price_agent import IndexPriceAgent
 from agents.stock_deep_dive.index.index_valuation_agent import IndexValuationAgent
@@ -13,6 +14,8 @@ from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.aggregation import weighted_signal
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 # Top-down-Gewichte: Bewertung = Langfrist-Anker, Momentum/Breadth = Timing.
 _W_VALUATION = 0.30
@@ -59,13 +62,13 @@ class IndexChiefAgent:
             return_exceptions=True,
         )
 
-        price           = safe_result(results[0], default=IndexPriceAgent.default())
-        valuation       = safe_result(results[1], default=IndexValuationAgent.default())
-        earnings        = safe_result(results[2], default=IndexEarningsAgent.default())
-        breadth         = safe_result(results[3], default=IndexBreadthAgent.default())
-        momentum        = safe_result(results[4], default=IndexMomentumAgent.default())
-        composition     = safe_result(results[5], default=SectorCompositionAgent.default())
-        valuation_range = safe_result(results[6], default=IndexValuationRangeAgent.default())
+        price           = safe_result(results[0], default=IndexPriceAgent.default(), label="IndexChief: IndexPriceAgent", logger=_log)
+        valuation       = safe_result(results[1], default=IndexValuationAgent.default(), label="IndexChief: IndexValuationAgent", logger=_log)
+        earnings        = safe_result(results[2], default=IndexEarningsAgent.default(), label="IndexChief: IndexEarningsAgent", logger=_log)
+        breadth         = safe_result(results[3], default=IndexBreadthAgent.default(), label="IndexChief: IndexBreadthAgent", logger=_log)
+        momentum        = safe_result(results[4], default=IndexMomentumAgent.default(), label="IndexChief: IndexMomentumAgent", logger=_log)
+        composition     = safe_result(results[5], default=SectorCompositionAgent.default(), label="IndexChief: SectorCompositionAgent", logger=_log)
+        valuation_range = safe_result(results[6], default=IndexValuationRangeAgent.default(), label="IndexChief: IndexValuationRangeAgent", logger=_log)
 
         overall_signal, confidence = _aggregate_index_signal(
             valuation_sig=valuation.signal,

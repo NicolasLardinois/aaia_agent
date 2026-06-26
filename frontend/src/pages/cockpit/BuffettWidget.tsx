@@ -19,6 +19,10 @@ const EINSCHRAENKUNGEN = [
     text: "Multinationale Konzerne erzielen Gewinne weltweit, die BIP-Basis unterschätzt die reale Ertragsbasis.",
   },
   {
+    titel: "Finanzplatz-Verzerrung",
+    text: "Börsenplätze wie Hongkong (~1100 %), Singapur oder Luxemburg zeigen extreme Quoten, weil dort viele ausländische Konzerne gelistet sind, deren Gewinne nicht aus dem kleinen lokalen BIP stammen. Der hohe Wert ist real, aber für eine Bewertung dieser Volkswirtschaft irreführend — Vorsicht beim Ländervergleich.",
+  },
+  {
     titel: "Zinskontext",
     text: "Bei niedrigen Zinsen (TINA) sind höhere Bewertungsquoten historisch normal — der Indikator ist zinssensitiv.",
   },
@@ -74,7 +78,7 @@ function CountryHistory({ country }: { country: BuffettCountry }) {
   return (
     <div className="mt-3">
       <p className="mb-1 text-sm font-semibold text-ink">10-J-Verlauf — {country.name}</p>
-      <LineCurve series={series} height={200} />
+      <LineCurve series={series} height={280} area />
     </div>
   );
 }
@@ -214,10 +218,16 @@ export function BuffettWidget({ loader = loadBuffett }: { loader?: () => Promise
           {/* toMapPoints: iso3 -> englischer GeoJSON-Name (world.geo.json joiniert per name-Property).
               Demo-Daten haben deutsche Namen; ohne Mapping bleibt die Karte grau (kein Match). */}
           {tab === "karte" && (
-            <ChoroplethMap
-              points={toMapPoints(data.countries)}
-              height={380}
-            />
+            <div className="space-y-2">
+              <ChoroplethMap
+                points={toMapPoints(data.countries)}
+                height={520}
+              />
+              <p className="text-xs text-muted">
+                Feste Farbbänder nach Buffett-Konvention (~100 % = fair, &gt; 200 % sehr teuer) — Ausreißer wie
+                Hongkong verzerren die Skala dadurch nicht. Mausrad zum Zoomen, ziehen zum Verschieben.
+              </p>
+            </div>
           )}
 
           {/* ---- TABELLEN-TAB ---- */}

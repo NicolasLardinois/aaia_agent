@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from agents.stock_deep_dive.commodity.supply_demand_agent import SupplyDemandAgent
 from agents.stock_deep_dive.commodity.seasonality_agent import SeasonalityAgent
@@ -10,6 +11,8 @@ from core.ports.data_provider import MarketDataProvider, COTProvider
 from core.ports.event_bus import EventBus
 from core.utils.aggregation import weighted_signal
 from core.utils.safe import safe_result
+
+_log = logging.getLogger(__name__)
 
 
 class CommodityChiefAgentMikro:
@@ -33,10 +36,10 @@ class CommodityChiefAgentMikro:
             return_exceptions=True,
         )
 
-        supply_demand   = safe_result(results[0], default=SupplyDemandAgent.default())
-        seasonality     = safe_result(results[1], default=SeasonalityAgent.default())
-        cot             = safe_result(results[2], default=COTAgent.default())
-        valuation_range = safe_result(results[3], default=CommodityValuationRangeAgent.default())
+        supply_demand   = safe_result(results[0], default=SupplyDemandAgent.default(), label="CommodityChiefMikro: SupplyDemandAgent", logger=_log)
+        seasonality     = safe_result(results[1], default=SeasonalityAgent.default(), label="CommodityChiefMikro: SeasonalityAgent", logger=_log)
+        cot             = safe_result(results[2], default=COTAgent.default(), label="CommodityChiefMikro: COTAgent", logger=_log)
+        valuation_range = safe_result(results[3], default=CommodityValuationRangeAgent.default(), label="CommodityChiefMikro: CommodityValuationRangeAgent", logger=_log)
 
         # Gewichtetes Gesamtsignal (weighted_signal ignoriert UNAVAILABLE + re-normalisiert die
         # Gewichte über die verfügbaren Sub-Signale — analog den übrigen Chiefs). Gewichte fachlich:
