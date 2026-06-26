@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { CockpitPage } from "./CockpitPage";
+import { CockpitProvider } from "../hooks/CockpitProvider";
+import type { UseCockpitDeps } from "../hooks/useCockpit";
 import type { WebSocketLike } from "../api/cockpitSocket";
 
 function fakeFetch(status: number, body?: unknown): typeof fetch {
@@ -10,10 +12,14 @@ function fakeFetch(status: number, body?: unknown): typeof fetch {
 const fakeWs = (): WebSocketLike => ({ onopen: null, onmessage: null, onerror: null, onclose: null, close: vi.fn() });
 
 // DomainTile verwendet jetzt Link -> CockpitPage braucht Router-Kontext.
-function renderCockpit(deps: Parameters<typeof CockpitPage>[0]["deps"]) {
+// Der Lauf-Zustand kommt aus dem CockpitProvider (oberhalb der Routen, Bug #5/#7),
+// daher wird die Seite im Test in den Provider gehuellt statt deps direkt zu erhalten.
+function renderCockpit(deps: UseCockpitDeps) {
   return render(
     <MemoryRouter>
-      <CockpitPage deps={deps} />
+      <CockpitProvider deps={deps}>
+        <CockpitPage />
+      </CockpitProvider>
     </MemoryRouter>,
   );
 }

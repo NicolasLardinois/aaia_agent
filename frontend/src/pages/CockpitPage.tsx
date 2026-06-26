@@ -1,12 +1,14 @@
 import { Link } from "react-router-dom";
-import { useCockpit, type UseCockpitDeps } from "../hooks/useCockpit";
+import { useCockpitContext } from "../hooks/CockpitProvider";
 import { RegimeBanner } from "../components/RegimeBanner";
 import { DomainTile } from "../components/DomainTile";
 import { DataHealthIndicator } from "../components/DataHealthIndicator";
 import { RunControl } from "../components/RunControl";
 
-export function CockpitPage({ deps }: { deps?: UseCockpitDeps }) {
-  const { overview, phase, error, startAnalysis } = useCockpit(deps);
+// Liest den Lauf-Zustand aus dem CockpitProvider (oberhalb der Routen), damit ein
+// laufender Lauf beim Wegnavigieren nicht abbricht (Bug #5/#7).
+export function CockpitPage() {
+  const { overview, phase, error, startAnalysis } = useCockpitContext();
 
   return (
     <section className="space-y-4">
