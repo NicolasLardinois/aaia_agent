@@ -60,7 +60,7 @@ def test_replay_pfad_gleich_produktionspfad(monkeypatch, data):
     # Produktionspfad: echter MacroChiefAgent, buffett-Agent netzfrei gemacht.
     chief = MacroChiefAgent(prov, EcbStubProvider(), SnbStubProvider(), bus)
     chief.buffett_indicator_agent = type(chief.buffett_indicator_agent)(
-        prov, bus, wb_fetch=lambda: {})
+        prov, bus)  # ohne WB-Provider → keine Weltbank-Länder (netzfrei)
     prod_result = asyncio.run(chief.run())
 
     # Replay-Pfad (ECB/SNB-Stubs explizit injiziert).

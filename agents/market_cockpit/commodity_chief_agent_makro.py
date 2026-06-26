@@ -8,6 +8,7 @@ from core.domain.events import CommodityChiefReady
 from core.domain.models import CommodityChiefResult, Signal, SignalStatus
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
+from core.ports.metal_spot import MetalSpotProvider
 from core.utils.aggregation import weighted_signal
 
 # Makro-Relevanz-Gewichte (GSCI/BCOM-nah: Energie dominiert)
@@ -19,10 +20,11 @@ def _aggregate(items):
 
 
 class CommodityChiefAgentMakro:
-    def __init__(self, market: MarketDataProvider, bus: EventBus):
+    def __init__(self, market: MarketDataProvider, bus: EventBus,
+                 metal_spot: MetalSpotProvider | None = None):
         self.bus = bus
         self.energy_agent          = EnergyAgent(market, bus)
-        self.industrial_agent      = IndustrialMetalsAgent(market, bus)
+        self.industrial_agent      = IndustrialMetalsAgent(market, bus, metal_spot=metal_spot)
         self.precious_metals_agent = PreciousMetalsMacroAgent(market, bus)
         self.agricultural_agent    = AgriculturalAgent(market, bus)
 

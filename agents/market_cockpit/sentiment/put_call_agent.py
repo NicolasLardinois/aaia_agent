@@ -1,17 +1,15 @@
 import asyncio
-from datetime import date, timedelta
-
-import requests
+from datetime import date
 
 from core.domain.events import PutCallDataReady
 from core.domain.models import PutCallSnapshot, Signal
 from core.ports.data_provider import MarketDataProvider
 from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
+from core.ports.put_call_source import PutCallSource
 from core.utils.relative import zscore_vs_history
 
 _DEFAULT = PutCallSnapshot(ratio=None, signal=Signal.NEUTRAL)
-_CBOE_BASE = "https://cdn.cboe.com/data/us/options/market_statistics/daily"
 
 # Serien-Schlüssel der persistenten Tagesreihe (eine Reihe pro Indikator/Region).
 _SERIES = "usa_put_call"
@@ -19,67 +17,6 @@ _SERIES = "usa_put_call"
 # (= zscore_vs_history min_n). Darunter: Warm-up → einmaliges Netz-Seeding,
 # damit in der Aufbauphase kein Signal-Regress entsteht.
 _MIN_HISTORY = 20
-
-
-def _fetch_cboe_put_call() -> float | None:
-    # CBOE veröffentlicht täglich eine CSV mit der TOTAL PUT/CALL-Spalte.
-    # Wir versuchen bis zu 5 Tage zurück um Wochenenden/Feiertage abzudecken.
-    for days_back in range(5):
-        d = date.today() - timedelta(days=days_back)
-        url = f"{_CBOE_BASE}/daily_OPTIONS_{d.strftime('%Y%m%d')}.csv"
-        try:
-            resp = requests.get(url, timeout=10)
-            if resp.status_code != 200:
-                continue
-            lines = resp.text.strip().split('\n')
-            if len(lines) < 2:
-                continue
-            headers = [h.strip().upper() for h in lines[0].split(',')]
-            # Strikt auf "TOTAL ... PUT/CALL" Spalte beschränken (konsistente Serie)
-            idx = next(
-                (i for i, h in enumerate(headers) if "TOTAL" in h and "PUT/CALL" in h),
-                None,
-            )
-            if idx is None:
-                return None
-            values = lines[-1].split(',')
-            if idx >= len(values):
-                return None
-            return round(float(values[idx].strip()), 2)
-        except Exception:
-            continue
-    return None
-
-
-def _fetch_cboe_put_call_history(n_days: int = 90) -> list[float]:
-    """Holt bis zu n_days tägliche CBOE-Total-P/C-Werte für die z-Score-Berechnung."""
-    history: list[float] = []
-    for days_back in range(1, n_days + 5):
-        if len(history) >= n_days:
-            break
-        d = date.today() - timedelta(days=days_back)
-        url = f"{_CBOE_BASE}/daily_OPTIONS_{d.strftime('%Y%m%d')}.csv"
-        try:
-            resp = requests.get(url, timeout=10)
-            if resp.status_code != 200:
-                continue
-            lines = resp.text.strip().split('\n')
-            if len(lines) < 2:
-                continue
-            headers = [h.strip().upper() for h in lines[0].split(',')]
-            idx = next(
-                (i for i, h in enumerate(headers) if "TOTAL" in h and "PUT/CALL" in h),
-                None,
-            )
-            if idx is None:
-                continue
-            values = lines[-1].split(',')
-            if idx >= len(values):
-                continue
-            history.append(round(float(values[idx].strip()), 2))
-        except Exception:
-            continue
-    return history
 
 
 _Z = 1.0
@@ -102,17 +39,19 @@ def _signal(ratio_z: float | None) -> Signal:
 
 class PutCallAgent:
     def __init__(self, provider: MarketDataProvider, bus: EventBus,
-                 history: DatedHistoryPort | None = None):
+                 history: DatedHistoryPort | None = None,
+                 source: PutCallSource | None = None):
         self.provider = provider
         self.bus      = bus
         # Persistente Tagesreihe (Datei/DB). Ohne sie (None) bleibt der Altpfad
         # erhalten: die Historie wird wie bisher pro Lauf neu aus dem Netz gezogen.
         self.history  = history
+        # CBOE-Datenquelle über injizierten Port (Hexagonal, AGENTS.md §1) statt
+        # hardcoded requests. None → kein Netz: ratio None, Seed leer (defensiv).
+        self.source   = source
 
     async def run(self) -> PutCallSnapshot:
-        ratio = await asyncio.to_thread(_fetch_cboe_put_call)
-        if isinstance(ratio, Exception):
-            ratio = None
+        ratio = await self._latest()
 
         history = await self._history_values(ratio)
 
@@ -122,6 +61,18 @@ class PutCallAgent:
         result = PutCallSnapshot(ratio=ratio, signal=_signal(ratio_z))
         self.bus.publish(PutCallDataReady(source="put_call_agent", payload={"ratio": ratio}))
         return result
+
+    async def _latest(self) -> float | None:
+        """Aktueller Total-Put/Call-Wert über den injizierten Port; ohne Port → None."""
+        if self.source is None:
+            return None
+        return await asyncio.to_thread(self.source.get_latest)
+
+    async def _seed(self) -> list[float]:
+        """Netz-Seed der Historie über den Port; ohne Port → leere Liste (kein Netz)."""
+        if self.source is None:
+            return []
+        return await asyncio.to_thread(self.source.get_history)
 
     async def _history_values(self, ratio: float | None) -> list[float]:
         """Liefert die Vergangenheits-Reihe (heutiger Tag ausgeschlossen) für den z-Score.
@@ -133,8 +84,7 @@ class PutCallAgent:
         Signal-Regress). Ohne persistente Historie (None) bleibt der Altpfad aktiv.
         """
         if self.history is None:
-            seed = await asyncio.to_thread(_fetch_cboe_put_call_history)
-            return [] if isinstance(seed, Exception) else seed
+            return await self._seed()
 
         def _io() -> list[float]:
             today = date.today()
@@ -149,8 +99,7 @@ class PutCallAgent:
         if len(past) >= _MIN_HISTORY:
             return past  # genug persistente Historie → kein Netz-I/O mehr (Steady State)
         # Warm-up: persistente Reihe noch zu kurz → einmalig per Netz seeden.
-        seed = await asyncio.to_thread(_fetch_cboe_put_call_history)
-        return [] if isinstance(seed, Exception) else seed
+        return await self._seed()
 
     @staticmethod
     def default() -> PutCallSnapshot:

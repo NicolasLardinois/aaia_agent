@@ -19,14 +19,13 @@ jobs:
     # i. d. R. zuerst und nennt den Schuldigen; dies ist der Sicherheitsnetz-Deckel.
     timeout-minutes: 20
 
-    # Dummy-Werte, KEINE echten Secrets: config/settings.py wirft beim Import
-    # einen Fehler, wenn diese Keys fehlen. Die Tests mocken alle echten
-    # Datenquellen (Hexagonal-Ports), nutzen die Keys also nie für echte Calls —
-    # sie müssen nur vorhanden (nicht leer) sein, damit der Import durchläuft.
-    env:
-      FRED_API_KEY: dummy-key-for-ci
-      ANTHROPIC_API_KEY: dummy-key-for-ci
-      FINNHUB_API_KEY: dummy-key-for-ci
+    # Keine Dummy-Keys mehr nötig: Die Pflicht-Key-Prüfung lebt jetzt in
+    # config.settings.require_keys() und wird NUR von echten Einstiegspunkten
+    # (app.main/server/replay/calibrate, background_runner) aufgerufen — nicht
+    # beim Import. Die Tests mocken alle Datenquellen über Hexagonal-Ports und
+    # rufen require_keys() nie, brauchen die Keys also nicht. Dass die Suite hier
+    # OHNE gesetzte Keys grün läuft, ist zugleich der Beweis für die keyfreie
+    # Importierbarkeit.
 
     steps:
       - name: Checkout

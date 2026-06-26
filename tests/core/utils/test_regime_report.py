@@ -15,6 +15,18 @@ def test_build_report_md_enthaelt_kernzahlen():
     assert "1960-01..2026-06" in md
 
 
+def test_build_report_md_zeigt_mean_return_spalten():
+    # Plausibilitätscheck (Spec §3.1): die Ø-Forward-Returns je Richtung erscheinen im Report.
+    market = {3: {"n": 100, "hit_rate": 0.62, "ci_low": 0.52, "ci_high": 0.71,
+                  "mean_ret_bullish": 0.084, "mean_ret_bearish": -0.031, "by_regime": {}}}
+    nber = {"tp": 0, "fp": 0, "tn": 0, "fn": 0, "n": 0,
+            "precision": None, "recall": None, "mean_lead_months": None, "episodes": []}
+    md = build_report_md(market, nber, 100, "2000-01..2020-12", {})
+    assert "Ø-Ret bullish" in md
+    assert "+8.4 %" in md      # 0.084 → +8.4 %
+    assert "-3.1 %" in md      # -0.031 → -3.1 %
+
+
 def test_build_report_md_toleriert_none_werte():
     # n=0 / kein NBER-Label: precision/recall/mean_lead_months sind None → kein Crash
     market = {3: {"n": 0, "hit_rate": None, "ci_low": 0.0, "ci_high": 0.0, "by_regime": {}}}

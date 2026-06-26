@@ -36,7 +36,7 @@ async def _sub_signals(provider, bus, ecb, snb) -> dict:
     money = MoneySupplyAgent(provider, ecb, snb, bus)
     credit = CreditAgent(provider, bus)
     labor = LaborIncomeAgent(provider, bus)
-    buffett = BuffettIndicatorAgent(provider, bus, wb_fetch=lambda: {})
+    buffett = BuffettIndicatorAgent(provider, bus)  # ohne WB-Provider → keine Weltbank-Länder (netzfrei)
     m, c, l, b = await asyncio.gather(money.run(), credit.run(), labor.run(), buffett.run())
     return {
         "money_supply": m.usa.signal,

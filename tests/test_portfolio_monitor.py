@@ -472,3 +472,68 @@ def test_evaluate_uses_prefetched_market_data():
     market_data = {0: {"price": 100, "beta": 2.0, "returns": None}}
     snap = agent._evaluate_positions(positions, market_data)
     assert snap["net_beta"]["USA"] == 20000.0   # 100 * 100 * 2.0 (Beta aus market_data)
+
+
+# ---------------------------------------------------------------------------
+# LivePriceProvider-Port: Spotkurs + FX statt hardcoded yfinance
+# (_fetch_current_price / _default_fx_rate) — Hexagonal (AGENTS.md §1)
+# ---------------------------------------------------------------------------
+
+class _FakeLivePrice:
+    """Fake-Port: liefert festen Spotkurs + FX-Satz und zählt die Kurs-Abrufe."""
+    def __init__(self, price=None, fx=1.0):
+        self._price = price
+        self._fx = fx
+        self.price_calls: list[str] = []
+
+    def get_current_price(self, ticker):
+        self.price_calls.append(ticker)
+        return self._price
+
+    def get_fx_rate(self, from_ccy, to_ccy="USD"):
+        return self._fx
+
+
+def test_current_price_aus_live_price_port():
+    """Position ohne current_price → der Kurs kommt aus dem injizierten Port
+    (nicht mehr aus hardcoded yfinance)."""
+    pos = Position(ticker="AAPL", shares=10, entry_price=100.0, direction="long",
+                   current_price=None, underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE)
+    live = _FakeLivePrice(price=150.0)
+    agent = PortfolioMonitorAgent(_make_memory(), portfolio_port=_make_port([pos]),
+                                  fx_rate=lambda a, b: 1.0, live_price=live)
+    snap = agent._evaluate_positions([pos])
+    assert "AAPL" in live.price_calls             # der Port wurde benutzt
+    assert snap["net_exposure"] == 10.0 * 150.0   # Kurs aus dem Port
+
+
+def test_ohne_live_price_faellt_auf_entry_price_zurueck():
+    """Kein Port + kein current_price → Rückfall auf entry_price (kein Netz, kein Crash)."""
+    pos = Position(ticker="AAPL", shares=10, entry_price=100.0, direction="long",
+                   current_price=None, underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE)
+    agent = PortfolioMonitorAgent(_make_memory(), portfolio_port=_make_port([pos]),
+                                  fx_rate=lambda a, b: 1.0)   # live_price=None
+    snap = agent._evaluate_positions([pos])
+    assert snap["net_exposure"] == 10.0 * 100.0   # entry_price-Fallback
+
+
+def test_fx_aus_live_price_wenn_kein_fx_rate_callable():
+    """Kein fx_rate-Callable, aber live_price → FX kommt aus dem Port."""
+    pos = Position(ticker="NESN", shares=10, entry_price=100.0, direction="long",
+                   current_price=100.0, currency="CHF",
+                   underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE)
+    live = _FakeLivePrice(fx=1.10)   # CHF→USD = 1.10
+    agent = PortfolioMonitorAgent(_make_memory(), portfolio_port=_make_port([pos]),
+                                  live_price=live)   # bewusst KEIN fx_rate
+    snap = agent._evaluate_positions([pos])
+    assert snap["net_exposure"] == round(10.0 * 100.0 * 1.10, 2)
+
+
+def test_default_fx_eins_ohne_port_und_ohne_callable():
+    """Weder fx_rate noch live_price → Identitäts-FX 1.0 (kein Netz)."""
+    pos = Position(ticker="NESN", shares=10, entry_price=100.0, direction="long",
+                   current_price=100.0, currency="CHF",
+                   underlying=Underlying.EQUITY, wrapper=Wrapper.SINGLE)
+    agent = PortfolioMonitorAgent(_make_memory(), portfolio_port=_make_port([pos]))
+    snap = agent._evaluate_positions([pos])
+    assert snap["net_exposure"] == 10.0 * 100.0   # FX=1.0
