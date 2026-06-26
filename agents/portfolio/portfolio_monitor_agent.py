@@ -2,11 +2,11 @@ import asyncio
 from typing import Callable, Optional
 
 import pandas as pd
-import yfinance as yf
 
 from core.domain.portfolio import Position, PortfolioError
 from core.domain.taxonomy import Underlying, Wrapper, legacy_asset_class
 from core.ports.data_provider import MarketDataProvider
+from core.ports.live_price import LivePriceProvider
 from core.ports.memory_port import MemoryPort
 from core.ports.portfolio_port import PortfolioPort
 from core.utils.performance_metrics import max_drawdown
@@ -32,23 +32,6 @@ def make_returns_provider(market_provider):
         except Exception:
             return pd.Series(dtype=float)
     return _provider
-
-
-def _fetch_current_price(ticker: str) -> Optional[float]:
-    try:
-        return float(yf.Ticker(ticker).fast_info["last_price"])
-    except Exception:
-        return None
-
-
-def _default_fx_rate(from_ccy: str, to_ccy: str = BASE_CURRENCY) -> float:
-    if from_ccy == to_ccy:
-        return 1.0
-    try:
-        px = yf.Ticker(f"{from_ccy}{to_ccy}=X").fast_info["last_price"]
-        return float(px) if px else 1.0
-    except Exception:
-        return 1.0
 
 
 def _herfindahl(weights: list[float]) -> float:
@@ -142,7 +125,11 @@ class PortfolioMonitorAgent:
         memory: MemoryPort,
         portfolio_port: PortfolioPort,
         market_provider: Optional[MarketDataProvider] = None,
-        fx_rate: Callable[[str, str], float] = _default_fx_rate,
+        # Live-Kurs + FX über injizierten Port (Hexagonal, AGENTS.md §1) statt hardcoded
+        # yfinance. None → kein Netz: Kurs fällt auf entry_price, FX auf 1.0 zurück.
+        live_price: Optional[LivePriceProvider] = None,
+        # Optionaler FX-Override (Callable) — hat Vorrang vor live_price; v. a. für Tests.
+        fx_rate: Optional[Callable[[str, str], float]] = None,
         # returns_provider liefert je Ticker eine Renditereihe (datierte pd.Series oder Liste);
         # siehe make_returns_provider.
         returns_provider: Optional[Callable[[str], object]] = None,
@@ -150,8 +137,25 @@ class PortfolioMonitorAgent:
         self.memory = memory
         self.portfolio_port = portfolio_port
         self.market_provider = market_provider
+        self.live_price = live_price
         self.fx_rate = fx_rate
         self.returns_provider = returns_provider
+
+    def _fetch_price(self, ticker: str) -> Optional[float]:
+        """Aktueller Kurs über den injizierten Port; ohne Port (kein Netz) → None,
+        der Aufrufer fällt dann auf den Einstandskurs zurück."""
+        if self.live_price is None:
+            return None
+        return self.live_price.get_current_price(ticker)
+
+    def _fx(self, from_ccy: str, to_ccy: str = BASE_CURRENCY) -> float:
+        """Wechselkurs: expliziter fx_rate-Override zuerst, sonst der Port, sonst 1.0.
+        Identitäts-Default verhindert eine stille Fehlrechnung ohne Datenquelle."""
+        if self.fx_rate is not None:
+            return self.fx_rate(from_ccy, to_ccy)
+        if self.live_price is not None:
+            return self.live_price.get_fx_rate(from_ccy, to_ccy)
+        return 1.0
 
     def _beta_for(self, ticker: str) -> float:
         if self.market_provider is None:
@@ -171,7 +175,7 @@ class PortfolioMonitorAgent:
         async def _one(p: Position) -> dict:
             price = await asyncio.to_thread(
                 lambda: p.current_price if p.current_price is not None
-                else (_fetch_current_price(p.ticker) or p.entry_price)
+                else (self._fetch_price(p.ticker) or p.entry_price)
             )
             beta = await asyncio.to_thread(self._beta_for, p.ticker)
             rets = (await asyncio.to_thread(self.returns_provider, p.ticker)
@@ -208,7 +212,7 @@ class PortfolioMonitorAgent:
         def _price(i: int, p: Position) -> float:
             if market_data is not None:
                 return market_data[i]["price"]
-            return p.current_price if p.current_price is not None else (_fetch_current_price(p.ticker) or p.entry_price)
+            return p.current_price if p.current_price is not None else (self._fetch_price(p.ticker) or p.entry_price)
 
         def _beta(i: int, p: Position) -> float:
             if market_data is not None:
@@ -230,7 +234,7 @@ class PortfolioMonitorAgent:
             # damit der Hebel im net_exposure/gross/HHI/Vola sichtbar wird (Impact §F). Alle
             # anderen Hüllen (single/fund/physical_etc) haben multiplier=1.0 → unverändert.
             mult = p.contract_multiplier if p.wrapper == Wrapper.FUTURE else 1.0
-            val = p.shares * cur * mult * self.fx_rate(p.currency, BASE_CURRENCY)
+            val = p.shares * cur * mult * self._fx(p.currency, BASE_CURRENCY)
             values.append(val)
 
         # Long / Short / Netto / Brutto

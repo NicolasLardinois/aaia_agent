@@ -13,6 +13,7 @@ from adapters.persistence.supabase_conflict_store import SupabaseConflictStore
 from adapters.cache.result_cache import ResultCache
 from adapters.llm.claude_adapter import ClaudeAdapter
 from agents.backtester_chief_agent import BacktesterChiefAgent
+from adapters.data.yahoo_live_price import YahooLivePriceProvider
 from agents.portfolio.portfolio_monitor_agent import PortfolioMonitorAgent, make_returns_provider
 from agents.conflict.portfolio_conflict_scan import scan_portfolio_conflicts
 from core.domain.models import PositionState
@@ -102,6 +103,7 @@ async def main() -> None:
             memory,
             portfolio_port=JsonPortfolioProvider(),
             market_provider=market,
+            live_price=YahooLivePriceProvider(),   # Live-Kurs + FX (vormals hardcoded yfinance)
             returns_provider=make_returns_provider(market),
         ).run),
     ]
