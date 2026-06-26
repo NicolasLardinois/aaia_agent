@@ -1,7 +1,31 @@
 // Fachlich plausible Beispielwerte (Spec §1: Demo, nicht exakt). isDemo:true -> DemoBadge.
 // Mehrere Ticker quer ueber underlying x wrapper; unbekannt -> "nicht gefunden"-View.
-import type { DeepDiveView } from "../../contract/deepdive";
+import type { DeepDiveView, PricePointDTO } from "../../contract/deepdive";
 import type { LongVerdict, ShortVerdict } from "../../contract/common";
+
+// Deterministischer Demo-Kursverlauf (Mangel #6). KEINE echten Kurse — ein reproduzierbarer
+// Random-Walk, der GENAU auf dem aktuellen Kurs endet (letzter Punkt == price), damit Chart
+// und angezeigter Kurs konsistent sind. Seedbar -> stabile Snapshots/Tests (kein Math.random).
+export function synthHistory(endPrice: number, days: number, seed: number): PricePointDTO[] {
+  // Kleiner LCG (Linear Congruential Generator) — reproduzierbare Pseudo-Zufallszahlen.
+  let state = (seed * 2654435761) >>> 0;
+  const rnd = () => { state = (state * 1664525 + 1013904223) >>> 0; return state / 0xffffffff; };
+  // Rueckwaerts vom Endkurs laufen: taegliche Rendite ~±1.2 %, leicht aufwaerts gebiast,
+  // damit der Verlauf "lebendig" wirkt. Kurse bleiben strikt positiv (max gegen Mini-Floor).
+  const closes: number[] = [endPrice];
+  for (let i = 1; i < days; i++) {
+    const ret = (rnd() - 0.48) * 0.024;            // ~ -1.15 % .. +1.25 % pro Tag
+    const prev = Math.max(closes[0] / (1 + ret), endPrice * 0.001);
+    closes.unshift(Number(prev.toFixed(2)));
+  }
+  // ISO-Tagesdaten rueckwaerts ab heute; aufsteigend sortiert ausgeben.
+  const today = new Date("2026-06-26T00:00:00Z");
+  return closes.map((close, i) => {
+    const d = new Date(today);
+    d.setUTCDate(d.getUTCDate() - (days - 1 - i));
+    return { date: d.toISOString().slice(0, 10), close };
+  });
+}
 
 function notFound(ticker: string): DeepDiveView {
   return {
@@ -374,7 +398,20 @@ const FIXTURES: Record<string, () => DeepDiveView> = {
   ...Object.fromEntries(EQUITY_PROFILES.map((p) => [p.ticker, equity(p)])),
 };
 
+// Seed aus dem Ticker (stabil, aber je Titel anders -> jede Aktie hat ihren eigenen Verlauf).
+function tickerSeed(ticker: string): number {
+  let s = 0;
+  for (const ch of ticker) s = (s * 31 + ch.charCodeAt(0)) >>> 0;
+  return s || 1;
+}
+
 export function demoDeepDive(ticker: string): DeepDiveView {
   const make = FIXTURES[ticker.toUpperCase()] ?? FIXTURES[ticker];
-  return make ? make() : notFound(ticker);
+  const view = make ? make() : notFound(ticker);
+  // Kurschart (Mangel #6): jede gefundene Fixture bekommt eine konsistente 90-Tage-Historie,
+  // die auf dem aktuellen Kurs endet. Fixtures mit eigener Historie bleiben unberuehrt.
+  if (view.price != null && view.priceHistory == null) {
+    view.priceHistory = synthHistory(view.price, 90, tickerSeed(view.ticker));
+  }
+  return view;
 }
