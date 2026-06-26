@@ -7,13 +7,16 @@ import os
 
 import uvicorn
 
-from config.settings import FRED_API_KEY
+from config.settings import FRED_API_KEY, require_keys
 from adapters.data.fred_api import FredDataProvider
+from adapters.data.world_bank import WorldBankMarketCapProvider
 from adapters.data.yahoo_finance import YahooFinanceProvider
 from adapters.data.ecb_sdw import EcbSdwProvider
 from adapters.data.eurostat import EurostatEcbProvider
 from adapters.data.fred_snb import FredSnbProvider
 from adapters.data.cnn_fear_greed import CnnFearGreedProvider
+from adapters.data.fmp_metal_spot import FmpMetalSpotProvider
+from adapters.data.cboe_put_call import CboePutCallProvider
 from adapters.persistence.json_dated_history import JsonDatedHistory
 from adapters.api.ws_broadcaster import WebSocketBroadcaster
 from adapters.api.run_manager import RunManager
@@ -29,6 +32,10 @@ _SNAPSHOT_PATH = os.path.join(os.path.dirname(__file__), "..", ".cache", "cockpi
 
 
 def make_orchestrator(bus):
+    # Fail-fast beim tatsächlichen Adapter-Aufbau (greift auch auf dem Render-Webserver,
+    # der nur das Modul importiert — der __main__-Block läuft dort nie). Modul-Import bleibt
+    # dadurch keyfrei (Tests/CI), echte Läufe brechen ohne Pflicht-Keys klar ab.
+    require_keys()
     return TopDownOrchestrator(
         macro=FredDataProvider(FRED_API_KEY),
         ecb=EurostatEcbProvider(EcbSdwProvider()),
@@ -37,6 +44,8 @@ def make_orchestrator(bus):
         bus=bus,
         sentiment=CnnFearGreedProvider(),
         history=JsonDatedHistory(_HISTORY_PATH),
+        world_bank=WorldBankMarketCapProvider(),
+        metal_spot=FmpMetalSpotProvider(),
     )
 
 

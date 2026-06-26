@@ -24,6 +24,10 @@ def evaluate_market(judgments: list, sp_price_on, horizons_months: tuple = (3, 6
         correct = 0
         total = 0
         by_regime: dict[str, dict] = {}
+        # Plausibilitätscheck (Spec §3.1): die rohen Forward-Returns je erwarteter Richtung
+        # sammeln. Ein bullisch-treffender Motor zeigt im Mittel bullish-Return > bearish-Return.
+        bullish_rets: list[float] = []
+        bearish_rets: list[float] = []
         for j in judgments:
             as_of = j["as_of"]
             regime = j["regime"]
@@ -41,6 +45,9 @@ def evaluate_market(judgments: list, sp_price_on, horizons_months: tuple = (3, 6
             ok = is_correct(direction, ret)
             total += 1
             correct += 1 if ok else 0
+            # Mittlerer Forward-Return nach erwarteter Richtung (nicht nach Treffer/Fehler):
+            # misst, ob der Markt sich in der vom Regime erwarteten Richtung bewegt hat.
+            (bullish_rets if direction == "bullish" else bearish_rets).append(ret)
             rk = regime.value
             b = by_regime.setdefault(rk, {"n": 0, "correct": 0})
             b["n"] += 1
@@ -51,6 +58,8 @@ def evaluate_market(judgments: list, sp_price_on, horizons_months: tuple = (3, 6
             "hit_rate": round(correct / total, 3) if total else None,
             "ci_low": lo,
             "ci_high": hi,
+            "mean_ret_bullish": round(sum(bullish_rets) / len(bullish_rets), 4) if bullish_rets else None,
+            "mean_ret_bearish": round(sum(bearish_rets) / len(bearish_rets), 4) if bearish_rets else None,
             "by_regime": {
                 k: {"n": v["n"], "hit_rate": round(v["correct"] / v["n"], 3) if v["n"] else None}
                 for k, v in by_regime.items()
@@ -161,13 +170,18 @@ def build_report_md(market: dict, nber: dict, n_judgments: int, window: str,
         "",
         "## (A) Markt-Wahrheit — Forward-S&P",
         "",
-        "| Horizont | N | Hit-Rate | 95 %-CI |",
-        "|---|---|---|---|",
+        "| Horizont | N | Hit-Rate | 95 %-CI | Ø-Ret bullish | Ø-Ret bearish |",
+        "|---|---|---|---|---|---|",
     ]
     for h in sorted(market):
         m = market[h]
         hr = f"{m['hit_rate']*100:.0f} %" if m["hit_rate"] is not None else "n/v"
-        lines.append(f"| {h} M | {m['n']} | {hr} | {m['ci_low']*100:.0f}–{m['ci_high']*100:.0f} % |")
+        # Mittlerer Forward-Return je erwarteter Richtung (Plausibilitätscheck Spec §3.1):
+        # bullish-Mittel sollte über dem bearish-Mittel liegen, wenn der Motor trifft.
+        mb = f"{m.get('mean_ret_bullish')*100:+.1f} %" if m.get("mean_ret_bullish") is not None else "n/v"
+        mr = f"{m.get('mean_ret_bearish')*100:+.1f} %" if m.get("mean_ret_bearish") is not None else "n/v"
+        lines.append(
+            f"| {h} M | {m['n']} | {hr} | {m['ci_low']*100:.0f}–{m['ci_high']*100:.0f} % | {mb} | {mr} |")
     lines += ["", "### Je Regime (kürzester Horizont)", ""]
     if market:
         h0 = sorted(market)[0]

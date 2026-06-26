@@ -5,6 +5,7 @@ from core.domain.models import AgriculturalSnapshot, Signal
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
 from core.utils.relative import zscore_vs_history
+from core.utils.safe import safe_result
 
 TICKERS = {
     "wheat":        "ZW=F",
@@ -89,8 +90,11 @@ class AgriculturalAgent:
                 return_exceptions=True,
             ),
         )
-        def _safe(v): return None if isinstance(v, Exception) else v
-        wheat, corn, soy, coffee, sugar, cotton, oj = [_safe(v) for v in prices]
+        # Teilergebnisse aus gather(return_exceptions=True) defensiv entpacken:
+        # eine ausgefallene Preisquelle -> None (geteilter Helfer statt lokalem _safe).
+        wheat, corn, soy, coffee, sugar, cotton, oj = [
+            safe_result(v, default=None) for v in prices
+        ]
 
         changes = [z for z in (_yoy_change_z(h) for h in histories) if z is not None]
 

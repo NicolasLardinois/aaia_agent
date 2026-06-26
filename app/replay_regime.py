@@ -12,7 +12,7 @@ from dateutil.relativedelta import relativedelta
 import yfinance as yf
 from fredapi import Fred
 
-from config.settings import FRED_API_KEY
+from config.settings import FRED_API_KEY, require_keys
 from adapters.data.historical_fred import HistoricalFredProvider
 from adapters.data.ecb_snb_stub import EcbStubProvider, SnbStubProvider
 from agents.backtester.regime_replay import run_replay
@@ -61,6 +61,7 @@ def main() -> None:
     ap.add_argument("--start", default="1960-01")
     ap.add_argument("--end", default=date.today().strftime("%Y-%m"))
     args = ap.parse_args()
+    require_keys()  # Fail-fast: echter FRED/ANTHROPIC-Key Pflicht (nach --help-Parsing)
 
     start = datetime.strptime(args.start, "%Y-%m").date().replace(day=1)
     end = datetime.strptime(args.end, "%Y-%m").date().replace(day=1)

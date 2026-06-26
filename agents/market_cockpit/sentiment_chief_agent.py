@@ -8,6 +8,7 @@ from core.domain.models import SentimentChiefResult, Signal, SignalStatus
 from core.ports.data_provider import MarketDataProvider, SentimentDataProvider
 from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
+from core.ports.put_call_source import PutCallSource
 from core.utils.aggregation import weighted_signal
 
 _WEIGHTS = {"vix": 0.45, "fear_greed": 0.25, "put_call": 0.30}
@@ -20,12 +21,14 @@ def _aggregate(items):
 class SentimentChiefAgent:
     def __init__(self, market: MarketDataProvider, bus: EventBus,
                  sentiment: SentimentDataProvider | None = None,
-                 history: DatedHistoryPort | None = None):
+                 history: DatedHistoryPort | None = None,
+                 put_call_source: PutCallSource | None = None):
         self.bus = bus
         self.vix_agent        = VIXAgent(market, bus)
         self.fear_greed_agent = FearGreedAgent(bus, provider=sentiment)
-        # Persistente Put/Call-Tagesreihe statt I/O-intensivem Refetch (siehe PutCallAgent).
-        self.put_call_agent   = PutCallAgent(market, bus, history=history)
+        # Persistente Put/Call-Tagesreihe statt I/O-intensivem Refetch (siehe PutCallAgent);
+        # die CBOE-Daten selbst kommen über den injizierten put_call_source-Port.
+        self.put_call_agent   = PutCallAgent(market, bus, history=history, source=put_call_source)
 
     async def run(self) -> SentimentChiefResult:
         results = await asyncio.gather(
