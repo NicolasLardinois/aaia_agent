@@ -27,6 +27,13 @@ describe("DeepDivePage", () => {
     expect(screen.queryByRole("tab", { name: /Futures/ })).not.toBeInTheDocument();
     expect(screen.getByText("Demo-Daten")).toBeInTheDocument();
   });
+  it("zeigt den Kursverlauf-Abschnitt (Mangel #6) bei vorhandener Historie", async () => {
+    renderAt("AAPL");
+    await waitFor(() => expect(screen.getByText(/Apple/)).toBeInTheDocument());
+    expect(screen.getByText("Kursverlauf")).toBeInTheDocument();
+    // letzter Kurs == aktueller Kurs (Historie endet auf price)
+    expect(screen.getByText(/232\.1 USD/)).toBeInTheDocument();
+  });
   it("bond (TLT): bond-Tab statt equity-Tabs", async () => {
     renderAt("TLT");
     await waitFor(() => expect(screen.getByRole("tab", { name: /Anleihe/ })).toBeInTheDocument());

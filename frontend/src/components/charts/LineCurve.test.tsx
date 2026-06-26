@@ -14,4 +14,20 @@ describe("buildLineOption", () => {
     expect(opt.series).toHaveLength(1);
     expect(opt.series[0]).toMatchObject({ name: "Rendite", type: "line", data: [2, 3] });
   });
+
+  it("ohne Optionen: keine Flaeche unter der Linie (Default schlank)", () => {
+    const opt = buildLineOption([{ name: "x", points: [{ x: "a", y: 1 }] }]);
+    expect(opt.series[0].areaStyle).toBeUndefined();
+  });
+
+  it("area=true: Flaeche unter der Linie (areaStyle gesetzt)", () => {
+    const opt = buildLineOption([{ name: "x", points: [{ x: "a", y: 1 }] }], { area: true });
+    expect(opt.series[0].areaStyle).toBeDefined();
+  });
+
+  it("color: faerbt Linie und Punkte einheitlich", () => {
+    const opt = buildLineOption([{ name: "x", points: [{ x: "a", y: 1 }] }], { color: "#4f5bd5" });
+    expect(opt.series[0].itemStyle.color).toBe("#4f5bd5");
+    expect(opt.series[0].lineStyle.color).toBe("#4f5bd5");
+  });
 });
