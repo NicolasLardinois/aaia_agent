@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { sortRows, filterRows, vsMedianLabel, toMapPoints } from "./buffett";
+// GeoJSON als Roh-String (Vite ?raw) -> von vite/client typisiert (kein @types/node noetig)
+// und tsc inferiert keinen riesigen JSON-Literaltyp (nur string).
+import worldGeoRaw from "../../public/world.geo.json?raw";
+import { sortRows, filterRows, vsMedianLabel, toMapPoints, ISO3_TO_MAP_NAME } from "./buffett";
 import type { BuffettCountry } from "../contract/cockpit";
 
 const makeCountry = (overrides: Partial<BuffettCountry>): BuffettCountry => ({
@@ -223,5 +226,58 @@ describe("toMapPoints — iso3 auf GeoJSON-Namen mappen", () => {
     expect(pts[0].name).toBe("United States");
     expect(pts[1].name).toBe("Switzerland");
     expect(pts[2].name).toBe("Germany");
+  });
+
+  // Regression Bug #7: das Backend (Weltbank) liefert DUTZENDE Laender per iso3, deren
+  // Weltbank-Klarname NICHT dem GeoJSON-Namen entspricht ("Russian Federation" vs "Russia",
+  // "Korea, Rep." vs "Korea", "Egypt, Arab Rep." vs "Egypt"). Vorher mappte toMapPoints nur
+  // 5 Laender -> der grosse Rest fiel auf den Weltbank-Namen zurueck und blieb auf der Karte
+  // WEISS (kein Match). Diese Spot-Checks decken die wichtigsten zuvor kaputten Maerkte ab.
+  it.each([
+    ["RUS", "Russian Federation", "Russia"],
+    ["KOR", "Korea, Rep.", "Korea"],
+    ["CHN", "China", "China"],
+    ["IND", "India", "India"],
+    ["BRA", "Brazil", "Brazil"],
+    ["FRA", "France", "France"],
+    ["CZE", "Czechia", "Czech Rep."],
+    ["EGY", "Egypt, Arab Rep.", "Egypt"],
+    ["IRN", "Iran, Islamic Rep.", "Iran"],
+    ["VNM", "Viet Nam", "Vietnam"],
+    ["CIV", "Cote d'Ivoire", "Côte d'Ivoire"],
+    ["SVK", "Slovak Republic", "Slovakia"],
+    ["TUR", "Turkiye", "Turkey"],
+    ["SAU", "Saudi Arabia", "Saudi Arabia"],
+    ["ZAF", "South Africa", "South Africa"],
+  ])("%s (Weltbank-Name %s) -> GeoJSON '%s'", (iso3, wbName, mapName) => {
+    const pts = toMapPoints([makeC({ iso3, name: wbName, ratioPct: 120, signal: "neutral" })]);
+    expect(pts[0].name).toBe(mapName);
+  });
+});
+
+// ---- ISO3_TO_MAP_NAME: Konsistenz gegen die echte GeoJSON ----
+// Sicherheitsnetz: JEDER Tabellenwert muss ein EXISTIERENDER Feature-Name in world.geo.json
+// sein — sonst bliebe das Land auf der Karte weiss (kein Match). Verhindert Tippfehler bei
+// Namen (Abkuerzungen, Akzente) und doppelte Zuordnungen.
+describe("ISO3_TO_MAP_NAME — vollstaendig & gegen world.geo.json verifiziert", () => {
+  const geo = JSON.parse(worldGeoRaw) as { features: { properties: { name: string } }[] };
+  const geoNames = new Set(geo.features.map((f) => f.properties.name));
+
+  it("jeder Tabellenwert ist ein echter GeoJSON-Feature-Name", () => {
+    const fehlend = Object.entries(ISO3_TO_MAP_NAME)
+      .filter(([, mapName]) => !geoNames.has(mapName))
+      .map(([iso3, mapName]) => `${iso3} -> "${mapName}"`);
+    expect(fehlend).toEqual([]);
+  });
+
+  it("kein GeoJSON-Name doppelt vergeben (ein Land = ein iso3)", () => {
+    const werte = Object.values(ISO3_TO_MAP_NAME);
+    expect(werte.length).toBe(new Set(werte).size);
+  });
+
+  it("deckt die wichtigsten Aktienmaerkte ab", () => {
+    for (const iso3 of ["USA", "CHN", "JPN", "DEU", "GBR", "FRA", "CHE", "IND", "RUS", "KOR", "BRA", "CAN", "AUS"]) {
+      expect(ISO3_TO_MAP_NAME[iso3]).toBeTruthy();
+    }
   });
 });
