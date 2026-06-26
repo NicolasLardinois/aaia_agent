@@ -7,7 +7,7 @@ import os
 
 import uvicorn
 
-from config.settings import FRED_API_KEY
+from config.settings import FRED_API_KEY, require_keys
 from adapters.data.fred_api import FredDataProvider
 from adapters.data.world_bank import WorldBankMarketCapProvider
 from adapters.data.yahoo_finance import YahooFinanceProvider
@@ -31,6 +31,10 @@ _SNAPSHOT_PATH = os.path.join(os.path.dirname(__file__), "..", ".cache", "cockpi
 
 
 def make_orchestrator(bus):
+    # Fail-fast beim tatsächlichen Adapter-Aufbau (greift auch auf dem Render-Webserver,
+    # der nur das Modul importiert — der __main__-Block läuft dort nie). Modul-Import bleibt
+    # dadurch keyfrei (Tests/CI), echte Läufe brechen ohne Pflicht-Keys klar ab.
+    require_keys()
     return TopDownOrchestrator(
         macro=FredDataProvider(FRED_API_KEY),
         ecb=EurostatEcbProvider(EcbSdwProvider()),

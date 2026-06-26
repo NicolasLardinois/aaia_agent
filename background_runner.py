@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from config.settings import ANTHROPIC_API_KEY
+from config.settings import ANTHROPIC_API_KEY, require_keys
 from adapters.event_bus.redis_bus import InMemoryEventBus
 from adapters.memory.supabase_memory import SupabaseMemory
 from adapters.data.yahoo_finance import YahooFinanceProvider
@@ -81,6 +81,8 @@ def _make_conflict_scan(memory: SupabaseMemory):
 
 
 async def main() -> None:
+    # Fail-fast: echte Pflicht-Keys (FRED + ANTHROPIC) verlangen, bevor Adapter aufgebaut werden.
+    require_keys()
     print("=" * 50)
     print("  AAIA Background Runner")
     print("=" * 50)
