@@ -89,4 +89,28 @@
     background: linear-gradient(90deg, rgb(var(--bull)), rgb(var(--neutral)) 50%, rgb(var(--bear)));
     opacity: 0.85;
   }
+
+  /* Hexagon-Spinner (Lade-Signatur): ein leuchtendes Segment wandert ueber die
+     sechs Kanten. pathLength=100 normiert den Umfang -> Dash-Werte sind
+     groessenunabhaengig. Die globale prefers-reduced-motion-Regel friert die
+     Animation ein (animation-duration ~0), das Segment bleibt dann ruhig stehen. */
+  .hex-runner {
+    stroke-dasharray: 24 76;
+    stroke-dashoffset: 0;
+    animation: hex-run 1.6s linear infinite;
+  }
+
+  /* Sanftes Einblenden der rotierenden Weisheit (key-Wechsel mountet neu). */
+  .wisdom-fade {
+    animation: wisdom-in 0.6s ease-out both;
+  }
+}
+
+@keyframes hex-run {
+  to { stroke-dashoffset: -100; }
+}
+
+@keyframes wisdom-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

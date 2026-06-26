@@ -5,11 +5,12 @@ import { DomainTile } from "../components/DomainTile";
 import { DataHealthIndicator } from "../components/DataHealthIndicator";
 import { RunControl } from "../components/RunControl";
 import { Icon } from "../components/icons";
+import { LoadingExperience } from "../components/loading/LoadingExperience";
 
 // Liest den Lauf-Zustand aus dem CockpitProvider (oberhalb der Routen), damit ein
 // laufender Lauf beim Wegnavigieren nicht abbricht (Bug #5/#7).
 export function CockpitPage() {
-  const { overview, phase, error, startAnalysis } = useCockpitContext();
+  const { overview, phase, error, startAnalysis, events } = useCockpitContext();
 
   return (
     <section className="space-y-4">
@@ -21,13 +22,18 @@ export function CockpitPage() {
         </div>
       </div>
 
-      {phase === "loading" && <p className="text-muted">Lädt …</p>}
+      {/* Lade-Erlebnis (#3): Hexagon-Spinner + rotierende Boersenweisheiten — beim ersten
+          Seitenaufbau und waehrend des laufenden Mehr-Agenten-Laufs (mit Live-Schrittzahl). */}
+      {phase === "loading" && <LoadingExperience title="Cockpit wird geladen" />}
+      {phase === "running" && <LoadingExperience events={events} />}
       {phase === "error" && <p className="text-bear">{error ?? "Backend nicht erreichbar"}</p>}
-      {phase !== "loading" && phase !== "error" && phase !== "running" && !overview && (
+      {phase === "ready" && !overview && (
         <p className="text-muted">Noch keine Analyse — starte eine über „Analyse starten".</p>
       )}
 
-      {overview && (
+      {/* Ergebnis-Kacheln nur, wenn kein Lauf laeuft — sonst zeigt das Lade-Erlebnis,
+          dass gerade gearbeitet wird (keine veralteten Werte waehrend des Laufs). */}
+      {overview && phase !== "running" && phase !== "loading" && (
         <>
           {/* Regime-Banner: klickbar -> Makro-Drilldown (B7) */}
           <Link to="/cockpit/macro" className="block hover:opacity-90 transition-opacity">
