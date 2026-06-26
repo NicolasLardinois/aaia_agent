@@ -10,7 +10,7 @@ import asyncio
 import os
 import sys
 
-from config.settings import FRED_API_KEY, ANTHROPIC_API_KEY, FINNHUB_API_KEY
+from config.settings import FRED_API_KEY, ANTHROPIC_API_KEY, FINNHUB_API_KEY, require_keys
 from core.domain.models import PositionState, RiskAffinity
 from core.domain.portfolio import PortfolioError
 from core.domain.taxonomy import (
@@ -19,7 +19,10 @@ from core.domain.taxonomy import (
 from adapters.persistence.json_portfolio import JsonPortfolioProvider
 from adapters.persistence.json_dated_history import JsonDatedHistory
 from adapters.data.fred_api import FredDataProvider
+from adapters.data.world_bank import WorldBankMarketCapProvider
 from adapters.data.yahoo_finance import YahooFinanceProvider
+from adapters.data.fmp_metal_spot import FmpMetalSpotProvider
+from adapters.data.cboe_put_call import CboePutCallProvider
 from adapters.data.finnhub import FinnhubProvider
 from adapters.data.ecb_sdw import EcbSdwProvider
 from adapters.data.eurostat import EurostatEcbProvider
@@ -47,6 +50,40 @@ _LEGACY_OVERLAP: frozenset[str] = frozenset({"equity", "bond", "commodity", "pre
 # Gültige Wrapper-Strings (für die Legacy↔neu-Unterscheidung).
 _WRAPPER_VALUES: frozenset[str] = frozenset(w.value for w in Wrapper)
 _UNDERLYING_VALUES: frozenset[str] = frozenset(u.value for u in Underlying)
+
+
+def _parse_positions(
+    pos: list[str],
+) -> tuple["Underlying", "Wrapper", str, str, str]:
+    """Bildet die bereinigte CLI-Positionsliste auf die Bottom-Up-Felder ab.
+
+    `pos` = `["bottomup", TICKER, [underlying], [wrapper|sektor], …]` (das optionale
+    `--risk-affinity <wert>` ist bereits entfernt, damit es das Offset-Parsing nicht stört).
+
+    Zentralisiert den **Positions-Offset**, der vorher inline in `main()` stand und das
+    reale Symptom „Sektor rutscht in die falsche Spalte" verursachte:
+      - **Legacy** (z. B. `commodity Energy`, `etf`): das Taxonomie-Token belegt nur `pos[2]`
+        → Sektor an `pos[3]`, bond_type `pos[4]`, rate_direction `pos[5]`.
+      - **Neuer Stil** (z. B. `equity_index fund`): underlying+wrapper belegen `pos[2]`+`pos[3]`
+        → Sektor an `pos[4]`, bond_type `pos[5]`, rate_direction `pos[6]`.
+
+    `_is_legacy_call()` und `_resolve_taxonomy()` MÜSSEN synchron entscheiden (sonst driftet
+    der Offset) — daher hier an einer Stelle gebündelt. Kann `ValueError` werfen (ungültiges
+    underlying/wrapper im neuen Stil); der Aufrufer (`main()`) fängt es ab und zeigt Exit 1.
+    """
+    raw_underlying = pos[2] if len(pos) >= 3 else None
+    raw_wrapper = pos[3] if len(pos) >= 4 else None
+    is_legacy = _is_legacy_call(raw_underlying, raw_wrapper)
+    underlying, wrapper = _resolve_taxonomy(raw_underlying, raw_wrapper)
+    if is_legacy:
+        sector         = pos[3] if len(pos) >= 4 else "default"
+        bond_type      = pos[4] if len(pos) >= 5 else "government"
+        rate_direction = pos[5] if len(pos) >= 6 else "stable"
+    else:
+        sector         = pos[4] if len(pos) >= 5 else "default"
+        bond_type      = pos[5] if len(pos) >= 6 else "government"
+        rate_direction = pos[6] if len(pos) >= 7 else "stable"
+    return underlying, wrapper, sector, bond_type, rate_direction
 
 
 def _usage() -> str:
@@ -164,6 +201,9 @@ async def run_dashboard() -> None:
         bus=bus,
         sentiment=CnnFearGreedProvider(),
         history=JsonDatedHistory(history_path),
+        world_bank=WorldBankMarketCapProvider(),
+        metal_spot=FmpMetalSpotProvider(),
+        put_call_source=CboePutCallProvider(),
     )
     result = await orch.run()
     ResultCache().save_cockpit(result)
@@ -331,6 +371,9 @@ async def run_judgment(ticker: str, market: str = "USA") -> None:
 
 
 def main() -> None:
+    # Fail-fast: echte Pflicht-Keys (FRED + ANTHROPIC) erst hier verlangen, nicht beim Import
+    # (so bleibt config.settings für Tests/CI keyfrei importierbar). Siehe require_keys().
+    require_keys()
     args = sys.argv[1:]
     if not args or args[0] == "dashboard":
         asyncio.run(run_dashboard())
@@ -340,26 +383,14 @@ def main() -> None:
         if "--risk-affinity" in pos:
             i = pos.index("--risk-affinity")
             del pos[i:i + 2]
-        # Zwei-Stufen-Auflösung: Legacy-Wert oder neuer underlying/wrapper-Stil.
-        # Details siehe _resolve_taxonomy() oben; ValueError → Fehlermeldung + Exit 1.
-        raw_pos2 = pos[2] if len(pos) >= 3 else None
-        raw_pos3 = pos[3] if len(pos) >= 4 else None
-        is_legacy = _is_legacy_call(raw_pos2, raw_pos3)
+        # Zwei-Stufen-Auflösung + Positions-Offset gebündelt in _parse_positions().
+        # ValueError (ungültiges underlying/wrapper) → Fehlermeldung + Exit 1.
         try:
-            underlying, wrapper = _resolve_taxonomy(raw_pos2, raw_pos3)
+            underlying, wrapper, sector, bond_type, rate_direction = _parse_positions(pos)
         except ValueError as exc:
             # exc benennt bereits getrennt underlying vs. wrapper inkl. erlaubter Werte.
             print(f"Fehler: {exc}")
             sys.exit(1)
-        # Positions-Offset: Legacy belegt pos[2] allein; neuer Stil belegt pos[2]+pos[3].
-        if is_legacy:
-            sector         = pos[3] if len(pos) >= 4 else "default"
-            bond_type      = pos[4] if len(pos) >= 5 else "government"
-            rate_direction = pos[5] if len(pos) >= 6 else "stable"
-        else:
-            sector         = pos[4] if len(pos) >= 5 else "default"
-            bond_type      = pos[5] if len(pos) >= 6 else "government"
-            rate_direction = pos[6] if len(pos) >= 7 else "stable"
         risk_affinity  = _parse_risk_affinity(args, underlying)
         asyncio.run(run_bottom_up(pos[1], underlying=underlying, wrapper=wrapper, sector=sector,
                                   bond_type=bond_type, rate_direction=rate_direction,

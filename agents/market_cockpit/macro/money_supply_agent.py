@@ -6,6 +6,7 @@ from core.ports.data_provider import MacroDataProvider, EcbDataProvider, SnbData
 from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
 from core.utils.real_nominal import excess_over_nominal_gdp
+from core.utils.safe import safe_result
 
 _NEUTRAL = MoneySupplyDataPoint(m2_growth=None, m3_growth=None, velocity_m2=None, signal=Signal.NEUTRAL)
 _DEFAULT = MoneySupplySnapshot(usa=_NEUTRAL, eurozone=_NEUTRAL, switzerland=_NEUTRAL)
@@ -70,15 +71,15 @@ class MoneySupplyAgent:
             asyncio.to_thread(self.snb.get_m3_growth),
             return_exceptions=True,
         )
-        def _safe(v): return None if isinstance(v, Exception) else v
-
-        ext    = _safe(ext)    or {}
-        ecb_m2  = _safe(ecb_m2)
-        ecb_m3  = _safe(ecb_m3)
-        ecb_gdp = _safe(ecb_gdp)
-        ecb_cpi = _safe(ecb_cpi)
-        snb_m2 = _safe(snb_m2)
-        snb_m3 = _safe(snb_m3)
+        # Teilergebnisse aus gather(return_exceptions=True) defensiv entpacken
+        # (geteilter Helfer statt lokalem _safe): Exception -> None.
+        ext    = safe_result(ext, default=None)    or {}
+        ecb_m2  = safe_result(ecb_m2, default=None)
+        ecb_m3  = safe_result(ecb_m3, default=None)
+        ecb_gdp = safe_result(ecb_gdp, default=None)
+        ecb_cpi = safe_result(ecb_cpi, default=None)
+        snb_m2 = safe_result(snb_m2, default=None)
+        snb_m3 = safe_result(snb_m3, default=None)
 
         usa_m2 = ext.get("m2_growth")
         usa_v  = ext.get("money_velocity")

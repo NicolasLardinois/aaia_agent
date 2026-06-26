@@ -1,4 +1,5 @@
 import asyncio
+from core.domain.events import MacroChiefReady
 from core.domain.models import CockpitResult
 from agents.market_cockpit.macro_chief_agent import MacroChiefAgent
 from agents.market_cockpit.commodity_chief_agent_makro import CommodityChiefAgentMakro
@@ -146,3 +147,35 @@ def test_latest_not_set_when_serialization_fails(monkeypatch):
     types = [m["type"] for m in broadcaster.messages]
     assert "CockpitResultReady" not in types
     assert broadcaster.messages[-1]["type"] == "CockpitRunFailed"
+
+
+class _ProgressOrch:
+    """Orchestrator, der WAEHREND run() ein Fortschritts-Event ueber den Bus meldet
+    — wie ein echter Chief-Agent. Genau so fliesst Fortschritt im Produktivpfad:
+    bus.publish -> subscribe_all-Handler -> _schedule -> broadcast-Task."""
+    def __init__(self, bus):
+        self.bus = bus
+    async def run(self):
+        self.bus.publish(MacroChiefReady(source="macro", payload={"k": 1}))
+        return _default_cockpit()
+
+
+def test_success_path_progress_broadcasts_before_terminal():
+    # Erfolgspfad-Pendant zu test_failure_path_drains_progress_before_terminal:
+    # Vertrag §4 — erst Fortschritt, dann fertig. Anders als der Fehlerpfad-Test
+    # wird der Fortschritt hier NICHT von Hand in _broadcast_tasks gelegt, sondern
+    # echt ueber den Bus publiziert (start_run() verdrahtet subscribe_all). So ist
+    # bewiesen, dass _drain_progress() die ueber den Bus eingespeisten Fortschritts-
+    # Broadcasts vor dem terminalen CockpitResultReady zustellt.
+    broadcaster = _RecordingBroadcaster()
+    rm = RunManager(lambda bus: _ProgressOrch(bus), broadcaster)
+
+    async def scenario():
+        rm.start_run()                          # baut Bus + subscribe_all + _execute-Task
+        await asyncio.gather(*list(rm._tasks))  # Lauf (inkl. _drain_progress) abschliessen
+
+    asyncio.run(scenario())
+    types = [m["type"] for m in broadcaster.messages]
+    assert types[-1] == "CockpitResultReady"                     # Terminal kommt ZULETZT
+    assert "MacroChiefReady" in types[:-1]                       # Fortschritt davor zugestellt
+    assert types.index("MacroChiefReady") < types.index("CockpitResultReady")
