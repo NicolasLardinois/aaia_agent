@@ -48,6 +48,17 @@ describe("CockpitPage", () => {
     expect(screen.getByText("nicht verfügbar")).toBeInTheDocument();
   });
 
+  it("zeigt Markt-Puls-Synthese und Regime-Deutung", async () => {
+    renderCockpit({ base: "http://x", fetchFn: fakeFetch(200, overview), wsFactory: fakeWs });
+    await waitFor(() => expect(screen.getByText("Markt-Puls")).toBeInTheDocument());
+    // bullish1 / bearish1 / neutral1 -> Gleichstand -> gemischtes Bild
+    expect(screen.getByText("Gemischtes Bild")).toBeInTheDocument();
+    // sektoren ausgefallen -> als 'ohne Daten' im Markt-Puls gezaehlt
+    expect(screen.getByText(/1 ohne Daten/)).toBeInTheDocument();
+    // Regime-Deutung erklaert die aktuelle Phase
+    expect(screen.getByText(/Was bedeutet Aufschwung/i)).toBeInTheDocument();
+  });
+
   it("zeigt den Leerzustand bei 204", async () => {
     renderCockpit({ base: "http://x", fetchFn: fakeFetch(204), wsFactory: fakeWs });
     await waitFor(() => expect(screen.getByText(/Noch keine Analyse/i)).toBeInTheDocument());
