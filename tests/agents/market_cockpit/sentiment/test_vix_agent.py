@@ -1,5 +1,21 @@
-from agents.market_cockpit.sentiment.vix_agent import _signal
+import asyncio
+import logging
+from unittest.mock import MagicMock
+
+from agents.market_cockpit.sentiment.vix_agent import VIXAgent, _signal
 from core.domain.models import Signal
+
+
+def test_run_loggt_warnung_bei_ausgefallener_quelle(caplog):
+    # Logging-Pass: faellt die VIX-Quelle aus, wird das als warning sichtbar
+    # (vorher still auf Default None). Verhalten bleibt unveraendert.
+    provider = MagicMock()
+    provider.get_current_price.side_effect = RuntimeError("Yahoo down")
+    agent = VIXAgent(provider=provider, bus=MagicMock())
+    with caplog.at_level(logging.WARNING):
+        snap = asyncio.run(agent.run())
+    assert snap.vix is None
+    assert "VIX Spot (^VIX)" in caplog.text
 
 
 def test_none_is_neutral():
