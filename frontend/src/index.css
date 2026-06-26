@@ -79,6 +79,17 @@
       scroll-behavior: auto !important;
     }
   }
+
+  /* Manuell erzwungen ueber die Einstellungen-Seite: Nutzer kann Bewegung auch dann
+     abschalten, wenn das Betriebssystem sie nicht reduziert. data-reduce-motion="reduce"
+     wird von lib/preferences auf <html> gesetzt; spiegelt die Media-Query-Regel oben. */
+  html[data-reduce-motion="reduce"] *,
+  html[data-reduce-motion="reduce"] *::before,
+  html[data-reduce-motion="reduce"] *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Signatur: Regime-„Horizont" — schmale Bandfarbe je Marktlage (Cockpit-Referenz). */

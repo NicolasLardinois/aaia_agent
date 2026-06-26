@@ -1,17 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { usePreferences } from "./usePreferences";
+import { resolveTheme } from "../lib/preferences";
 
 export type Theme = "light" | "dark";
-const KEY = "aaia_theme";
 
-// Hell/Dunkel-Umschalter; persistiert und steuert die Tailwind-'dark'-Klasse am <html>.
+// Hell/Dunkel-Umschalter fuer die Topbar — jetzt nur noch eine duenne Schicht ueber den
+// gemeinsamen Praeferenzen (lib/preferences). 'theme' ist das EFFEKTIVE Hell/Dunkel
+// (loest 'system' auf), 'toggle' schaltet explizit auf das Gegenteil. So bleiben Topbar
+// und Einstellungen-Seite synchron.
 export function useTheme(): { theme: Theme; toggle: () => void } {
-  const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem(KEY) as Theme) || "light");
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem(KEY, theme);
-  }, [theme]);
-
-  const toggle = useCallback(() => setTheme((t) => (t === "light" ? "dark" : "light")), []);
+  const { prefs, set } = usePreferences();
+  const theme = resolveTheme(prefs.theme);
+  const toggle = useCallback(() => set("theme", theme === "dark" ? "light" : "dark"), [theme, set]);
   return { theme, toggle };
 }
