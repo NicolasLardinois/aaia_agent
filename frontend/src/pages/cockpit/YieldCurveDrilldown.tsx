@@ -2,6 +2,7 @@ import { useView } from "../../data/useView";
 import { loadYieldCurve } from "../../data/cockpit";
 import { yieldSpreadStatus } from "../../lib/curve";
 import { LineCurve } from "../../components/charts/LineCurve";
+import { Icon } from "../../components/icons";
 import { DrilldownShell } from "./DrilldownShell";
 import type { YieldCurveView, SpreadRow } from "../../contract/cockpit";
 
@@ -59,10 +60,11 @@ export function YieldCurveDrilldown({ loader = loadYieldCurve }: { loader?: () =
           </div>
 
           {/* Gesamt-Inversions-Status */}
-          <div className={`rounded-lg p-3 text-sm ${anyInverted ? "bg-bear/10 text-bear" : "bg-bull/10 text-bull"}`}>
+          <div className={`flex items-center gap-2 rounded-lg p-3 text-sm ${anyInverted ? "bg-bear/10 text-bear" : "bg-bull/10 text-bull"}`}>
+            <Icon name={anyInverted ? "warning" : "check"} className="h-4 w-4 shrink-0" />
             {anyInverted
-              ? "⚠ Kurve invertiert → Rezessions-Frühsignal (mind. 1 Spread negativ)"
-              : "✓ Kurve nicht invertiert → kein klassisches Rezessions-Frühsignal"}
+              ? "Kurve invertiert → Rezessions-Frühsignal (mind. 1 Spread negativ)"
+              : "Kurve nicht invertiert → kein klassisches Rezessions-Frühsignal"}
           </div>
         </div>
       )}

@@ -7,6 +7,7 @@ import type { ConflictDTO, ConflictDecision, ConflictVerdict } from "../../contr
 import type { PositionJudgmentDTO } from "../../contract/portfolio";
 import { UnderlyingWrapperBadge } from "../UnderlyingWrapperBadge";
 import { ConfidenceBar } from "../ConfidenceBar";
+import { Icon } from "../icons";
 import { verdictToVisual } from "../../lib/judgment";
 import { conflictTrigger } from "../../lib/conflict";
 
@@ -112,7 +113,11 @@ export function ConflictCard({ conflict, onResolve, loggedDecision }: ConflictCa
                 ].join(" ")}
               >
                 {v}
-                {istDefault && <span className="ml-1 text-xs opacity-75">✓ Vorschlag</span>}
+                {istDefault && (
+                  <span className="ml-1 inline-flex items-center gap-0.5 text-xs opacity-75">
+                    <Icon name="check" className="h-3 w-3" /> Vorschlag
+                  </span>
+                )}
               </span>
             );
           })}

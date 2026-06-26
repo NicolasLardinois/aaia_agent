@@ -40,7 +40,7 @@ export function suggestVerdict(
     return { verdict: "EXIT", rationale: "Short-These trägt nicht mehr (COVER), aber kein bestätigtes Long — Eindecken erwägen." };
   }
   // Kein echtes Gegensignal: vorerst halten
-  return { verdict: "HOLD", rationale: "Kein tragfaehiges Gegensignal — vorerst halten." };
+  return { verdict: "HOLD", rationale: "Kein tragfähiges Gegensignal — vorerst halten." };
 }
 
 // Anzahl OFFENER Konflikte fuer den Topbar-Badge (US28). Erledigte zaehlen NICHT mit.

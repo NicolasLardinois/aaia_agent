@@ -6,6 +6,7 @@ import { zScoreFlag } from "../../lib/anomaly";
 import { SignalBadge } from "../../components/SignalBadge";
 import { ChoroplethMap } from "../../components/charts/ChoroplethMap";
 import { LineCurve } from "../../components/charts/LineCurve";
+import { Icon } from "../../components/icons";
 import { DrilldownShell } from "./DrilldownShell";
 import type { BuffettView, BuffettCountry } from "../../contract/cockpit";
 import type { SortKey } from "../../lib/buffett";
@@ -15,15 +16,15 @@ import type { SortKey } from "../../lib/buffett";
 const EINSCHRAENKUNGEN = [
   {
     titel: "Globalisierung",
-    text: "Multinationale Konzerne erzielen Gewinne weltweit, die BIP-Basis unterschaetzt die reale Ertragsbasis.",
+    text: "Multinationale Konzerne erzielen Gewinne weltweit, die BIP-Basis unterschätzt die reale Ertragsbasis.",
   },
   {
     titel: "Zinskontext",
-    text: "Bei niedrigen Zinsen (TINA) sind hoehere Bewertungsquoten historisch normal — der Indikator ist zinssensitiv.",
+    text: "Bei niedrigen Zinsen (TINA) sind höhere Bewertungsquoten historisch normal — der Indikator ist zinssensitiv.",
   },
   {
     titel: "Kein Timing",
-    text: "Hohe Quoten koennen jahrelang bestehen, bevor ein Kursrueckgang einsetzt. Kein Market-Timing-Instrument.",
+    text: "Hohe Quoten können jahrelang bestehen, bevor ein Kursrückgang einsetzt. Kein Market-Timing-Instrument.",
   },
   {
     titel: "Aktienrückkäufe",
@@ -51,9 +52,10 @@ function SortButton({
   return (
     <button
       onClick={() => onToggle(sortKey)}
-      className={`text-left text-xs font-semibold ${active ? "text-ink" : "text-muted hover:text-ink"}`}
+      className={`inline-flex items-center gap-0.5 text-left text-xs font-semibold ${active ? "text-ink" : "text-muted hover:text-ink"}`}
     >
-      {label} {active ? (dir === "desc" ? "↓" : "↑") : "↕"}
+      {label}
+      <Icon name={active ? (dir === "desc" ? "sort-desc" : "sort-asc") : "sort-none"} className="h-3.5 w-3.5" />
     </button>
   );
 }
@@ -61,7 +63,7 @@ function SortButton({
 // ---- Einzelland-10-J-Drilldown ----
 function CountryHistory({ country }: { country: BuffettCountry }) {
   if (country.history.length === 0) {
-    return <p className="text-sm text-muted">Keine Verlaufsdaten verfuegbar.</p>;
+    return <p className="text-sm text-muted">Keine Verlaufsdaten verfügbar.</p>;
   }
   const series = [
     {
@@ -114,9 +116,11 @@ function BuffettRow({
               {row.zScore > 0 ? "+" : ""}
               {row.zScore.toFixed(1)}
               {flag !== "none" && (
-                <span className="ml-1 text-amber-600" title={flag === "anomaly" ? "Anomalie (|Z|>2)" : "Auffaellig (|Z|≥1.5)"}>
-                  ⚠
-                </span>
+                <Icon
+                  name="warning"
+                  label={flag === "anomaly" ? "Anomalie (|Z|>2)" : "Auffällig (|Z|≥1.5)"}
+                  className="ml-1 inline-block h-3.5 w-3.5 text-amber-600"
+                />
               )}
             </span>
           ) : (
@@ -173,36 +177,36 @@ export function BuffettWidget({ loader = loadBuffett }: { loader?: () => Promise
         <div className="space-y-4">
           {/* Asset-Filter-Hinweis (Pflicht, US5) */}
           <p className="text-xs text-muted">
-            Nur fuer <strong>Aktien, ETF und Index</strong> relevant — nicht fuer Anleihen, Rohstoffe oder Immobilien.
+            Nur für <strong>Aktien, ETF und Index</strong> relevant — nicht für Anleihen, Rohstoffe oder Immobilien.
           </p>
 
           {/* Global-Median als Referenz */}
           <div className="rounded-lg bg-surface-2 p-3 text-sm">
             Globaler Median (Referenz): <span className="font-semibold font-mono tnum">{data.globalMedian} %</span>
-            <span className="ml-2 text-muted text-xs">(alle Laender im Datensatz)</span>
+            <span className="ml-2 text-muted text-xs">(alle Länder im Datensatz)</span>
           </div>
 
           {/* Tab-Umschalter */}
           <div className="flex gap-2">
             <button
               onClick={() => setTab("tabelle")}
-              className={`rounded-md px-3 py-1 text-sm font-medium ${
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium ${
                 tab === "tabelle"
                   ? "bg-brand text-brand-ink"
                   : "border border-line text-muted hover:bg-surface-2"
               }`}
             >
-              Tabelle ▣
+              <Icon name="view-table" className="h-4 w-4" /> Tabelle
             </button>
             <button
               onClick={() => setTab("karte")}
-              className={`rounded-md px-3 py-1 text-sm font-medium ${
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium ${
                 tab === "karte"
                   ? "bg-brand text-brand-ink"
                   : "border border-line text-muted hover:bg-surface-2"
               }`}
             >
-              Karte ◻
+              <Icon name="view-map" className="h-4 w-4" /> Karte
             </button>
           </div>
 
@@ -278,7 +282,7 @@ export function BuffettWidget({ loader = loadBuffett }: { loader?: () => Promise
               </div>
 
               {filterRows(data.countries, { onlyZOutlier, onlyBearish }).length === 0 && (
-                <p className="text-sm text-muted">Kein Land erfuellt die aktiven Filter.</p>
+                <p className="text-sm text-muted">Kein Land erfüllt die aktiven Filter.</p>
               )}
             </>
           )}

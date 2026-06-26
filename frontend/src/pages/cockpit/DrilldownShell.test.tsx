@@ -40,7 +40,7 @@ describe("DrilldownShell", () => {
   it("zeigt SourceHealth mit failed-Warnung", () => {
     renderShell({ title: "Test", view: demoView, loading: false, error: null, children: null });
     expect(screen.getByText("2/3 Quellen aktiv")).toBeInTheDocument();
-    expect(screen.getByText("⚠", { exact: false })).toBeInTheDocument();
+    expect(screen.getByLabelText("Quellen ausgefallen")).toBeInTheDocument();
   });
 
   it("zeigt Lädt… bei loading=true, keine children", () => {

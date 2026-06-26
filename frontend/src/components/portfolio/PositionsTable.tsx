@@ -3,6 +3,7 @@ import type { PositionDTO } from "../../contract/portfolio";
 import type { LongVerdict, ShortVerdict } from "../../contract/common";
 import { UnderlyingWrapperBadge } from "../UnderlyingWrapperBadge";
 import { ConfidenceBar } from "../ConfidenceBar";
+import { Icon } from "../icons";
 import { verdictToVisual } from "../../lib/judgment";
 import { detectConflict, conflictNote } from "../../lib/conflict";
 
@@ -39,8 +40,8 @@ function Row({ p }: { p: PositionDTO }) {
           <span className={`font-semibold ${v.colorClass}`}>{v.label}</span>
           <ConfidenceBar value={p.judgment.confidence} />
           {conflict && (
-            <span className="inline-block rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-              ⚠ Urteil gegen Position
+            <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+              <Icon name="warning" className="h-3.5 w-3.5" /> Urteil gegen Position
             </span>
           )}
         </div>

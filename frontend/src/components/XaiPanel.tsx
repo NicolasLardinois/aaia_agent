@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "./icons";
 
 export interface XaiDriver { text: string; sign: "+" | "-"; }
 export interface XaiContent {
@@ -14,8 +15,14 @@ export function XaiPanel({ xai }: { xai: XaiContent }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="rounded border border-line">
-      <button type="button" onClick={() => setOpen((o) => !o)} className="w-full px-3 py-2 text-left text-sm font-medium">
-        XAI — Begründung {open ? "▾" : "▸"}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium"
+      >
+        XAI — Begründung
+        <Icon name={open ? "disclosure-open" : "disclosure-closed"} className="h-4 w-4 text-muted" />
       </button>
       {open && (
         <div className="space-y-2 px-3 pb-3 text-sm">

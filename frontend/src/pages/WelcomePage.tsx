@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { AREAS } from "../data/welcomeContent";
 import { SectionCard } from "../components/SectionCard";
 import { InfoTip } from "../components/InfoTip";
+import { Icon } from "../components/icons";
 import { useOnboarding } from "../shell/useOnboarding";
 
 const STEPS = [
@@ -70,8 +71,8 @@ export function WelcomePage() {
               className="group block rounded-xl border border-line bg-surface-2 p-3.5 transition-colors hover:border-brand/40 hover:bg-brand/[0.04]"
             >
               <div className="flex items-center gap-2 font-display font-semibold">
-                <span aria-hidden className="text-brand">{a.icon}</span>{a.name}
-                <span className="ml-auto text-muted transition-transform group-hover:translate-x-0.5">→</span>
+                <Icon name={a.icon} className="h-4 w-4 text-brand" />{a.name}
+                <Icon name="arrow-right" className="ml-auto h-4 w-4 text-muted transition-transform group-hover:translate-x-0.5" />
               </div>
               <p className="mt-1.5 text-sm text-ink/90">{a.question}</p>
               <p className="mt-0.5 text-xs text-muted">{a.howto}</p>
@@ -92,9 +93,10 @@ export function WelcomePage() {
         <button
           type="button"
           onClick={start}
-          className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-ink transition-colors hover:bg-brand-strong"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-ink transition-colors hover:bg-brand-strong"
         >
-          Verstanden, los geht's →
+          Verstanden, los geht's
+          <Icon name="arrow-right" className="h-4 w-4" />
         </button>
         <span className="text-xs text-muted">Diese Seite findest du jederzeit oben über „?".</span>
       </div>
