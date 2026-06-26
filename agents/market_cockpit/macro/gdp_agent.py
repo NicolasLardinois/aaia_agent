@@ -3,6 +3,7 @@ from core.domain.events import GDPDataReady
 from core.domain.models import GDPSnapshot, GDPDataPoint, Signal
 from core.ports.data_provider import MacroDataProvider, EcbDataProvider, SnbDataProvider
 from core.ports.event_bus import EventBus
+from core.utils.safe import safe_result
 
 _NEUTRAL = GDPDataPoint(
     gdp_growth=None, industrial_production=None,
@@ -72,15 +73,15 @@ class GDPAgent:
             asyncio.to_thread(self.snb.get_unemployment),
             return_exceptions=True,
         )
-        def _safe(v): return None if isinstance(v, Exception) else v
-
-        state          = _safe(state) or {}
-        ecb_gdp        = _safe(ecb_gdp)
-        ecb_unemp      = _safe(ecb_unemp)
-        ecb_unemp_hist = _safe(ecb_unemp_hist) or []
-        ecb_pmi        = _safe(ecb_pmi)
-        snb_gdp        = _safe(snb_gdp)
-        snb_unemp      = _safe(snb_unemp)
+        # Teilergebnisse aus gather(return_exceptions=True) defensiv entpacken
+        # (geteilter Helfer statt lokalem _safe): Exception -> None.
+        state          = safe_result(state, default=None) or {}
+        ecb_gdp        = safe_result(ecb_gdp, default=None)
+        ecb_unemp      = safe_result(ecb_unemp, default=None)
+        ecb_unemp_hist = safe_result(ecb_unemp_hist, default=None) or []
+        ecb_pmi        = safe_result(ecb_pmi, default=None)
+        snb_gdp        = safe_result(snb_gdp, default=None)
+        snb_unemp      = safe_result(snb_unemp, default=None)
 
         usa_gdp   = state.get("gdp_growth")
         usa_unemp = state.get("unemployment")

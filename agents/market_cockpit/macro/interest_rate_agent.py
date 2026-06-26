@@ -7,6 +7,7 @@ from core.ports.data_provider import MacroDataProvider, EcbDataProvider, SnbData
 from core.ports.event_bus import EventBus
 from core.ports.dated_history import DatedHistoryPort
 from core.utils.real_nominal import to_real
+from core.utils.safe import safe_result
 from adapters.persistence.in_memory_dated_history import InMemoryDatedHistory
 
 _NEUTRAL = InterestRateDataPoint(
@@ -70,14 +71,15 @@ class InterestRateAgent:
             asyncio.to_thread(self.snb.get_balance_sheet_growth),
             return_exceptions=True,
         )
-        def _safe(v): return None if isinstance(v, Exception) else v
-
-        state    = _safe(state)    or {}
-        ext      = _safe(ext)      or {}
-        ecb_rate = _safe(ecb_rate)
-        ecb_bs   = _safe(ecb_bs)
-        snb_rate = _safe(snb_rate)
-        snb_bs   = _safe(snb_bs)
+        # Teilergebnisse aus gather(return_exceptions=True) defensiv entpacken
+        # (geteilter Helfer statt lokalem _safe): Exception -> None. Die separaten
+        # Helfer _safe_real / _safe_hist unten bleiben unberuehrt (andere Semantik).
+        state    = safe_result(state, default=None)    or {}
+        ext      = safe_result(ext, default=None)      or {}
+        ecb_rate = safe_result(ecb_rate, default=None)
+        ecb_bs   = safe_result(ecb_bs, default=None)
+        snb_rate = safe_result(snb_rate, default=None)
+        snb_bs   = safe_result(snb_bs, default=None)
 
         fed_rate = state.get("fed_rate")
         usa_cpi  = state.get("inflation")
