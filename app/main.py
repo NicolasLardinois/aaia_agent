@@ -22,6 +22,7 @@ from adapters.data.fred_api import FredDataProvider
 from adapters.data.world_bank import WorldBankMarketCapProvider
 from adapters.data.yahoo_finance import YahooFinanceProvider
 from adapters.data.fmp_metal_spot import FmpMetalSpotProvider
+from adapters.data.cboe_put_call import CboePutCallProvider
 from adapters.data.finnhub import FinnhubProvider
 from adapters.data.ecb_sdw import EcbSdwProvider
 from adapters.data.eurostat import EurostatEcbProvider
@@ -202,6 +203,7 @@ async def run_dashboard() -> None:
         history=JsonDatedHistory(history_path),
         world_bank=WorldBankMarketCapProvider(),
         metal_spot=FmpMetalSpotProvider(),
+        put_call_source=CboePutCallProvider(),
     )
     result = await orch.run()
     ResultCache().save_cockpit(result)

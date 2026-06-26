@@ -11,6 +11,7 @@ from core.ports.dated_history import DatedHistoryPort
 from core.ports.event_bus import EventBus
 from core.ports.world_bank import MarketCapToGdpProvider
 from core.ports.metal_spot import MetalSpotProvider
+from core.ports.put_call_source import PutCallSource
 
 
 class TopDownOrchestrator:
@@ -30,10 +31,11 @@ class TopDownOrchestrator:
         history: DatedHistoryPort | None = None,
         world_bank: MarketCapToGdpProvider | None = None,
         metal_spot: MetalSpotProvider | None = None,
+        put_call_source: PutCallSource | None = None,
     ):
         self.macro_chief       = MacroChiefAgent(macro, ecb, snb, bus, history=history, world_bank=world_bank)
         self.commodity_chief   = CommodityChiefAgentMakro(market, bus, metal_spot=metal_spot)
-        self.sentiment_chief   = SentimentChiefAgent(market, bus, sentiment, history=history)
+        self.sentiment_chief   = SentimentChiefAgent(market, bus, sentiment, history=history, put_call_source=put_call_source)
         self.yield_curve_chief = YieldCurveChiefAgent(macro, ecb, snb, bus, history=history)
         self.sector_chief      = SectorChiefAgent(market, bus)
 
