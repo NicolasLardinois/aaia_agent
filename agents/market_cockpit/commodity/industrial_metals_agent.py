@@ -1,38 +1,18 @@
 import asyncio
-import os
-
-import requests
 
 from core.domain.events import IndustrialMetalsDataReady
 from core.domain.models import IndustrialMetalsSnapshot, Signal
 from core.ports.data_provider import MarketDataProvider
 from core.ports.event_bus import EventBus
+from core.ports.metal_spot import MetalSpotProvider
 from core.utils.relative import zscore_vs_history
 
 # Kupfer und Aluminium: CME-Futures, verfügbar über Yahoo Finance
 TICKERS = {"copper": "HG=F", "aluminium": "ALI=F", "gold": "GC=F"}
-# Zink und Nickel handeln an der LME — kein Yahoo Finance Ticker. Wir holen sie via FMP.
-_FMP_BASE = "https://financialmodelingprep.com/api/v3"
+# Zink und Nickel handeln an der LME — kein Yahoo-Ticker; sie kommen über den
+# injizierten MetalSpotProvider (FMP-Adapter), nicht mehr aus hartkodiertem I/O.
 
 _COPPER_GOLD_Z = 1.0   # |z| > 1.0 = signifikante Copper/Gold-Bewegung
-
-
-def _fmp_price(symbol: str) -> float | None:
-    api_key = os.getenv("FMP_API_KEY")
-    if not api_key:
-        return None
-    try:
-        resp = requests.get(
-            f"{_FMP_BASE}/quote/{symbol}",
-            params={"apikey": api_key},
-            timeout=10,
-        )
-        data = resp.json()
-        if isinstance(data, list) and data:
-            return float(data[0]["price"])
-        return None
-    except Exception:
-        return None
 
 
 _DEFAULT = IndustrialMetalsSnapshot(
@@ -77,17 +57,26 @@ def _copper_gold_z(copper_hist, gold_hist) -> float | None:
 
 
 class IndustrialMetalsAgent:
-    def __init__(self, provider: MarketDataProvider, bus: EventBus):
-        self.provider = provider
-        self.bus      = bus
+    def __init__(self, provider: MarketDataProvider, bus: EventBus,
+                 metal_spot: MetalSpotProvider | None = None):
+        self.provider   = provider
+        self.bus        = bus
+        # Optionaler Port für LME-Spotpreise (Zink/Nickel). Fehlt er, bleiben
+        # diese beiden None — der Rest der Analyse läuft unverändert weiter.
+        self.metal_spot = metal_spot
+
+    async def _spot(self, symbol: str) -> float | None:
+        if self.metal_spot is None:
+            return None
+        return await asyncio.to_thread(self.metal_spot.get_spot_price, symbol)
 
     async def run(self) -> IndustrialMetalsSnapshot:
         (copper, alu, zinc, nickel), (h_copper, h_gold) = await asyncio.gather(
             asyncio.gather(
                 asyncio.to_thread(self.provider.get_current_price, TICKERS["copper"]),
                 asyncio.to_thread(self.provider.get_current_price, TICKERS["aluminium"]),
-                asyncio.to_thread(_fmp_price, "ZINC"),
-                asyncio.to_thread(_fmp_price, "NICKEL"),
+                self._spot("ZINC"),
+                self._spot("NICKEL"),
                 return_exceptions=True,
             ),
             asyncio.gather(
