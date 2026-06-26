@@ -15,15 +15,15 @@ import type { SortKey } from "../../lib/buffett";
 const EINSCHRAENKUNGEN = [
   {
     titel: "Globalisierung",
-    text: "Multinationale Konzerne erzielen Gewinne weltweit, die BIP-Basis unterschaetzt die reale Ertragsbasis.",
+    text: "Multinationale Konzerne erzielen Gewinne weltweit, die BIP-Basis unterschätzt die reale Ertragsbasis.",
   },
   {
     titel: "Zinskontext",
-    text: "Bei niedrigen Zinsen (TINA) sind hoehere Bewertungsquoten historisch normal — der Indikator ist zinssensitiv.",
+    text: "Bei niedrigen Zinsen (TINA) sind höhere Bewertungsquoten historisch normal — der Indikator ist zinssensitiv.",
   },
   {
     titel: "Kein Timing",
-    text: "Hohe Quoten koennen jahrelang bestehen, bevor ein Kursrueckgang einsetzt. Kein Market-Timing-Instrument.",
+    text: "Hohe Quoten können jahrelang bestehen, bevor ein Kursrückgang einsetzt. Kein Market-Timing-Instrument.",
   },
   {
     titel: "Aktienrückkäufe",
@@ -61,7 +61,7 @@ function SortButton({
 // ---- Einzelland-10-J-Drilldown ----
 function CountryHistory({ country }: { country: BuffettCountry }) {
   if (country.history.length === 0) {
-    return <p className="text-sm text-muted">Keine Verlaufsdaten verfuegbar.</p>;
+    return <p className="text-sm text-muted">Keine Verlaufsdaten verfügbar.</p>;
   }
   const series = [
     {
@@ -114,7 +114,7 @@ function BuffettRow({
               {row.zScore > 0 ? "+" : ""}
               {row.zScore.toFixed(1)}
               {flag !== "none" && (
-                <span className="ml-1 text-amber-600" title={flag === "anomaly" ? "Anomalie (|Z|>2)" : "Auffaellig (|Z|≥1.5)"}>
+                <span className="ml-1 text-amber-600" title={flag === "anomaly" ? "Anomalie (|Z|>2)" : "Auffällig (|Z|≥1.5)"}>
                   ⚠
                 </span>
               )}
@@ -173,13 +173,13 @@ export function BuffettWidget({ loader = loadBuffett }: { loader?: () => Promise
         <div className="space-y-4">
           {/* Asset-Filter-Hinweis (Pflicht, US5) */}
           <p className="text-xs text-muted">
-            Nur fuer <strong>Aktien, ETF und Index</strong> relevant — nicht fuer Anleihen, Rohstoffe oder Immobilien.
+            Nur für <strong>Aktien, ETF und Index</strong> relevant — nicht für Anleihen, Rohstoffe oder Immobilien.
           </p>
 
           {/* Global-Median als Referenz */}
           <div className="rounded-lg bg-surface-2 p-3 text-sm">
             Globaler Median (Referenz): <span className="font-semibold font-mono tnum">{data.globalMedian} %</span>
-            <span className="ml-2 text-muted text-xs">(alle Laender im Datensatz)</span>
+            <span className="ml-2 text-muted text-xs">(alle Länder im Datensatz)</span>
           </div>
 
           {/* Tab-Umschalter */}
@@ -278,7 +278,7 @@ export function BuffettWidget({ loader = loadBuffett }: { loader?: () => Promise
               </div>
 
               {filterRows(data.countries, { onlyZOutlier, onlyBearish }).length === 0 && (
-                <p className="text-sm text-muted">Kein Land erfuellt die aktiven Filter.</p>
+                <p className="text-sm text-muted">Kein Land erfüllt die aktiven Filter.</p>
               )}
             </>
           )}

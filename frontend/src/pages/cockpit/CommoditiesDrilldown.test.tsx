@@ -15,9 +15,9 @@ function renderPage() {
 }
 
 describe("CommoditiesDrilldown", () => {
-  it("zeigt Rohoel (WTI) mit BULLISH", async () => {
+  it("zeigt Rohöl (WTI) mit BULLISH", async () => {
     renderPage();
-    await waitFor(() => expect(screen.getByText(/Rohoel/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Rohöl/i)).toBeInTheDocument());
     expect(screen.getByText("BULLISH")).toBeInTheDocument();
   });
 

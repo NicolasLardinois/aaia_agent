@@ -24,8 +24,8 @@ export function demoCommodities(): CommoditiesView {
     isDemo: true,
     sourcesActive: 2, sourcesTotal: 2, failed: [],
     commodities: [
-      { name: "Rohoel (WTI)", ticker: "CL=F", signal: "bullish", note: "Angebotsdisziplin OPEC+, Nachfrage robust" },
-      { name: "Kupfer",       ticker: "HG=F", signal: "bearish", note: "Konjunktursorgen China daempfen" },
+      { name: "Rohöl (WTI)", ticker: "CL=F", signal: "bullish", note: "Angebotsdisziplin OPEC+, Nachfrage robust" },
+      { name: "Kupfer",       ticker: "HG=F", signal: "bearish", note: "Konjunktursorgen China dämpfen" },
       { name: "Erdgas",       ticker: "NG=F", signal: "neutral", note: "saisonal ausgeglichen" },
     ],
   };
@@ -37,8 +37,8 @@ export function demoSentiment(): SentimentView {
     sourcesActive: 2, sourcesTotal: 2, failed: [],
     subSignals: [
       // VIX ~18 = moderat; Fear&Greed 62 = leichte Gier -> mild bearish (ueberhitzt).
-      { name: "VIX", value: 18.2, signal: "neutral", note: "moderate Volatilitaet" },
-      { name: "Fear & Greed", value: 62, signal: "bearish", note: "leichte Gier (ueberhitzt)" },
+      { name: "VIX", value: 18.2, signal: "neutral", note: "moderate Volatilität" },
+      { name: "Fear & Greed", value: 62, signal: "bearish", note: "leichte Gier (überhitzt)" },
     ],
   };
 }

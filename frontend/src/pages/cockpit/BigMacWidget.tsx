@@ -11,10 +11,10 @@ import type { BigMacView } from "../../contract/cockpit";
 
 // Einschraenkungen des Big-Mac-Index (einklappbar, aber im DOM vorhanden — Spec §5.4).
 const EINSCHRAENKUNGEN = [
-  "Kaufkraftparitaet als Annahme: setzt voraus, dass gleiche Gueter gleich teuer sein sollten — gilt nur bedingt.",
+  "Kaufkraftparität als Annahme: setzt voraus, dass gleiche Güter gleich teuer sein sollten — gilt nur bedingt.",
   "Lokale Produktionskosten (Lohn, Subventionen, Steuern) verzerren den Vergleich systematisch.",
-  "Kein Timing-Instrument: Unterbewertungen koennen jahrelang bestehen.",
-  "Deckt nur Laender mit McDonald's ab — viele Schwellenlaender fehlen.",
+  "Kein Timing-Instrument: Unterbewertungen können jahrelang bestehen.",
+  "Deckt nur Länder mit McDonald's ab — viele Schwellenländer fehlen.",
 ];
 
 export function BigMacWidget({ loader = loadBigMac }: { loader?: () => Promise<BigMacView> }) {
@@ -27,7 +27,7 @@ export function BigMacWidget({ loader = loadBigMac }: { loader?: () => Promise<B
           {/* Publikationsdatum: halbjährlich Jan/Jul — immer sichtbar (US7). */}
           <div className="text-sm text-muted">
             Stand: <span className="font-semibold text-ink">{data.publishedAt}</span>
-            <span className="ml-2 text-muted">(The Economist, halbjaehrlich Jan/Jul)</span>
+            <span className="ml-2 text-muted">(The Economist, halbjährlich Jan/Jul)</span>
           </div>
 
           {/* Hinweis Bewertungsrichtung */}

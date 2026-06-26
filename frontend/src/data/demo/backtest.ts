@@ -43,7 +43,7 @@ export function demoBacktest(): BacktestView {
     sourcesTotal: 3,
     // Bewusst eine ausgefallene Quelle -> UNAVAILABLE-Pfad sichtbar (Spec §1/§5.4).
     // Vollstaendige Kurs-Historien sind noch nicht angebunden; Demo nutzt synthetische Calls.
-    failed: [{ key: "Historien-Feed (Stub)", reason: "Vollstaendige Kurs-Historie noch nicht angebunden" }],
+    failed: [{ key: "Historien-Feed (Stub)", reason: "Vollständige Kurs-Historie noch nicht angebunden" }],
     results: RESULTS,
     areas,
   };

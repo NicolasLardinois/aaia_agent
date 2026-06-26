@@ -56,7 +56,7 @@ export function BacktestCard({ area, results }: BacktestCardProps) {
           />
         ) : (
           // Leere Stichprobe nach Filter: dezenter Hinweis, keine Null-Linie (UNAVAILABLE != 0).
-          <p className="text-sm text-muted">Keine Daten fuer diese Auswahl.</p>
+          <p className="text-sm text-muted">Keine Daten für diese Auswahl.</p>
         )}
       </div>
     </div>
