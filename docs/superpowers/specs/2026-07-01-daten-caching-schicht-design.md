@@ -47,7 +47,7 @@ Orchestrierungs-Schritt (Lazy + Memoize, nicht Prefetch).
 4. `adapters/data/caching_data_provider.py` — Caching-Decorator mit der Cache-aside-Logik.
    - **ECB-SDW** (`EcbDataProvider`) end-to-end umgehängt → beweist Skalar-/Dedup-/Point-in-Time-Pfad.
    - **Yahoo-Kurshistorie** (`MarketDataProvider.get_price_history`) → beweist den **Payload-Codec**
-     (DataFrame-Round-Trip). *(Offene Frage im Review — s. u.: darf in Folge-PR wandern.)*
+     (DataFrame-Round-Trip). *(Review-Entscheid 2026-07-01: bleibt in v1.)*
 5. `core/utils/dataframe_codec.py` — reine Encode/Decode-Funktionen für pandas-DataFrames/Series.
 6. Verdrahtung im Composition-Root: echte Adapter mit dem Decorator umwickeln (nur für die zwei Quellen).
 7. Tests (TDD) für RunContext, Store, Decorator, Codec.
@@ -58,8 +58,9 @@ Orchestrierungs-Schritt (Lazy + Memoize, nicht Prefetch).
 - **Supabase-Store-Adapter** — Folge-PR (v1 nutzt JSON-Datei; Port erlaubt späteren Austausch).
 - **Prefetch-Pipeline** — bewusst verworfen (Lazy + Memoize gewählt).
 - **Klassisches BI-Warehouse** (Star-Schema/ETL/OLAP) — YAGNI für ein periodisch laufendes Tool.
-- **Verhältnis zu `DatedHistoryPort`** — im Plan entscheiden: Storage wiederverwenden oder daneben
-  betreiben. Keine Änderung an bestehender Backtest-Nutzung in v1.
+- **Verhältnis zu `DatedHistoryPort`** — **entschieden (2026-07-01): wiederverwenden.** Der
+  Skalar-Zweig des `SnapshotStore` sitzt auf einem `DatedHistoryPort` auf (kein zweiter Zeitreihen-
+  Store). Bestehende Backtest-Nutzung von `DatedHistoryPort` bleibt unberührt (nur additive Serien).
 - **Retroaktive Historie** — der Store baut Historie erst *ab jetzt* auf. Historische Backtests
   fußen weiter auf `historical_fred.py` o. ä.; die neue Schicht macht künftige Läufe reproduzierbar.
 
@@ -96,7 +97,12 @@ class SnapshotStore(ABC):
 
 - `namespace` = Quelle/Domäne (z. B. `"ecb"`, `"yahoo.price_history"`), `key` = Serie/Argument
   (z. B. `"cpi"`, `"AAPL:1y"`). `value` = float **oder** codierter Payload (str/dict).
-- v1-Adapter: `JsonSnapshotStore` (eine JSON-Datei je namespace, analog `ResultCache`).
+- **v1-Adapter `CompositeSnapshotStore`** — routet nach Wert-Typ (Review-Entscheid 2026-07-01):
+  - **float → `DatedHistoryPort`** (Wiederverwendung; Serien-Schlüssel `f"{namespace}:{key}"`).
+    Damit fällt der Backtest-Zeitreihen-Fall geschenkt ab und es gibt **keinen** zweiten Skalar-Store.
+  - **Payload (str/dict) → JSON-Blob-Datei** (datiert, analog `ResultCache`), da `DatedHistoryPort`
+    nur floats hält.
+  - `get` fragt beide Zweige (float-Serie zuerst, sonst Blob) und liefert `value_on_or_before(as_of)`.
 
 ### `CachingDataProvider` (adapters/data/) — Decorator
 
@@ -152,10 +158,10 @@ liefert `value_on_or_before(as_of)`.
 - **Folge-PRs (Logbuch):** je eine weitere Quelle umhängen → Supabase-Store-Adapter →
   per-namespace-TTL → optional `DatedHistoryPort`-Konsolidierung.
 
-## 8. Offene Punkte fürs Review
+## 8. Review-Entscheidungen (2026-07-01)
 
-1. **Yahoo in v1 oder Folge-PR?** ECB-SDW ist rein skalar; damit der Payload-Codec in v1 einen echten
-   Nutzer hat, ist Yahoo-Kurshistorie mitgenommen. Wenn v1 kleiner bleiben soll, wandert Yahoo + Codec
-   in den ersten Folge-PR und v1 ist rein der Skalar-Pfad.
-2. **`DatedHistoryPort` wiederverwenden** als Skalar-Backend des `SnapshotStore`, oder sauber trennen?
-   (Vermeidet zwei überlappende Stores, koppelt aber an die Backtest-Ablage.) Entscheidung im Plan.
+1. **Yahoo bleibt in v1** — der Payload-Codec bekommt so gleich einen echten Nutzer; v1 deckt damit
+   beide Daten-Arten (Skalar + Payload) ab.
+2. **`DatedHistoryPort` wird wiederverwendet** als Skalar-Backend des `SnapshotStore` (via
+   `CompositeSnapshotStore`, s. §3). Keine zwei überlappenden Zeitreihen-Stores; bestehende
+   Backtest-Nutzung bleibt unberührt (nur additive Serien).
