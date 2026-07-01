@@ -12,6 +12,7 @@ _log = logging.getLogger(__name__)
 
 def _is_scalar(value: Any) -> bool:
     # bool ist Subklasse von int, soll aber NICHT als float-Zeitreihe gelten.
+    # int wird absichtlich als numerischer Skalar behandelt (über float() koerziert).
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
@@ -39,7 +40,8 @@ class CompositeSnapshotStore(SnapshotStore):
             with open(self._blob_path, "r", encoding="utf-8") as f:
                 raw = json.load(f)
             return raw if isinstance(raw, dict) else {}
-        except Exception:
+        except Exception as exc:
+            _log.warning("CompositeSnapshotStore: Blob-Datei nicht lesbar, starte leer (%s)", exc)
             return {}
 
     def _save_blobs(self) -> None:

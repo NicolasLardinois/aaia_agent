@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 
 from adapters.persistence.composite_snapshot_store import CompositeSnapshotStore
@@ -44,3 +45,24 @@ def test_bool_gilt_nicht_als_skalar_sondern_als_payload(tmp_path):
 def test_leerer_store_liefert_none(tmp_path):
     s = _store(tmp_path)
     assert s.get("ecb", "cpi", date(2026, 7, 1)) is None
+
+
+def test_beschaedigte_blob_datei_wird_gehandhabt_und_geloggt(tmp_path, caplog):
+    """Beschädigte/unleserliche Blob-Datei führt nicht zum Absturz, sondern wird
+    ignoriert (leerer Store) und es wird eine Warnung geloggt.
+    """
+    path = str(tmp_path / "blobs.json")
+    # Garbage-Inhalt schreiben (kein JSON)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("{invalid json content:::}")
+
+    # Store-Konstruktion darf nicht aufgrund der beschädigten Datei schlagen.
+    with caplog.at_level(logging.WARNING):
+        s = CompositeSnapshotStore(InMemoryDatedHistory(), path)
+
+    # Store startet leer (get gibt None zurück).
+    assert s.get("ns", "key", date(2026, 7, 1)) is None
+
+    # Warning wurde geloggt (Schlüsselworte aus der Warnung).
+    assert any("Blob-Datei" in record.message and "nicht lesbar" in record.message
+               for record in caplog.records)
