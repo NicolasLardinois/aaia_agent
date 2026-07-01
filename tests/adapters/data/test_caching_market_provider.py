@@ -24,6 +24,12 @@ class _FakeMarket(MarketDataProvider):
         self.calls += 1
         return _frame()
     def get_info(self, ticker): return {"name": ticker}
+    # Vier Methoden mit konkretem ABC-Default ([]/{}) — mit NICHT-leeren, unterscheidbaren
+    # Werten überschrieben, damit ein Test "delegiert" von "leerer ABC-Default" trennen kann.
+    def get_index_constituents(self, index_ticker): return ["AAA", "BBB"]
+    def get_constituent_histories(self, index_ticker, period="2y"): return {"AAA": [1.0, 2.0]}
+    def get_index_fundamentals(self, index_ticker): return {"eps_ttm": 5.0}
+    def get_index_holdings(self, index_ticker): return [{"name": "AAA", "weight_pct": 60.0, "sector": "Tech"}]
 
 
 def _wrap(inner, tmp_path):
@@ -68,3 +74,15 @@ def test_delegation_current_price_und_info(tmp_path):
     prov, _ = _wrap(_FakeMarket(), tmp_path)
     assert prov.get_current_price("AAPL") == 123.0
     assert prov.get_info("AAPL") == {"name": "AAPL"}
+
+
+def test_delegation_index_default_methoden_gehen_an_inner(tmp_path):
+    # Regressionsschutz: diese vier Methoden haben KONKRETE ABC-Defaults ([]/{}).
+    # Ohne explizites Override im Decorator würde still der leere Default geerbt statt
+    # an inner delegiert — das fiele NICHT per TypeError auf. Nicht-leere Erwartungswerte
+    # decken diese stille Regression auf.
+    prov, _ = _wrap(_FakeMarket(), tmp_path)
+    assert prov.get_index_constituents("^GSPC") == ["AAA", "BBB"]
+    assert prov.get_constituent_histories("^GSPC") == {"AAA": [1.0, 2.0]}
+    assert prov.get_index_fundamentals("^GSPC") == {"eps_ttm": 5.0}
+    assert prov.get_index_holdings("^GSPC") == [{"name": "AAA", "weight_pct": 60.0, "sector": "Tech"}]
