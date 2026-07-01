@@ -653,6 +653,11 @@ class CachingEcbProvider(_CachingBase, EcbDataProvider):
     def get_interest_rate_history(self, years: int = 2):
         return self._inner.get_interest_rate_history(years)
 
+    def get_unemployment_history(self, months: int = 14):
+        # Konkrete ABC-Default-Methode (gibt [] zurück) MUSS an inner delegiert
+        # werden, sonst geht die echte EU-Arbeitslosen-Historie verloren (Sahm-Regel).
+        return self._inner.get_unemployment_history(months)
+
     def get_aaa_10y_yield(self):
         # Nicht auf dem ABC, aber vom Realzins-Pfad genutzt (EurostatEcbProvider reicht es durch).
         return self._inner.get_aaa_10y_yield()

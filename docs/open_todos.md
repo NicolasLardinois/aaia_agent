@@ -942,6 +942,25 @@ Jede Analyse gibt pro Linse genau eine Aktion. **HOLD vs NONE:** HOLD = Position
 
 ---
 
+## 9. DATEN-CACHING-SCHICHT V1
+
+- [x] **Daten-Caching-Schicht v1 (Data Mart hinter den Ports)** — Lösung: Caching-Decorator
+  hinter den Ports (Lazy+Memoize): RunContext (Point-in-Time+Dedup) + SnapshotStore-Port +
+  CompositeSnapshotStore (Skalare→DatedHistoryPort wiederverwendet, Payloads→JSON-Blob) +
+  dataframe_codec + CachingEcbProvider/CachingMarketProvider, verdrahtet für ECB-SDW (Skalar)
+  und Yahoo-Kurshistorie (Payload). Spec: docs/superpowers/specs/2026-07-01-daten-caching-schicht-design.md.
+  Plan & Umsetzung (8 Tasks, TDD): docs/superpowers/plans/2026-07-01-daten-caching-schicht.md.
+  **PR-Protokoll (§5): PR #50 am 2026-07-01 gemergt** — Testlauf 1472 passed, keine `.cache`-Artefakte im Status.
+  Offene Folge-Aufgaben:
+  - Weitere Quellen je 1 PR umhängen (FRED, Eurostat-Direktpfade, Finnhub, Fear&Greed, FMP, SNB).
+  - ECB dict/list-Rückgaben (get_yield_spreads/get_sovereign_yields/interest_rate_history) cachen.
+  - Supabase-SnapshotStore-Adapter (aktuell nur JSON-Datei).
+  - Per-namespace-TTL statt globalem SNAPSHOT_TTL_DAYS.
+  - Backtest-Einstiegspunkte (replay/calibrate) auf RunContext(as_of=historisch) umstellen.
+  - tz-aware DatetimeIndex im dataframe_codec verifizieren (yfinance liefert tz-aware).
+
+---
+
 ## 10. FINANZ-KONZEPT-REVIEW 2026-06-16 — STATUS (im Code geprüft 2026-06-19)
 
 Die CFA-Review `docs/finanz_konzept_review_2026-06-16.md` (~50 Befunde: ❌ falsch · ⚠️ verbesserungswürdig) wurde am 2026-06-19 gegen den aktuellen Code abgeglichen.
