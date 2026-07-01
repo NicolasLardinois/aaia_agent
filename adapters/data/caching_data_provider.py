@@ -3,8 +3,9 @@ from typing import Any, Callable
 
 import config.settings as settings
 from core.domain.run_context import RunContext
-from core.ports.data_provider import EcbDataProvider
+from core.ports.data_provider import EcbDataProvider, MarketDataProvider
 from core.ports.snapshot_store import SnapshotStore
+from core.utils.dataframe_codec import decode_frame, encode_frame
 
 _log = logging.getLogger(__name__)
 
@@ -121,7 +122,42 @@ class CachingEcbProvider(_CachingBase, EcbDataProvider):
         return self._inner.get_aaa_10y_yield()
 
 
+class CachingMarketProvider(_CachingBase, MarketDataProvider):
+    """Caching-Decorator für MarketDataProvider. v1 cached ``get_price_history``
+    (DataFrame → Payload-Codec); Preis-/Info- und Index-Methoden werden unverändert
+    durchgereicht."""
+
+    _NS = "yahoo.price_history"
+
+    def get_price_history(self, ticker: str, period: str = "1y"):
+        return self._cached(
+            self._NS,
+            f"{ticker}:{period}",
+            lambda: self._inner.get_price_history(ticker, period),
+            encode=encode_frame,
+            decode=decode_frame,
+        )
+
+    # ── unverändert durchgereicht ────────────────────────────────────────────
+    def get_current_price(self, ticker: str):
+        return self._inner.get_current_price(ticker)
+
+    def get_info(self, ticker: str) -> dict:
+        return self._inner.get_info(ticker)
+
+    def get_index_constituents(self, index_ticker: str) -> list[str]:
+        return self._inner.get_index_constituents(index_ticker)
+
+    def get_constituent_histories(self, index_ticker: str, period: str = "2y") -> dict:
+        return self._inner.get_constituent_histories(index_ticker, period)
+
+    def get_index_fundamentals(self, index_ticker: str) -> dict:
+        return self._inner.get_index_fundamentals(index_ticker)
+
+    def get_index_holdings(self, index_ticker: str) -> list:
+        return self._inner.get_index_holdings(index_ticker)
+
+
 def wrap_providers(ecb, market, run: RunContext, store: SnapshotStore):
-    """Umhüllt die echten Adapter mit ihren Caching-Decorators. In Task 6 wird die
-    Market-Hälfte durch ``CachingMarketProvider`` ersetzt."""
-    return CachingEcbProvider(ecb, run, store), market
+    """Umhüllt die echten Adapter mit ihren Caching-Decorators."""
+    return CachingEcbProvider(ecb, run, store), CachingMarketProvider(market, run, store)
