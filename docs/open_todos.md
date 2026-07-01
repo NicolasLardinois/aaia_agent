@@ -944,20 +944,22 @@ Jede Analyse gibt pro Linse genau eine Aktion. **HOLD vs NONE:** HOLD = Position
 
 ## 9. DATEN-CACHING-SCHICHT V1
 
-- [x] **Daten-Caching-Schicht v1 (Data Mart hinter den Ports)** — Lösung: Caching-Decorator
+- [ ] **Daten-Caching-Schicht v1 (Data Mart hinter den Ports)** — Lösung: Caching-Decorator
   hinter den Ports (Lazy+Memoize): RunContext (Point-in-Time+Dedup) + SnapshotStore-Port +
   CompositeSnapshotStore (Skalare→DatedHistoryPort wiederverwendet, Payloads→JSON-Blob) +
   dataframe_codec + CachingEcbProvider/CachingMarketProvider, verdrahtet für ECB-SDW (Skalar)
   und Yahoo-Kurshistorie (Payload). Spec: docs/superpowers/specs/2026-07-01-daten-caching-schicht-design.md.
   Plan & Umsetzung (8 Tasks, TDD): docs/superpowers/plans/2026-07-01-daten-caching-schicht.md.
-  **PR-Protokoll (§5): PR #50 am 2026-07-01 gemergt** — Testlauf 1472 passed, keine `.cache`-Artefakte im Status.
+  **Status:** umgesetzt (8 Tasks, TDD, subagent-getrieben) + finaler Whole-Branch-Review (opus) → „ready to merge"; Vollsuite 1472 passed, keine `.cache`-Artefakte im Status. **PR offen — wartet auf zweiten Blick + OK des Users; PR-Nummer + Merge-Datum werden gemäß §5 erst nach der Entscheidung nachgetragen** (nicht vorwegnehmen — PR #50 ist bereits die EU-Geldmenge).
   Offene Folge-Aufgaben:
   - Weitere Quellen je 1 PR umhängen (FRED, Eurostat-Direktpfade, Finnhub, Fear&Greed, FMP, SNB).
   - ECB dict/list-Rückgaben (get_yield_spreads/get_sovereign_yields/interest_rate_history) cachen.
   - Supabase-SnapshotStore-Adapter (aktuell nur JSON-Datei).
   - Per-namespace-TTL statt globalem SNAPSHOT_TTL_DAYS.
   - Backtest-Einstiegspunkte (replay/calibrate) auf RunContext(as_of=historisch) umstellen.
-  - tz-aware DatetimeIndex im dataframe_codec verifizieren (yfinance liefert tz-aware).
+  - tz-aware DatetimeIndex im dataframe_codec verifizieren (yfinance liefert tz-aware). *(Final-Review: `orient="table"` erhält die Zeitzone empirisch — nur us/ns-Auflösung ändert sich, `index.equals`==True; Risiko kleiner als befürchtet.)*
+  - Memo-Aliasing: innerhalb EINES Laufs teilen alle Agenten dasselbe gecachte DataFrame-Objekt (der ungecachte Yahoo-Pfad liefert je Aufruf einen frischen Frame). Prüfen, dass kein Agent den Kurs-Frame in-place mutiert; sonst eine Kopie im Memo ablegen. (Final-Review-Minor, i. d. R. benigne.)
+  - Transiente Leer-Frames: ein leerer DataFrame (≠ None) wird per write-through tagesweit gecacht → bei TTL=1 kein Live-Retry am selben Kalendertag. Ggf. leere/degenerierte Payloads vom write-through ausnehmen. (Final-Review-Minor.)
 
 ---
 
