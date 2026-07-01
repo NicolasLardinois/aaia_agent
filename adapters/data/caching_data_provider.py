@@ -44,11 +44,28 @@ class _CachingBase:
         if memo_key in self._run.memo:                       # 1. In-Lauf-Memo
             return self._run.memo[memo_key]
 
-        dated = self._store.get(namespace, key, self._run.as_of)
+        def _safe_decode(raw: Any) -> Any:
+            """Store-Wert decodieren; bei Fehler None (→ wie Store-Miss), nie Exception.
+            Persistierte Werte sind nie None (write-through nur bei non-None), daher ist
+            ein None-Ergebnis eindeutig ein Decode-Fehler."""
+            try:
+                return decode(raw)
+            except Exception as exc:
+                _log.warning("Caching %s:%s Store-Decode fehlgeschlagen (%s)", namespace, key, exc)
+                return None
+
+        try:                                                 # Store-Read ist best effort
+            dated = self._store.get(namespace, key, self._run.as_of)
+        except Exception as exc:
+            _log.warning("Caching %s:%s Store-Read fehlgeschlagen (%s)", namespace, key, exc)
+            dated = None
+
         if dated is not None and self._is_fresh(dated[0]):   # 2. frischer Store-Treffer
-            value = decode(dated[1])
-            self._run.memo[memo_key] = value
-            return value
+            decoded = _safe_decode(dated[1])
+            if decoded is not None:
+                self._run.memo[memo_key] = decoded
+                return decoded
+            # Decode fehlgeschlagen → wie Store-Miss behandeln und Live-Fetch versuchen
 
         try:                                                 # 3. Live
             value = fetch()
@@ -57,7 +74,7 @@ class _CachingBase:
             value = None
 
         if value is None:                                    # Offline-Resilienz: letzter bekannter (auch stale)
-            value = decode(dated[1]) if dated is not None else None
+            value = _safe_decode(dated[1]) if dated is not None else None
         else:
             try:
                 self._store.put(namespace, key, self._run.as_of, encode(value))

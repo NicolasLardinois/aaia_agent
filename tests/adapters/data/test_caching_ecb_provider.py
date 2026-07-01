@@ -1,10 +1,11 @@
 from datetime import date
 
-from adapters.data.caching_data_provider import CachingEcbProvider
+from adapters.data.caching_data_provider import CachingEcbProvider, _CachingBase
 from adapters.persistence.composite_snapshot_store import CompositeSnapshotStore
 from adapters.persistence.in_memory_dated_history import InMemoryDatedHistory
 from core.domain.run_context import RunContext
 from core.ports.data_provider import EcbDataProvider
+from core.ports.snapshot_store import SnapshotStore
 
 
 class _FakeEcb(EcbDataProvider):
@@ -98,3 +99,60 @@ def test_unemployment_history_wird_an_inner_delegiert():
     # EU-Arbeitslosen-Historie (Sahm-Regel im gdp_agent bräche auf None).
     prov, _, _ = _wrap(_FakeEcb())
     assert prov.get_unemployment_history() == [6.1, 6.2, 6.3]
+
+
+class _ThrowingGetStore(SnapshotStore):
+    """SnapshotStore, dessen get() wirft — simuliert einen IO-/netzgestützten Store."""
+
+    def __init__(self):
+        self.puts = []
+
+    def get(self, namespace, key, as_of):
+        raise RuntimeError("Store-Read kaputt")
+
+    def put(self, namespace, key, obs_date, value):
+        self.puts.append((namespace, key, obs_date, value))
+
+
+def test_store_read_exception_faellt_auf_live_zurueck():
+    # store.get() wirft → wie Store-Miss behandeln → Live-Fetch liefert den Wert, kein Wurf.
+    inner = _FakeEcb(cpi=4.2)
+    run = RunContext(as_of=date(2026, 7, 1))
+    prov = CachingEcbProvider(inner, run, _ThrowingGetStore())
+    assert prov.get_cpi() == 4.2
+    assert inner.calls == 1
+
+
+def test_decode_exception_bei_frischem_treffer_faellt_auf_live_zurueck(tmp_path):
+    # Frischer Store-Treffer vorhanden, aber decode wirft → wie Miss → Live-Fetch.
+    store = CompositeSnapshotStore(InMemoryDatedHistory(), str(tmp_path / "b.json"))
+    store.put("ns", "k", date(2026, 7, 1), "roh")  # heute → frisch
+    run = RunContext(as_of=date(2026, 7, 1))
+    base = _CachingBase(object(), run, store)
+
+    def _boom(_):
+        raise ValueError("decode kaputt")
+
+    calls = []
+
+    def _fetch():
+        calls.append(1)
+        return "live"
+
+    result = base._cached("ns", "k", _fetch, decode=_boom)
+    assert result == "live"
+    assert calls == [1]
+
+
+def test_decode_exception_ohne_live_liefert_none_statt_wurf(tmp_path):
+    # Stale Store-Wert, decode wirft, Live-Miss → None statt Exception (Invariant).
+    store = CompositeSnapshotStore(InMemoryDatedHistory(), str(tmp_path / "b.json"))
+    store.put("ns", "k", date(2026, 1, 1), "roh")  # alt/stale
+    run = RunContext(as_of=date(2026, 7, 1))
+    base = _CachingBase(object(), run, store)
+
+    def _boom(_):
+        raise ValueError("decode kaputt")
+
+    result = base._cached("ns", "k", lambda: None, decode=_boom)
+    assert result is None
