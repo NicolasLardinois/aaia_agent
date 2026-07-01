@@ -8,6 +8,12 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 FINNHUB_API_KEY   = os.getenv("FINNHUB_API_KEY", "")
 FMP_API_KEY       = os.getenv("FMP_API_KEY", "")  # Financial Modeling Prep (LME-Metalle, EU/CH-CAPE)
 
+# Daten-Caching-Schicht: wie viele Tage ein persistierter Rohdaten-Snapshot ohne
+# Live-Nachziehen wiederverwendet wird (Dedup ZWISCHEN Läufen). Default 1 =
+# Wiederverwendung nur am selben Kalendertag. Innerhalb EINES Laufs garantiert
+# ohnehin das In-Lauf-Memo Konsistenz (unabhängig von diesem Wert).
+SNAPSHOT_TTL_DAYS = int(os.getenv("SNAPSHOT_TTL_DAYS", "1"))
+
 # Pflicht-Keys: ohne diese kann KEIN echter Lauf seine Daten-/LLM-Adapter aufbauen.
 # (FINNHUB/FMP sind optional — nur einzelne Pfade brauchen sie, Defaults fangen das ab.)
 _REQUIRED_KEYS = ("FRED_API_KEY", "ANTHROPIC_API_KEY")

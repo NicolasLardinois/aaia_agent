@@ -9,6 +9,7 @@ sind und bei einer Enum-Änderung nicht driften.
 import asyncio
 import os
 import sys
+from datetime import date
 
 from config.settings import FRED_API_KEY, ANTHROPIC_API_KEY, FINNHUB_API_KEY, require_keys
 from core.domain.models import PositionState, RiskAffinity
@@ -27,6 +28,9 @@ from adapters.data.finnhub import FinnhubProvider
 from adapters.data.ecb_sdw import EcbSdwProvider
 from adapters.data.eurostat import EurostatEcbProvider
 from adapters.data.fred_snb import FredSnbProvider
+from adapters.persistence.composite_snapshot_store import CompositeSnapshotStore
+from adapters.data.caching_data_provider import wrap_providers
+from core.domain.run_context import RunContext
 from adapters.data.cnn_fear_greed import CnnFearGreedProvider
 from adapters.data.slickcharts_holdings import SlickchartsHoldingsMarket
 from adapters.data.cftc_cot import CftcCotProvider
@@ -193,11 +197,18 @@ async def run_dashboard() -> None:
     fred  = FredDataProvider(FRED_API_KEY)
     # Persistente 10Y-3M-Historie für das Yield-Curve-Bull-Steepening-Signal (über Läufe hinweg).
     history_path = os.path.join(os.path.dirname(__file__), "..", ".cache", "yield_spread_history.json")
+    snapshot_scalars_path = os.path.join(os.path.dirname(__file__), "..", ".cache", "snapshot_scalars.json")
+    snapshot_blobs_path   = os.path.join(os.path.dirname(__file__), "..", ".cache", "snapshot_blobs.json")
+    run_ctx = RunContext(as_of=date.today())
+    snapshot_store = CompositeSnapshotStore(JsonDatedHistory(snapshot_scalars_path), snapshot_blobs_path)
+    ecb_cached, market_cached = wrap_providers(
+        EurostatEcbProvider(EcbSdwProvider()), YahooFinanceProvider(), run_ctx, snapshot_store,
+    )
     orch  = TopDownOrchestrator(
         macro=fred,
-        ecb=EurostatEcbProvider(EcbSdwProvider()),
+        ecb=ecb_cached,
         snb=FredSnbProvider(FRED_API_KEY),
-        market=YahooFinanceProvider(),
+        market=market_cached,
         bus=bus,
         sentiment=CnnFearGreedProvider(),
         history=JsonDatedHistory(history_path),
