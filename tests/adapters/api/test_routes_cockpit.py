@@ -49,21 +49,29 @@ def test_post_run_returns_202_and_run_id():
 
 def test_ws_streams_until_terminal_then_get_returns_result():
     client = _make_client()
-    with client.websocket_connect("/ws/cockpit") as ws:
-        r = client.post("/api/cockpit/run")
-        assert r.status_code == 202
-        types_seen = []
-        terminal = None
-        for _ in range(20):  # 1x MacroChiefReady + 1x CockpitResultReady erwartet
-            msg = ws.receive_json()
-            types_seen.append(msg["type"])
-            if msg["type"] == "CockpitResultReady":
-                terminal = msg
-                break
-        assert terminal is not None
-        assert "MacroChiefReady" in types_seen
-        assert types_seen.index("MacroChiefReady") < types_seen.index("CockpitResultReady")
-        assert terminal["payload"]["regime"] == "Abschwung"
-    g = client.get("/api/cockpit")
-    assert g.status_code == 200
-    assert g.json()["sources_total"] == 5
+    # `with client:` ist hier PFLICHT (nicht nur Stil): nur als Context-Manager haelt
+    # der TestClient EINE langlebige Portal-Event-Loop, die POST und WebSocket teilen.
+    # Ohne ihn laeuft jeder HTTP-Request auf einer eigenen, kurzlebigen Loop (Starlette
+    # `_portal_factory`), die nach der 202-Antwort abgebaut wird — der von `start_run()`
+    # per `asyncio.create_task(_execute)` gestartete Hintergrund-Lauf wird dann u. U.
+    # abgebrochen, BEVOR er broadcastet. Die Broadcasts gehen verloren und
+    # `ws.receive_json()` blockiert bis zum Timeout (die fruehere flaky CI-Ursache).
+    with client:
+        with client.websocket_connect("/ws/cockpit") as ws:
+            r = client.post("/api/cockpit/run")
+            assert r.status_code == 202
+            types_seen = []
+            terminal = None
+            for _ in range(20):  # 1x MacroChiefReady + 1x CockpitResultReady erwartet
+                msg = ws.receive_json()
+                types_seen.append(msg["type"])
+                if msg["type"] == "CockpitResultReady":
+                    terminal = msg
+                    break
+            assert terminal is not None
+            assert "MacroChiefReady" in types_seen
+            assert types_seen.index("MacroChiefReady") < types_seen.index("CockpitResultReady")
+            assert terminal["payload"]["regime"] == "Abschwung"
+        g = client.get("/api/cockpit")
+        assert g.status_code == 200
+        assert g.json()["sources_total"] == 5
