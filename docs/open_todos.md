@@ -944,13 +944,13 @@ Jede Analyse gibt pro Linse genau eine Aktion. **HOLD vs NONE:** HOLD = Position
 
 ## 9. DATEN-CACHING-SCHICHT V1
 
-- [ ] **Daten-Caching-Schicht v1 (Data Mart hinter den Ports)** — Lösung: Caching-Decorator
+- [x] **Daten-Caching-Schicht v1 (Data Mart hinter den Ports)** — Lösung: Caching-Decorator
   hinter den Ports (Lazy+Memoize): RunContext (Point-in-Time+Dedup) + SnapshotStore-Port +
   CompositeSnapshotStore (Skalare→DatedHistoryPort wiederverwendet, Payloads→JSON-Blob) +
   dataframe_codec + CachingEcbProvider/CachingMarketProvider, verdrahtet für ECB-SDW (Skalar)
   und Yahoo-Kurshistorie (Payload). Spec: docs/superpowers/specs/2026-07-01-daten-caching-schicht-design.md.
   Plan & Umsetzung (8 Tasks, TDD): docs/superpowers/plans/2026-07-01-daten-caching-schicht.md.
-  **Status:** umgesetzt (8 Tasks, TDD, subagent-getrieben) + finaler Whole-Branch-Review (opus) → „ready to merge"; Vollsuite 1472 passed, keine `.cache`-Artefakte im Status. **PR offen — wartet auf zweiten Blick + OK des Users; PR-Nummer + Merge-Datum werden gemäß §5 erst nach der Entscheidung nachgetragen** (nicht vorwegnehmen — PR #50 ist bereits die EU-Geldmenge).
+  **PR #133 am 2026-07-02 gemergt.** Umgesetzt (8 Tasks, TDD, subagent-getrieben) + finaler Whole-Branch-Review (opus). CI war einmalig rot durch den bekannten flaky WS-Cockpit-Test (`test_ws_streams_until_terminal_then_get_returns_result`, 120s-Timeout) — unabhängig von diesem Branch (Test nutzt `_FakeOrch`, Caching nicht im Pfad); Re-Run des Jobs grün, dann gemergt. Race-Ursache als eigene Folge-Aufgabe (siehe unten).
   Offene Folge-Aufgaben:
   - Weitere Quellen je 1 PR umhängen (FRED, Eurostat-Direktpfade, Finnhub, Fear&Greed, FMP, SNB).
   - ECB dict/list-Rückgaben (get_yield_spreads/get_sovereign_yields/interest_rate_history) cachen.
